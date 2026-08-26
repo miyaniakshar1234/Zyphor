@@ -197,8 +197,8 @@ pub fn renderOverviewPanel(
     buf.writeString(left_x + 2, content_y + 4, "Waveform: ", theme.muted, theme.bg, false);
     const spark_w = half - 14;
     if (hist_count > 0 and spark_w > 4) {
-        graphs.renderSparklineDouble(buf, left_x + 12, content_y + 4,
-            spark_w, cpu_hist[0..hist_count], theme.bg, plain);
+        graphs.renderBrailleGraph(buf, left_x + 12, content_y + 4,
+            spark_w, 2, cpu_hist[0..hist_count], null, theme.bg, plain);
     }
 
     // Per-core mini heatbars grid
@@ -240,8 +240,8 @@ pub fn renderOverviewPanel(
     const mem_hist_count = history.memory_history.getChronological(&mem_hist);
     buf.writeString(right_x + 2, content_y + 6, "Waveform: ", theme.muted, theme.bg, false);
     if (mem_hist_count > 0 and spark_w > 4) {
-        graphs.renderSparklineDouble(buf, right_x + 12, content_y + 6,
-            spark_w, mem_hist[0..mem_hist_count], theme.bg, plain);
+        graphs.renderBrailleGraph(buf, right_x + 12, content_y + 6,
+            spark_w, 2, mem_hist[0..mem_hist_count], null, theme.bg, plain);
     }
 
     // ── 3. GPU / Hardware Sensors (Bottom Left) ──────────────────────────
@@ -750,10 +750,13 @@ pub fn renderProcessInspectModal(
     const rss_mb = proc.memory_rss / (1024 * 1024);
     const virt_mb = proc.memory_vsize / (1024 * 1024);
 
-    var cpu_line_buf: [64]u8 = undefined;
-    const cpu_line = std.fmt.bufPrint(&cpu_line_buf, "  CPU Utilization:   {d:.1}%", .{proc.cpu_percent}) catch "";
-    buf.writeString(modal_x + 2, y, cpu_line, theme.fg, theme.bg, false);
-    y += 1;
+    var cpu_line_buf: [16]u8 = undefined;
+    const cpu_line = std.fmt.bufPrint(&cpu_line_buf, "{d:>5.1}%", .{proc.cpu_percent}) catch "?%";
+    graphs.renderLabel(buf, modal_x + 2, y, "  CPU Load:      ", cpu_line, theme.muted, graphs.percentColor(proc.cpu_percent), theme.bg);
+    
+    // Mini CPU bar inside the modal
+    graphs.renderGaugeBar(buf, modal_x + 30, y, 24, proc.cpu_percent, theme.accent, theme.muted, theme.bg, plain);
+    y += 2;
 
     var ram_line_buf: [64]u8 = undefined;
     const ram_line = std.fmt.bufPrint(&ram_line_buf, "  Resident Set (RSS): {d} MB ({d:.2} GB)", .{ rss_mb, @as(f32, @floatFromInt(rss_mb)) / 1024.0 }) catch "";
@@ -766,11 +769,11 @@ pub fn renderProcessInspectModal(
     y += 2;
 
     // Action Hotkeys
-    graphs.renderSeparator(buf, modal_x + 2, y - 1, modal_w - 4, theme.border, theme.bg, plain);
-    buf.writeString(modal_x + 2, y, "  ACTIONS:", theme.header, theme.bg, true);
-    y += 1;
+    graphs.renderSeparator(buf, modal_x + 2, y - 1, modal_w - 4, theme.accent_dim, theme.bg, plain);
+    buf.writeString(modal_x + 2, y, "  DEFENSIVE ACTIONS:", theme.header, theme.bg, true);
+    y += 2;
 
-    buf.writeString(modal_x + 4, y, "[x] Kill Process   [s] Suspend   [u] Resume   [Esc] Close", theme.warning, theme.bg, true);
+    buf.writeString(modal_x + 4, y, "[x] Kill   [s] Suspend   [u] Resume   [Esc] Close", theme.warning, theme.bg, true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

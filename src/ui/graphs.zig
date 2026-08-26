@@ -259,6 +259,69 @@ pub fn renderWaveformGraph(
     }
 }
 
+/// High-density true Braille area-fill graph (2x4 resolution per cell)
+pub fn renderBrailleGraph(
+    buf: *ScreenBuffer,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+    history: []const f32,
+    color_override: ?Color,
+    bg: Color,
+    plain: bool,
+) void {
+    if (width == 0 or height == 0 or history.len == 0 or plain) {
+        // Fallback to waveform graph if plain mode is active
+        renderWaveformGraph(buf, x, y, width, height, history, color_override, bg, plain);
+        return;
+    }
+
+    const left_mask = [_]u16{ 0x00, 0x40, 0x44, 0x46, 0x47 };
+    const right_mask = [_]u16{ 0x00, 0x80, 0xA0, 0xB0, 0xB8 };
+
+    const max_hist = @min(history.len, @as(usize, width) * 2);
+    const start_idx = if (history.len > max_hist) history.len - max_hist else 0;
+
+    var col: u16 = 0;
+    while (col < width) : (col += 1) {
+        // We read two historical data points per cell column (left and right dots)
+        const left_idx = start_idx + @as(usize, col) * 2;
+        const right_idx = left_idx + 1;
+
+        const left_val = if (left_idx < history.len) history[left_idx] else 0.0;
+        const right_val = if (right_idx < history.len) history[right_idx] else 0.0;
+
+        const max_val = @max(left_val, right_val);
+        const col_fg = color_override orelse percentColor(max_val);
+
+        const total_pixels = @as(f32, @floatFromInt(height)) * 4.0;
+        const left_pixels = @as(u16, @intFromFloat(std.math.clamp(left_val / 100.0 * total_pixels, 0.0, total_pixels)));
+        const right_pixels = @as(u16, @intFromFloat(std.math.clamp(right_val / 100.0 * total_pixels, 0.0, total_pixels)));
+
+        var row: u16 = 0;
+        while (row < height) : (row += 1) {
+            const cell_y = y + (height - 1 - row);
+            const row_px = row * 4;
+
+            const l_px = if (left_pixels > row_px) @min(left_pixels - row_px, 4) else 0;
+            const r_px = if (right_pixels > row_px) @min(right_pixels - row_px, 4) else 0;
+
+            if (l_px == 0 and r_px == 0) {
+                // Empty cell
+                buf.setCell(x + col, cell_y, " ", bg, bg, false);
+            } else {
+                const code = 0x2800 | left_mask[l_px] | right_mask[r_px];
+                var utf8_buf: [4]u8 = undefined;
+                const len = std.unicode.utf8Encode(@as(u21, @intCast(code)), &utf8_buf) catch 0;
+                
+                const row_fg = if (row == height - 1) col_fg else col_fg.darken(@as(u8, @intCast((height - 1 - row) * 15)));
+                buf.setCell(x + col, cell_y, utf8_buf[0..len], row_fg, bg, false);
+            }
+        }
+    }
+}
+
 /// Draw a thin horizontal separator line
 pub fn renderSeparator(buf: *ScreenBuffer, x: u16, y: u16, w: u16, color: Color, bg: Color, plain: bool) void {
     const ch = if (plain) "-" else "─";
@@ -274,3 +337,4 @@ pub fn renderLabel(buf: *ScreenBuffer, x: u16, y: u16, label: []const u8, value:
     const lx = x + @as(u16, @intCast(label.len));
     buf.writeString(lx, y, value, value_color, bg, true);
 }
+

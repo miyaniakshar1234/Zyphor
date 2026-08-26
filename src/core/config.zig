@@ -20,7 +20,7 @@ pub const Config = struct {
 
     fn defaultTheme() [32]u8 {
         var buf = [_]u8{0} ** 32;
-        const name = "midnight";
+        const name = "cyber";
         @memcpy(buf[0..name.len], name);
         return buf;
     }
