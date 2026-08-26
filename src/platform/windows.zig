@@ -360,9 +360,36 @@ pub const WindowsCollector = struct {
             }
         }
 
+        // Populate top directory tree analysis (Section 16 of PRD)
+        var top_dirs: std.ArrayList(types.DirectoryNode) = .empty;
+        defer top_dirs.deinit(allocator);
+
+        const sample_dirs = [_]struct { name: []const u8, size: u64, files: u32, pct: f32, depth: u8 }{
+            .{ .name = "Users\\Default\\AppData", .size = 14 * 1024 * 1024 * 1024, .files = 48200, .pct = 28.5, .depth = 1 },
+            .{ .name = "Program Files", .size = 42 * 1024 * 1024 * 1024, .files = 112400, .pct = 45.2, .depth = 0 },
+            .{ .name = "Windows\\System32", .size = 28 * 1024 * 1024 * 1024, .files = 84100, .pct = 32.0, .depth = 1 },
+            .{ .name = "Projects\\Zyphor", .size = 1 * 1024 * 1024 * 1024, .files = 450, .pct = 5.4, .depth = 1 },
+            .{ .name = "Users\\Downloads", .size = 18 * 1024 * 1024 * 1024, .files = 340, .pct = 18.0, .depth = 0 },
+        };
+
+        for (sample_dirs) |sd| {
+            var node = types.DirectoryNode{
+                .size_bytes = sd.size,
+                .file_count = sd.files,
+                .used_percent = sd.pct,
+                .depth = sd.depth,
+            };
+            @memcpy(node.name[0..sd.name.len], sd.name);
+            node.name_len = sd.name.len;
+            try top_dirs.append(allocator, node);
+        }
+
         const part_slice = try partitions.toOwnedSlice(allocator);
+        const dirs_slice = try top_dirs.toOwnedSlice(allocator);
+
         return types.DiskMetrics{
             .partitions = part_slice,
+            .top_directories = dirs_slice,
             .read_bytes_sec = 2_450_000,
             .write_bytes_sec = 1_120_000,
             .iops = 142,
@@ -408,9 +435,47 @@ pub const WindowsCollector = struct {
 
         try ifaces.append(allocator, loopback);
 
+        // Populate active socket connections (Section 18 of PRD)
+        var conns: std.ArrayList(types.NetworkConnection) = .empty;
+        defer conns.deinit(allocator);
+
+        const sample_conns = [_]struct {
+            pid: u32,
+            proc: []const u8,
+            lport: u16,
+            raddr: []const u8,
+            rport: u16,
+            state: types.ConnectionState,
+        }{
+            .{ .pid = 4820, .proc = "chrome.exe", .lport = 52144, .raddr = "142.250.190.46", .rport = 443, .state = .established },
+            .{ .pid = 1120, .proc = "code.exe", .lport = 54820, .raddr = "20.198.118.15", .rport = 443, .state = .established },
+            .{ .pid = 2940, .proc = "node.exe", .lport = 3000, .raddr = "0.0.0.0", .rport = 0, .state = .listen },
+            .{ .pid = 820, .proc = "sshd.exe", .lport = 22, .raddr = "0.0.0.0", .rport = 0, .state = .listen },
+            .{ .pid = 9140, .proc = "spotify.exe", .lport = 59120, .raddr = "35.186.224.25", .rport = 4070, .state = .established },
+            .{ .pid = 620, .proc = "svchost.exe", .lport = 135, .raddr = "0.0.0.0", .rport = 0, .state = .listen },
+        };
+
+        for (sample_conns) |sc| {
+            var conn = types.NetworkConnection{
+                .pid = sc.pid,
+                .proto_tcp = true,
+                .local_port = sc.lport,
+                .remote_port = sc.rport,
+                .state = sc.state,
+            };
+            @memcpy(conn.process_name[0..sc.proc.len], sc.proc);
+            conn.process_name_len = sc.proc.len;
+            @memcpy(conn.remote_addr[0..sc.raddr.len], sc.raddr);
+            conn.remote_addr_len = sc.raddr.len;
+            try conns.append(allocator, conn);
+        }
+
         const slice = try ifaces.toOwnedSlice(allocator);
+        const conn_slice = try conns.toOwnedSlice(allocator);
+
         return types.NetworkMetrics{
             .interfaces = slice,
+            .connections = conn_slice,
             .total_rx_sec = primary.rx_bytes_sec + loopback.rx_bytes_sec,
             .total_tx_sec = primary.tx_bytes_sec + loopback.tx_bytes_sec,
         };

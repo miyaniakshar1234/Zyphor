@@ -592,7 +592,7 @@ pub fn renderProcessPanel(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STORAGE & FILESYSTEMS PANEL (Tab 3)
+// STORAGE & FILESYSTEMS PANEL (Tab 3 - Partitions + Directory Tree Analyzer)
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub fn renderDiskPanel(
@@ -607,7 +607,7 @@ pub fn renderDiskPanel(
     const panel_y: u16 = 4;
     const panel_h = h - panel_y - 2;
 
-    buf.drawBox(1, panel_y, w - 2, panel_h, " Storage Drives & Filesystem Partitions ", theme.border, theme.accent, theme.bg, plain);
+    buf.drawBox(1, panel_y, w - 2, panel_h, " Storage Drives & Filesystem Analyzer ", theme.border, theme.accent, theme.bg, plain);
 
     // Aggregate storage metrics ribbon
     var total_used_bytes: u64 = 0;
@@ -629,20 +629,19 @@ pub fn renderDiskPanel(
     buf.writeString(2, panel_y + 1, io_str, theme.header, theme.bg, true);
     graphs.renderSeparator(buf, 2, panel_y + 2, w - 4, theme.border, theme.bg, plain);
 
+    // Drive Cards (Top Section)
     var r: u16 = 0;
     var c: u16 = 0;
-    
     const card_w: u16 = 36;
     const card_h: u16 = 6;
     const padding_x: u16 = 2;
     const padding_y: u16 = 1;
-    
     const max_cols = @max(1, (w - 4) / (card_w + padding_x));
 
     for (disk.partitions) |part| {
         const cx = 3 + c * (card_w + padding_x);
-        const cy = panel_y + 4 + r * (card_h + padding_y);
-        if (cy + card_h >= panel_y + panel_h) break;
+        const cy = panel_y + 3 + r * (card_h + padding_y);
+        if (cy + card_h >= panel_y + 11) break;
 
         const used_gb = @as(f32, @floatFromInt(part.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
         const total_gb = @as(f32, @floatFromInt(part.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
@@ -672,10 +671,49 @@ pub fn renderDiskPanel(
             r += 1;
         }
     }
+
+    // Directory-Level Storage Analyzer (Section 16 of PRD - Bottom Section)
+    const tree_y: u16 = panel_y + 10;
+    if (tree_y + 4 < panel_y + panel_h) {
+        graphs.renderSeparator(buf, 2, tree_y - 1, w - 4, theme.border, theme.bg, plain);
+        buf.writeString(3, tree_y, "▼ DIRECTORY & FILESYSTEM SPACE ANALYZER (Top Capacity Consumers)", theme.header, theme.bg, true);
+
+        const hdr_y = tree_y + 1;
+        buf.fillRow(hdr_y, theme.header, theme.selected);
+        const hdr = "  DIRECTORY PATH                       SIZE (GB)    FILES      SPACE OCCUPIED";
+        buf.writeString(1, hdr_y, hdr[0..@min(hdr.len, w - 3)], theme.header, theme.selected, true);
+
+        var dr: usize = 0;
+        const dir_start_y = hdr_y + 1;
+        const max_dir_rows = panel_y + panel_h - dir_start_y - 1;
+
+        while (dr < disk.top_directories.len and dr < max_dir_rows) : (dr += 1) {
+            const dir = disk.top_directories[dr];
+            const dy = dir_start_y + @as(u16, @intCast(dr));
+            const size_gb = @as(f32, @floatFromInt(dir.size_bytes)) / (1024.0 * 1024.0 * 1024.0);
+
+            var path_buf: [64]u8 = undefined;
+            const branch = if (dir.depth > 0) " └─ " else " 📁 ";
+            const path_str = std.fmt.bufPrint(&path_buf, "{s}{s}", .{branch, dir.getName()}) catch dir.getName();
+            buf.writeString(3, dy, path_str[0..@min(path_str.len, 36)], theme.fg, theme.bg, false);
+
+            var sbuf: [16]u8 = undefined;
+            const s_str = std.fmt.bufPrint(&sbuf, "{d:>6.1} GB", .{size_gb}) catch "";
+            buf.writeString(40, dy, s_str, theme.secondary, theme.bg, true);
+
+            var fbuf: [16]u8 = undefined;
+            const f_str = std.fmt.bufPrint(&fbuf, "{d:>8}", .{dir.file_count}) catch "";
+            buf.writeString(53, dy, f_str, theme.muted, theme.bg, false);
+
+            if (w > 85) {
+                graphs.renderGaugeBar(buf, 65, dy, 18, dir.used_percent, theme.accent, theme.muted, theme.bg, plain);
+            }
+        }
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NETWORK PANEL (Tab 4)
+// NETWORK PANEL (Tab 4 - Flow Graphs + Adapters + Socket Connection Explorer)
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub fn renderNetworkPanel(
@@ -691,17 +729,17 @@ pub fn renderNetworkPanel(
     const panel_y: u16 = 4;
     const panel_h = h - panel_y - 2;
 
-    buf.drawBox(1, panel_y, w - 2, panel_h, " GLOBAL NETWORK INGRESS/EGRESS MATRIX ", theme.border, theme.accent, theme.bg, plain);
+    buf.drawBox(1, panel_y, w - 2, panel_h, " GLOBAL NETWORK & CONNECTION SOCKET EXPLORER ", theme.border, theme.accent, theme.bg, plain);
 
     const total_rx = @as(f32, @floatFromInt(net.total_rx_sec)) / (1024.0 * 1024.0);
     const total_tx = @as(f32, @floatFromInt(net.total_tx_sec)) / (1024.0 * 1024.0);
 
-    // Left pane for graphs, Right pane for interfaces
+    // Left pane for graphs, Right pane for interfaces & connections
     const left_w = (w - 4) / 2;
     const right_w = w - 4 - left_w - 1;
     const right_x = 2 + left_w + 1;
 
-    // --- LEFT PANE (Global Graphs) ---
+    // --- LEFT PANE (Global Flow Graphs) ---
     var rx_buf: [48]u8 = undefined;
     var tx_buf: [48]u8 = undefined;
     const rx_str = std.fmt.bufPrint(&rx_buf, "↓ INGRESS (DOWNLOAD)  {d:>6.2} MB/s", .{total_rx}) catch "?";
@@ -732,7 +770,7 @@ pub fn renderNetworkPanel(
     var r: u16 = 0;
     for (net.interfaces) |iface| {
         const row_y = panel_y + 3 + r * 4;
-        if (row_y + 3 >= panel_y + panel_h) break;
+        if (row_y + 3 >= panel_y + 12) break;
 
         const state_color = if (iface.is_up) theme.success else theme.critical;
         const state_str = if (iface.is_up) "● UP / LINK ACTIVE" else "○ DOWN / INACTIVE";
@@ -749,6 +787,45 @@ pub fn renderNetworkPanel(
         buf.writeString(right_x + 2, row_y + 2, stats_str, theme.muted, theme.bg, false);
         
         r += 1;
+    }
+
+    // --- RIGHT PANE (Active Socket Connection Explorer - Section 18 of PRD) ---
+    const sock_y = panel_y + 12;
+    if (sock_y + 3 < panel_y + panel_h) {
+        graphs.renderSeparator(buf, right_x, sock_y - 1, right_w, theme.border, theme.bg, plain);
+        buf.writeString(right_x + 1, sock_y, "▼ ACTIVE SOCKET CONNECTIONS (Process Socket Map)", theme.header, theme.bg, true);
+
+        const shdr_y = sock_y + 1;
+        buf.writeString(right_x + 1, shdr_y, "PID    PROCESS       LOCAL:PORT   REMOTE:PORT       STATE", theme.muted, theme.selected, true);
+
+        var cr: usize = 0;
+        const conn_start_y = shdr_y + 1;
+        const max_conn_rows = panel_y + panel_h - conn_start_y - 1;
+
+        while (cr < net.connections.len and cr < max_conn_rows) : (cr += 1) {
+            const conn = net.connections[cr];
+            const cy = conn_start_y + @as(u16, @intCast(cr));
+
+            var p_buf: [8]u8 = undefined;
+            const p_str = std.fmt.bufPrint(&p_buf, "{d}", .{conn.pid}) catch "?";
+            buf.writeString(right_x + 1, cy, p_str, theme.muted, theme.bg, false);
+
+            buf.writeString(right_x + 8, cy, conn.getProcessName()[0..@min(conn.getProcessName().len, 12)], theme.fg, theme.bg, false);
+
+            var l_buf: [16]u8 = undefined;
+            const l_str = std.fmt.bufPrint(&l_buf, ":{d}", .{conn.local_port}) catch "";
+            buf.writeString(right_x + 22, cy, l_str, theme.secondary, theme.bg, false);
+
+            var r_buf: [32]u8 = undefined;
+            const r_str = if (conn.remote_port > 0)
+                std.fmt.bufPrint(&r_buf, "{s}:{d}", .{conn.getRemoteAddr(), conn.remote_port}) catch "*"
+            else
+                "*";
+            buf.writeString(right_x + 35, cy, r_str[0..@min(r_str.len, 16)], theme.muted, theme.bg, false);
+
+            const st_color = if (conn.state == .established) theme.success else theme.warning;
+            buf.writeString(right_x + 53, cy, conn.state.asText(), st_color, theme.bg, true);
+        }
     }
 }
 

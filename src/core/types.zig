@@ -136,11 +136,71 @@ pub const DiskPartition = struct {
     }
 };
 
+pub const DirectoryNode = struct {
+    name: [64]u8 = [_]u8{0} ** 64,
+    name_len: usize = 0,
+    size_bytes: u64 = 0,
+    file_count: u32 = 0,
+    used_percent: f32 = 0.0,
+    depth: u8 = 0,
+
+    pub fn getName(self: *const DirectoryNode) []const u8 {
+        return self.name[0..self.name_len];
+    }
+};
+
 pub const DiskMetrics = struct {
     partitions: []DiskPartition = &[_]DiskPartition{},
+    top_directories: []DirectoryNode = &[_]DirectoryNode{},
     read_bytes_sec: u64 = 0,
     write_bytes_sec: u64 = 0,
     iops: u32 = 0,
+};
+
+pub const ConnectionState = enum {
+    established,
+    listen,
+    time_wait,
+    close_wait,
+    syn_sent,
+    syn_recv,
+    fin_wait,
+    closed,
+
+    pub fn asText(self: ConnectionState) []const u8 {
+        return switch (self) {
+            .established => "ESTABLISHED",
+            .listen => "LISTEN",
+            .time_wait => "TIME_WAIT",
+            .close_wait => "CLOSE_WAIT",
+            .syn_sent => "SYN_SENT",
+            .syn_recv => "SYN_RECV",
+            .fin_wait => "FIN_WAIT",
+            .closed => "CLOSED",
+        };
+    }
+};
+
+pub const NetworkConnection = struct {
+    pid: u32 = 0,
+    process_name: [64]u8 = [_]u8{0} ** 64,
+    process_name_len: usize = 0,
+    proto_tcp: bool = true,
+    local_port: u16 = 0,
+    remote_addr: [32]u8 = [_]u8{0} ** 32,
+    remote_addr_len: usize = 0,
+    remote_port: u16 = 0,
+    state: ConnectionState = .listen,
+
+    pub fn getProcessName(self: *const NetworkConnection) []const u8 {
+        if (self.process_name_len == 0) return "system";
+        return self.process_name[0..self.process_name_len];
+    }
+
+    pub fn getRemoteAddr(self: *const NetworkConnection) []const u8 {
+        if (self.remote_addr_len == 0) return "*";
+        return self.remote_addr[0..self.remote_addr_len];
+    }
 };
 
 pub const NetworkInterface = struct {
@@ -165,6 +225,7 @@ pub const NetworkInterface = struct {
 
 pub const NetworkMetrics = struct {
     interfaces: []NetworkInterface = &[_]NetworkInterface{},
+    connections: []NetworkConnection = &[_]NetworkConnection{},
     total_rx_sec: u64 = 0,
     total_tx_sec: u64 = 0,
 };
