@@ -48,24 +48,24 @@ Standard terminal monitors (`top`, `htop`, `btop`, `glances`) answer a basic que
 ────────────────────────────────────────────────────────────────────────────────────────────────
  1: Overview   2: Processes   3: Storage   4: Network   5: Health
  ▔▔▔▔▔▔▔▔▔▔▔
-╭─ CPU ────────────────────────────────────────╮╭─ Memory ─────────────────────────────────────╮
-│   Usage:  24.2%                              ││   RAM:    15.5 / 31.7 GB                     │
-│ [██████░░░░░░░░░░░░░░░░░░░░░░░░░░░]  24.2%   ││ [█████████████░░░░░░░░░░░░░░░░]  48.9%      │
-│   28 cores  3200 MHz  Intel Core i9-13900H   ││   Swap:   42.0% used                         │
-│ History  ▅▆▇█▇▆▅▄▃▃▂▂    ▂▃▄▅▆▇█▇▆▅▄▃        ││ [███████████░░░░░░░░░░░░░░░░░░]  42.0%      │
-│          ████████████    ████████████        ││   16.2 GB free  [LOW (Healthy)]              │
-│ C0 [██░] C1 [█░░] C2 [███] C3 [░░░] C4 [██░] ││ History  ▄▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅▅ │
-│ C5 [█░░] C6 [░░░] C7 [██░] C8 [█░░] C9 [░░░] ││          ██████████████████████████████████ │
-╰──────────────────────────────────────────────╯╰──────────────────────────────────────────────╯
-╭─ GPU ────────────────────────────────────────╮╭─ Network ────────────────────────────────────╮
-│   Name:   Direct3D 12 / Dedicated GPU        ││   ↓ RX:   4.02 MB/s                          │
-│   Load:   28.5%                              ││   ↑ TX:   0.82 MB/s                          │
-│ [███████░░░░░░░░░░░░░░░░░░░░░░░░░░]  28.5%   ││   Interfaces:                                │
-│   VRAM:   2.3 / 8.0 GB                       ││   Wi-Fi (Primary Adapter)   192.168.1.105    │
-│                                              ││   Loopback (localhost)      127.0.0.1        │
-╰──────────────────────────────────────────────╯╰──────────────────────────────────────────────╯
+╭── CPU Activity ─────────────╮╭── Memory & Page Cache ──────╮
+│   Load:   24.2%             ││   RAM:    15.5 / 31.7 GB    │
+│ [██████░░░░░░░░░░░░░░░░░░]  ││ [█████████████░░░░░░░░░]    │
+│   Topology: 28 cores (28L)  ││   Swap:   42.0% used        │
+│   Waveform: ⣷⣧⣄⣀⣀⣠⣼⣾⣿⣿⣿⣷⣦    ││   Available: 16.2 GB free   │
+│                             ││   Waveform: ⣷⣧⣄⣀⣀⣠⣼⣾⣿⣿ │
+│ C00 [██░] C01 [█░░] C02 [██]││                             │
+│ C03 [░░░] C04 [██░] C05 [█░]││                             │
+╰─────────────────────────────╯╰─────────────────────────────╯
+╭── GPU & Accelerators ───────╮╭── Network Interfaces ───────╮
+│   Device: Direct3D 12       ││   ↓ Ingress (RX):  4.02 MB/s│
+│   Load:   28.5%             ││   ↑ Egress (TX):   0.82 MB/s│
+│ [███████░░░░░░░░░░░░░░░░░]  ││                             │
+│   VRAM:   2.3 / 8.0 GB      ││   ● UP   192.168.1.105      │
+│                             ││   ● UP   127.0.0.1          │
+╰─────────────────────────────╯╰─────────────────────────────╯
 ────────────────────────────────────────────────────────────────────────────────────────────────
-  [Tab] Panels  [1-5] Jump  [t] Tree  [c] CPU  [m] Mem  [/] Search  [T] Theme  [?] Help  [q] Quit
+  [Tab] Tab | [t] Tree | [c] CPU | [m] Mem | [/] Search | [Enter] Inspect | [T] Theme | [q] Quit
 ```
 
 ---
@@ -82,8 +82,9 @@ Most developers install monitoring tools that end up consuming more CPU and RAM 
 | **Cold Startup Latency** | ~35 ms | ~85 ms | ~450 ms | **< 12 ms** |
 | **Idle CPU Consumption** | ~1.5% | ~2.8% | ~6.5% | **< 0.4%** |
 | **Differential ANSI Diffing** | Partial | Partial | Full Redraw | **Full Matrix Cell Diff** |
-| **Hierarchical Process Tree** | Basic | Basic | None | **Live Tree + Resource Rollup** |
-| **Root-Cause Health Heuristics** | None | None | None | **Explainable (0-100 Score)** |
+| **Process UI Topology** | Basic List | Basic List | None | **Topological Lineage Tree** |
+| **Waveform Granularity** | Block chunks | High (Braille) | None | **Ultra-Dense Braille (2x4)** |
+| **Root-Cause Heuristics** | None | None | None | **Explainable (0-100 Score)** |
 | **Zero-Config Scriptable CLI** | Minimal | None | REST API | **Native JSON + Subcommands** |
 
 ---

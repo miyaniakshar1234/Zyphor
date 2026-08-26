@@ -100,18 +100,16 @@ Pressing <kbd>/</kbd> activates the live search bar:
 
 #### Deep Process Inspector (<kbd>Enter</kbd>)
 Pressing <kbd>Enter</kbd> on any highlighted process opens the **Deep Process Inspector Modal**:
-* **Identity:** Process ID, Parent PID, Operational State (`Running`, `Sleeping`, `Disk Sleep`, `Stopped`).
-* **Ownership:** Owning User account, active thread count.
-* **Memory Breakdown:** Resident Working Set (RSS in MB and GB), Virtual / Pagefile allocation.
-* **Direct Actions:** Dispatches <kbd>x</kbd> (Kill), <kbd>s</kbd> (Suspend), or <kbd>u</kbd> (Resume) directly from the inspector view.
+### ◈ Process Explorer (Tab 2)
+The **Process Explorer** provides an interactive, top-like interface for managing system processes.
 
-#### Process Tree Mode (<kbd>t</kbd>)
-Pressing <kbd>t</kbd> toggles the **Hierarchical Process Lineage Tree**. Instead of a flat list, processes are displayed with tree branch characters (`├─`, `└─`) showing parent-child relationships (PPID to PID). This makes it trivial to spot runaway sub-processes spawned by browsers, build tools, or container runtimes.
-
-#### Defensive Process Signals (<kbd>x</kbd>, <kbd>s</kbd>, <kbd>u</kbd>)
-* **Kill Process (<kbd>x</kbd>):** Displays a confirmation modal `Terminate "<name>" (PID <pid>)? [y] Confirm  [n/Esc] Cancel` before dispatching `SIGTERM` / `TerminateProcess`.
-* **Suspend Process (<kbd>s</kbd>):** Sends `SIGSTOP` / `NtSuspendProcess` to freeze execution without losing process memory state.
-* **Resume Process (<kbd>u</kbd>):** Sends `SIGCONT` / `NtResumeProcess` to resume execution.
+**Key Capabilities:**
+- **God-Tier Visual Density**: Waveform graphs utilize True Braille Area Mapping ($2 \times 4$ sub-pixel resolution) to render beautiful, flowing telemetry directly in your terminal.
+- **Topological Lineage Tree (<kbd>t</kbd>)**: View processes in a hierarchical parent-child tree with elegant Unicode branch rendering (`├─`, `└─`).
+- **Defensive Actions (<kbd>x</kbd>, <kbd>s</kbd>, <kbd>u</kbd>):** Issue OS-level signals directly from the UI (Kill, Suspend/SIGSTOP, Resume/SIGCONT).
+- **Process Inspector Modal (<kbd>Enter</kbd>):** Hit Enter on any process to open a detailed floating modal showing precision CPU utilization, resident set sizes, virtual memory footprint, and embedded mini-gauges.
+- **Dynamic Sorting**: Change the active sorting mechanism instantly without leaving the UI (<kbd>c</kbd> for CPU, <kbd>m</kbd> for Memory, <kbd>p</kbd> for PID, <kbd>n</kbd> for Name).
+- **Instant Search/Filter (<kbd>/</kbd>)**: Filter the list by Process Name or PID in real-time.
 
 ---
 
