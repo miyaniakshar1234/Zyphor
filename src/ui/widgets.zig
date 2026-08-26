@@ -209,6 +209,11 @@ pub fn renderOverviewPanel(
     const hist_count = history.cpu_history.getChronological(&cpu_hist);
     const spark_w = pane_w - 4;
     if (hist_count > 0 and spark_w > 4 and cy + 4 < content_y + content_h) {
+        const cpu_stats = history.cpu_history.minMaxAvg();
+        var cstat_buf: [64]u8 = undefined;
+        const cstat_str = std.fmt.bufPrint(&cstat_buf, "Peak: {d:.0}% | Avg: {d:.0}%", .{ cpu_stats.max, cpu_stats.avg }) catch "";
+        buf.writeStringMax(left_x + pane_w - 2 - @as(u16, @intCast(cstat_str.len)), cy - 1, cstat_str, pane_w - 4, theme.muted, theme.bg, false);
+
         graphs.renderBrailleGraph(buf, left_x + 2, cy, spark_w, 2, cpu_hist[0..hist_count], null, theme.bg, plain);
         cy += 3;
     }
@@ -248,6 +253,11 @@ pub fn renderOverviewPanel(
     var mem_hist: [256]f32 = undefined;
     const mem_hist_count = history.memory_history.getChronological(&mem_hist);
     if (mem_hist_count > 0 and spark_w > 4 and my + 4 < content_y + content_h) {
+        const mem_stats = history.memory_history.minMaxAvg();
+        var mstat_buf: [64]u8 = undefined;
+        const mstat_str = std.fmt.bufPrint(&mstat_buf, "Peak: {d:.0}% | Avg: {d:.0}%", .{ mem_stats.max, mem_stats.avg }) catch "";
+        buf.writeStringMax(center_x + pane_w - 2 - @as(u16, @intCast(mstat_str.len)), my - 1, mstat_str, pane_w - 4, theme.muted, theme.bg, false);
+
         graphs.renderBrailleGraph(buf, center_x + 2, my, spark_w, 2, mem_hist[0..mem_hist_count], theme.secondary, theme.bg, plain);
         my += 3;
     }
@@ -766,10 +776,13 @@ pub fn renderNetworkPanel(
     const right_x = 2 + left_w + 1;
 
     // --- LEFT PANE (Global Flow Graphs) ---
-    var rx_buf: [48]u8 = undefined;
-    var tx_buf: [48]u8 = undefined;
-    const rx_str = std.fmt.bufPrint(&rx_buf, "↓ INGRESS (DOWNLOAD)  {d:>6.2} MB/s", .{total_rx}) catch "?";
-    const tx_str = std.fmt.bufPrint(&tx_buf, "↑ EGRESS  (UPLOAD)    {d:>6.2} MB/s", .{total_tx}) catch "?";
+    const rx_stats = history.net_rx_history.minMaxAvg();
+    const tx_stats = history.net_tx_history.minMaxAvg();
+
+    var rx_buf: [64]u8 = undefined;
+    var tx_buf: [64]u8 = undefined;
+    const rx_str = std.fmt.bufPrint(&rx_buf, "↓ INGRESS (DOWNLOAD)  {d:>6.2} MB/s  [Peak: {d:.1} MB/s]", .{ total_rx, rx_stats.max }) catch "?";
+    const tx_str = std.fmt.bufPrint(&tx_buf, "↑ EGRESS  (UPLOAD)    {d:>6.2} MB/s  [Peak: {d:.1} MB/s]", .{ total_tx, tx_stats.max }) catch "?";
 
     buf.writeString(3, panel_y + 2, rx_str, theme.success, theme.bg, true);
     buf.writeString(3, panel_y + 9, tx_str, theme.warning, theme.bg, true);
