@@ -23,6 +23,8 @@ pub const App = struct {
     search_input_active: bool = false,
     search_buffer: [64]u8 = [_]u8{0} ** 64,
     search_len: usize = 0,
+    show_palette: bool = false,
+    palette_idx: usize = 0,
     plain_mode: bool = false,
     frame_count: u64 = 0,
     status_msg: [128]u8 = [_]u8{0} ** 128,
@@ -73,20 +75,20 @@ pub const App = struct {
             const cur_size = self.terminal.getSize();
             if (cur_size.width != last_size.width or cur_size.height != last_size.height) {
                 last_size = cur_size;
-                try self.buffer.resize(cur_size.width, cur_size.height);
-                try stdout.writeAll("\x1b[2J\x1b[H");
+                self.buffer.resize(cur_size.width, cur_size.height) catch {};
             }
 
-            // 1. Sample telemetry
-            const snapshot = if (!self.is_paused)
-                try self.engine.sampleSnapshot()
+            // 1. Sample system telemetry snapshot
+            const snapshot = if (self.is_paused)
+                self.engine.lastSnapshot()
             else
-                self.engine.lastSnapshot();
+                try self.engine.sampleSnapshot();
+
+            // 2. Render UI Layers
+            self.buffer.clear(self.theme.bg);
 
             const current_search = if (self.search_len > 0) self.search_buffer[0..self.search_len] else null;
 
-            // 2. Render viewport into double buffer
-            self.buffer.clear(self.theme.bg);
             widgets.renderBackgroundGrid(&self.buffer, &self.theme);
 
             widgets.renderHeader(&self.buffer, &self.theme, &snapshot.health, self.plain_mode);
@@ -122,7 +124,9 @@ pub const App = struct {
             widgets.renderStatusBar(&self.buffer, &self.theme, status, self.search_input_active, search_str);
 
             // Modals rendered on top
-            if (self.show_inspect_modal) {
+            if (self.show_palette) {
+                widgets.renderCommandPalette(&self.buffer, self.palette_idx, &self.theme, self.plain_mode);
+            } else if (self.show_inspect_modal) {
                 if (snapshot.top_processes.len > 0 and self.selected_proc_idx < snapshot.top_processes.len) {
                     const proc = &snapshot.top_processes[self.selected_proc_idx];
                     widgets.renderProcessInspectModal(&self.buffer, proc, &self.theme, self.plain_mode);
@@ -240,6 +244,80 @@ pub const App = struct {
                     continue;
                 }
 
+                if (self.show_palette) {
+                    const total_cmds = widgets.PALETTE_COMMANDS.len;
+                    switch (key) {
+                        .char => |c| switch (c) {
+                            'j' => self.palette_idx = (self.palette_idx + 1) % total_cmds,
+                            'k' => self.palette_idx = if (self.palette_idx > 0) self.palette_idx - 1 else total_cmds - 1,
+                            'q', 3 => should_quit = true,
+                            else => {},
+                        },
+                        .down => self.palette_idx = (self.palette_idx + 1) % total_cmds,
+                        .up => self.palette_idx = if (self.palette_idx > 0) self.palette_idx - 1 else total_cmds - 1,
+                        .escape => self.show_palette = false,
+                        .enter => {
+                            self.show_palette = false;
+                            switch (self.palette_idx) {
+                                0 => self.active_tab = .overview,
+                                1 => self.active_tab = .processes,
+                                2 => self.active_tab = .disks,
+                                3 => self.active_tab = .network,
+                                4 => self.active_tab = .diagnostics,
+                                5 => self.active_tab = .services,
+                                6 => self.cycleTheme(),
+                                7 => {
+                                    try self.engine.process_mgr.setSort(.cpu, .descending);
+                                    self.setStatus("Sort: CPU% descending");
+                                },
+                                8 => {
+                                    try self.engine.process_mgr.setSort(.memory, .descending);
+                                    self.setStatus("Sort: Memory RSS descending");
+                                },
+                                9 => {
+                                    try self.engine.process_mgr.setSort(.pid, .ascending);
+                                    self.setStatus("Sort: PID ascending");
+                                },
+                                10 => {
+                                    self.tree_mode = !self.tree_mode;
+                                    try self.engine.process_mgr.toggleTreeMode();
+                                    self.setStatus(if (self.tree_mode) "Tree view enabled" else "Flat view enabled");
+                                },
+                                11 => {
+                                    self.is_paused = !self.is_paused;
+                                    if (!self.is_paused) self.status_len = 0;
+                                },
+                                12 => {
+                                    if (proc_count > 0 and self.selected_proc_idx < proc_count) {
+                                        self.show_kill_modal = true;
+                                    }
+                                },
+                                13 => {
+                                    if (proc_count > 0 and self.selected_proc_idx < proc_count) {
+                                        const proc = &snapshot.top_processes[self.selected_proc_idx];
+                                        var col = self.engine.platform.getCollector();
+                                        col.suspendProcess(proc.pid) catch {};
+                                        self.setStatus("Process suspended (SIGSTOP)");
+                                    }
+                                },
+                                14 => {
+                                    if (proc_count > 0 and self.selected_proc_idx < proc_count) {
+                                        const proc = &snapshot.top_processes[self.selected_proc_idx];
+                                        var col = self.engine.platform.getCollector();
+                                        col.resumeProcess(proc.pid) catch {};
+                                        self.setStatus("Process resumed (SIGCONT)");
+                                    }
+                                },
+                                15 => self.show_help = true,
+                                16 => should_quit = true,
+                                else => {},
+                            }
+                        },
+                        else => {},
+                    }
+                    continue;
+                }
+
                 if (self.show_help) {
                     self.show_help = false;
                     continue;
@@ -250,6 +328,10 @@ pub const App = struct {
                     .char => |c| switch (c) {
                         'q', 3 => should_quit = true,
                         '?' => self.show_help = true,
+                        ':', 16 => {
+                            self.show_palette = true;
+                            self.palette_idx = 0;
+                        },
                         '/' => {
                             self.search_input_active = true;
                             self.active_tab = .processes;

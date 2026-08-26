@@ -1083,7 +1083,7 @@ pub fn renderStatusBar(
         return;
     }
 
-    const hints = " [Tab] Tab | [1-6] Jump | [t] Tree | [c] CPU | [m] Mem | [/] Search | [Enter] Inspect | [x] Kill | [T] Theme | [?] Help | [q] Quit";
+    const hints = " [Tab] Tab | [1-6] Jump | [:] Palette | [t] Tree | [c] CPU | [m] Mem | [/] Search | [Enter] Inspect | [x] Kill | [T] Theme | [?] Help | [q] Quit";
     buf.writeString(0, y, hints[0..@min(hints.len, w - 1)], theme.muted, theme.tab_bg, false);
 
     if (status_text.len > 0) {
@@ -1218,6 +1218,7 @@ pub fn renderHelpModal(
     const bindings = [_][2][]const u8{
         .{ "Tab / Shift+Tab", "Cycle forward / backward across 6 observatory tabs" },
         .{ "1 / 2 / 3 / 4 / 5 / 6", "Jump to Overview / Process / Disk / Net / Health / Services" },
+        .{ ": / Ctrl+P", "Open quick action command palette (PRD §33)" },
         .{ "↑ ↓ / j k", "Navigate highlighted row in process/service list" },
         .{ "Enter", "Open deep process inspector modal with metrics" },
         .{ "/", "Open live interactive search filter" },
@@ -1248,6 +1249,80 @@ pub fn renderHelpModal(
 
     graphs.renderSeparator(buf, modal_x + 1, modal_y + modal_h - 2, modal_w - 2, theme.border, theme.bg, plain);
     buf.writeString(modal_x + 3, modal_y + modal_h - 1, "  Press [Esc] or any key to close help  ", theme.muted, theme.bg, false);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMMAND PALETTE (Ctrl+P / :) - PRD §33
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub const PALETTE_COMMANDS = [_][2][]const u8{
+    .{ "1. Overview Dashboard", "Jump to Tab 1" },
+    .{ "2. Process Explorer & Tree", "Jump to Tab 2" },
+    .{ "3. Storage & Directory Analyzer", "Jump to Tab 3" },
+    .{ "4. Network & Active Socket Map", "Jump to Tab 4" },
+    .{ "5. Root-Cause Health & Diagnostics", "Jump to Tab 5" },
+    .{ "6. System Services & Daemons", "Jump to Tab 6" },
+    .{ "Cycle Theme (Claude, Tokyo Night, Cyber...)", "Switch 24-bit TrueColor palette" },
+    .{ "Sort Processes by CPU% Load", "Order highest to lowest CPU" },
+    .{ "Sort Processes by Resident Memory (RSS)", "Order highest to lowest RAM" },
+    .{ "Sort Processes by PID", "Order ascending process ID" },
+    .{ "Toggle Hierarchical Lineage Tree", "Show DFS parent-child branches" },
+    .{ "Freeze / Resume Telemetry Polling", "Pause real-time stream" },
+    .{ "Terminate Selected Process (SIGKILL)", "Open kill confirmation" },
+    .{ "Suspend Selected Process (SIGSTOP)", "Pause process execution" },
+    .{ "Resume Selected Process (SIGCONT)", "Unpause process execution" },
+    .{ "Show Keyboard Shortcuts & Help", "Open help guide modal" },
+    .{ "Quit Zyphor", "Exit application cleanly" },
+};
+
+pub fn renderCommandPalette(
+    buf: *ScreenBuffer,
+    selected_idx: usize,
+    theme: *const Theme,
+    plain: bool,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+
+    const modal_w: u16 = @min(w - 4, 70);
+    const modal_h: u16 = @min(h - 4, @as(u16, @intCast(PALETTE_COMMANDS.len)) + 6);
+    const modal_x = (w -| modal_w) / 2;
+    const modal_y = (h -| modal_h) / 2;
+
+    buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
+    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ⚡ Command Palette (Ctrl+P / :) ", theme.accent, theme.accent, theme.bg, plain);
+
+    const key_col = modal_x + 3;
+    const val_col = modal_x + 40;
+
+    buf.writeString(key_col, modal_y + 1, "ACTION / COMMAND", theme.header, theme.bg, true);
+    buf.writeString(val_col, modal_y + 1, "DESCRIPTION", theme.header, theme.bg, true);
+    graphs.renderSeparator(buf, modal_x + 1, modal_y + 2, modal_w - 2, theme.border, theme.bg, plain);
+
+    const visible_rows = modal_h - 5;
+    var i: usize = 0;
+    while (i < visible_rows and i < PALETTE_COMMANDS.len) : (i += 1) {
+        const row_y = modal_y + 3 + @as(u16, @intCast(i));
+        const is_sel = (i == selected_idx);
+
+        const row_bg = if (is_sel) theme.selected else theme.bg;
+
+        // Clear row
+        var col: u16 = modal_x + 1;
+        while (col < modal_x + modal_w - 1) : (col += 1) {
+            buf.setCell(col, row_y, " ", theme.fg, row_bg, false);
+        }
+
+        if (is_sel) {
+            buf.setCell(modal_x + 2, row_y, "▶", theme.accent, row_bg, true);
+        }
+
+        buf.writeString(key_col, row_y, PALETTE_COMMANDS[i][0], if (is_sel) theme.accent else theme.fg, row_bg, is_sel);
+        buf.writeString(val_col, row_y, PALETTE_COMMANDS[i][1], theme.muted, row_bg, false);
+    }
+
+    graphs.renderSeparator(buf, modal_x + 1, modal_y + modal_h - 2, modal_w - 2, theme.border, theme.bg, plain);
+    buf.writeString(modal_x + 3, modal_y + modal_h - 1, " ↑↓ / j k Navigate | Enter: Execute | Esc: Close ", theme.muted, theme.bg, false);
 }
 
 pub fn renderBackgroundGrid(buf: *ScreenBuffer, theme: *const Theme) void {

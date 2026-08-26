@@ -2,6 +2,7 @@ const std = @import("std");
 const engine_mod = @import("../core/engine.zig");
 const doctor_mod = @import("doctor.zig");
 const export_mod = @import("export.zig");
+const bench_mod = @import("bench.zig");
 const app_mod = @import("../ui/app.zig");
 const types = @import("../core/types.zig");
 
@@ -275,6 +276,10 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void
                 });
             }
             return;
+        } else if (std.mem.eql(u8, cmd, "bench") or std.mem.eql(u8, cmd, "benchmark")) {
+            const res = try bench_mod.runBenchmark(allocator);
+            try bench_mod.printBenchmark(stdout, &res, json_mode);
+            return;
         }
     }
 
@@ -300,6 +305,7 @@ fn printHelp() void {
         \\
         \\SUBCOMMANDS:
         \\  doctor           Audit OS kernel telemetry, sensor availability, and readiness
+        \\  bench, benchmark Run native hardware compute & RAM bandwidth benchmark (PRD §25)
         \\  cpu              Display instant CPU metrics, user/sys load, and core breakdown
         \\  memory, mem      Display physical RAM, cache, swap, and memory pressure
         \\  process, ps      Query live process table with sorting and filtering
