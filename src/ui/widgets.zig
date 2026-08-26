@@ -158,7 +158,7 @@ pub fn renderOverviewPanel(
     if (w < 60 or h < 24) return;
 
     const content_y: u16 = 4;
-    const content_h = h - content_y - 8; // Leave bottom 7 rows for Event Stream
+    const content_h = h - content_y - 8;
 
     const pane_w = (w - 4) / 3;
     const left_x: u16 = 1;
@@ -170,12 +170,9 @@ pub fn renderOverviewPanel(
 
     const dial_radius = @min(pane_w / 2 - 2, 6);
     const dial_cx = left_x + pane_w / 2 - dial_radius;
-    
-    // Draw Radial Dial
     graphs.renderRadialDial(buf, dial_cx, content_y + 1, dial_radius, 4.0, snapshot.cpu.total_usage, theme.accent, theme.bg, plain);
     
-    // Center text inside dial
-    var val_buf: [64]u8 = undefined;
+    var val_buf: [128]u8 = undefined;
     const cpu_val = std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.cpu.total_usage}) catch "?%";
     buf.writeString(dial_cx + dial_radius - 3, content_y + 1 + dial_radius / 2, cpu_val, theme.fg, theme.bg, true);
 
@@ -189,17 +186,28 @@ pub fn renderOverviewPanel(
     buf.writeStringMax(left_x + 2, cy, cpu_model, pane_w - 4, theme.accent_dim, theme.bg, false);
     cy += 2;
 
+    // CPU Breakdown
+    buf.writeString(left_x + 2, cy, "Usr:", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 7, cy, std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.cpu.user_usage}) catch "", theme.fg, theme.bg, true);
+    
+    buf.writeString(left_x + 14, cy, "Sys:", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 19, cy, std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.cpu.system_usage}) catch "", theme.warning, theme.bg, true);
+    
+    buf.writeString(left_x + 26, cy, "IOW:", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 31, cy, std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.cpu.iowait_usage}) catch "", theme.critical, theme.bg, true);
+    cy += 2;
+
     var cpu_hist: [256]f32 = undefined;
     const hist_count = history.cpu_history.getChronological(&cpu_hist);
     const spark_w = pane_w - 4;
     if (hist_count > 0 and spark_w > 4) {
-        graphs.renderBrailleGraph(buf, left_x + 2, cy, spark_w, 3, cpu_hist[0..hist_count], null, theme.bg, plain);
-        cy += 4;
+        graphs.renderBrailleGraph(buf, left_x + 2, cy, spark_w, 2, cpu_hist[0..hist_count], null, theme.bg, plain);
+        cy += 3;
     }
 
     renderCoreGrid(buf, snapshot, theme, left_x + 2, cy, pane_w - 4, plain);
 
-    // ── 2. Memory & Page Cache (Center Pane) ──────────────────────────────
+    // ── 2. Memory Subsystem (Center Pane) ──────────────────────────────────
     buf.drawBox(center_x, content_y, pane_w, content_h, " MEMORY SUBSYSTEM ", theme.border, theme.secondary, theme.bg, plain);
 
     graphs.renderRadialDial(buf, center_x + pane_w / 2 - dial_radius, content_y + 1, dial_radius, 4.0, snapshot.memory.used_percent, theme.secondary, theme.bg, plain);
@@ -219,8 +227,8 @@ pub fn renderOverviewPanel(
     var mem_hist: [256]f32 = undefined;
     const mem_hist_count = history.memory_history.getChronological(&mem_hist);
     if (mem_hist_count > 0 and spark_w > 4) {
-        graphs.renderBrailleGraph(buf, center_x + 2, my, spark_w, 3, mem_hist[0..mem_hist_count], theme.secondary, theme.bg, plain);
-        my += 4;
+        graphs.renderBrailleGraph(buf, center_x + 2, my, spark_w, 2, mem_hist[0..mem_hist_count], theme.secondary, theme.bg, plain);
+        my += 3;
     }
 
     buf.writeString(center_x + 2, my, "Page Cache / Buffers:", theme.muted, theme.bg, false);
@@ -230,8 +238,16 @@ pub fn renderOverviewPanel(
     graphs.renderLabel(buf, center_x + 2, my, "Swap Usage: ", "", theme.muted, theme.fg, theme.bg);
     my += 1;
     graphs.renderGaugeBar(buf, center_x + 2, my, pane_w - 4, snapshot.memory.swap_used_percent, theme.warning, theme.muted, theme.bg, plain);
+    my += 2;
 
-    // ── 3. Sensors & Edge (Right Pane) ──────────────────────────────────
+    // Add System Host Architecture
+    buf.writeString(center_x + 2, my, "▼ SYSTEM HOST INFO", theme.muted, theme.bg, true);
+    my += 2;
+    buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Platform: {s}-{s}", .{@tagName(@import("builtin").os.tag), @tagName(@import("builtin").cpu.arch)}) catch "", theme.accent, theme.bg, false);
+    my += 1;
+    buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Compiler: Zig {s}", .{@import("builtin").zig_version_string}) catch "", theme.muted, theme.bg, false);
+
+    // ── 3. System Edge & I/O (Right Pane) ──────────────────────────────────
     buf.drawBox(right_x, content_y, pane_w, content_h, " SYSTEM EDGE & I/O ", theme.border, theme.header, theme.bg, plain);
     
     var ry = content_y + 1;
@@ -241,24 +257,20 @@ pub fn renderOverviewPanel(
     const rx_mb = @as(f32, @floatFromInt(snapshot.network.total_rx_sec)) / (1024.0 * 1024.0);
     const tx_mb = @as(f32, @floatFromInt(snapshot.network.total_tx_sec)) / (1024.0 * 1024.0);
     
-    var rx_hist: [256]f32 = undefined;
-    var tx_hist: [256]f32 = undefined;
-    const rx_count = history.net_rx_history.getChronological(&rx_hist);
-    const tx_count = history.net_tx_history.getChronological(&tx_hist);
+    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "RX: {d:>6.2} MB/s", .{rx_mb}) catch "", theme.success, theme.bg, true);
+    buf.writeString(right_x + 20, ry, std.fmt.bufPrint(&val_buf, "TX: {d:>6.2} MB/s", .{tx_mb}) catch "", theme.warning, theme.bg, true);
+    ry += 2;
 
-    if (rx_count > 0 and spark_w > 4) {
-        const rx_s = std.fmt.bufPrint(&val_buf, "RX: {d:.2} MB/s", .{rx_mb}) catch "?";
-        graphs.renderLabel(buf, right_x + 2, ry, "", rx_s, theme.muted, theme.success, theme.bg);
-        ry += 1;
-        graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, rx_hist[0..rx_count], theme.success, theme.bg, plain);
-        ry += 3;
-        
-        const tx_s = std.fmt.bufPrint(&val_buf, "TX: {d:.2} MB/s", .{tx_mb}) catch "?";
-        graphs.renderLabel(buf, right_x + 2, ry, "", tx_s, theme.muted, theme.warning, theme.bg);
-        ry += 1;
-        graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, tx_hist[0..tx_count], theme.warning, theme.bg, plain);
-        ry += 3;
-    }
+    // Disk I/O Block
+    buf.writeString(right_x + 2, ry, "▼ STORAGE I/O BANDWIDTH", theme.muted, theme.bg, true);
+    ry += 2;
+    const disk_r = @as(f32, @floatFromInt(snapshot.disk.read_bytes_sec)) / (1024.0 * 1024.0);
+    const disk_w = @as(f32, @floatFromInt(snapshot.disk.write_bytes_sec)) / (1024.0 * 1024.0);
+    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "RD: {d:>6.2} MB/s", .{disk_r}) catch "", theme.secondary, theme.bg, true);
+    buf.writeString(right_x + 20, ry, std.fmt.bufPrint(&val_buf, "WR: {d:>6.2} MB/s", .{disk_w}) catch "", theme.accent, theme.bg, true);
+    ry += 1;
+    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "Global Storage Operations: {d} IOPS", .{snapshot.disk.iops}) catch "", theme.muted, theme.bg, false);
+    ry += 3;
 
     buf.writeString(right_x + 2, ry, "▼ HARDWARE SENSORS", theme.muted, theme.bg, true);
     ry += 2;
@@ -274,6 +286,11 @@ pub fn renderOverviewPanel(
         buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "{d:.1} C", .{temp}) catch "", theme.critical, theme.bg, true);
     } else {
         buf.writeString(right_x + 2, ry, "Thermal Zone:  [SECURE]", theme.muted, theme.bg, false);
+    }
+    ry += 1;
+    if (snapshot.battery.available) {
+        buf.writeString(right_x + 2, ry, "Battery Power: ", theme.muted, theme.bg, false);
+        buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "{d:.1}%", .{snapshot.battery.percentage}) catch "", if (snapshot.battery.is_charging) theme.success else theme.warning, theme.bg, true);
     }
 
     // ── 4. Global Event Stream (Bottom) ──────────────────────────────────

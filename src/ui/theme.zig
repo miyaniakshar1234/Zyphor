@@ -60,6 +60,25 @@ pub const Theme = struct {
 
 pub const BuiltinThemes = struct {
 
+    /// Anthropic - elegant charcoal with terracotta/peach accents
+    pub const anthropic = Theme{
+        .name = "anthropic",
+        .bg         = Color.rgb(31,  29,  28),  // Very dark warm gray (#1f1d1c)
+        .fg         = Color.rgb(235, 233, 228), // Soft paper white (#ebe9e4)
+        .accent     = Color.rgb(217, 119, 87),  // Terracotta / Rust (#d97757)
+        .accent_dim = Color.rgb(138, 90,  74),  // Dimmed rust
+        .secondary  = Color.rgb(229, 192, 123), // Warm sand/biscuit (#e5c07b)
+        .success    = Color.rgb(113, 142, 117), // Muted sage green
+        .warning    = Color.rgb(212, 162, 89),  // Soft amber
+        .critical   = Color.rgb(186, 84,  84),  // Muted brick red
+        .border     = Color.rgb(65,  60,  58),  // Subtle borders
+        .header     = Color.rgb(217, 119, 87),  // Same as accent
+        .header_bg  = Color.rgb(40,  37,  36),  // Slightly lighter charcoal
+        .tab_bg     = Color.rgb(25,  24,  23),  // Darker tab bar
+        .selected   = Color.rgb(54,  51,  49),  // Selected item
+        .muted      = Color.rgb(154, 149, 142), // Muted text
+    };
+
     /// Hacker - terminal green matrix style
     pub const hacker = Theme{
         .name = "hacker",
@@ -252,6 +271,7 @@ pub const BuiltinThemes = struct {
 };
 
 pub const ALL_THEMES = [_]Theme{
+    BuiltinThemes.anthropic,
     BuiltinThemes.tokyo_night,
     BuiltinThemes.hacker,
     BuiltinThemes.midnight,
@@ -264,6 +284,7 @@ pub const ALL_THEMES = [_]Theme{
 };
 
 pub fn getThemeByName(name: []const u8) Theme {
+    if (std.mem.eql(u8, name, "anthropic"))     return BuiltinThemes.anthropic;
     if (std.mem.eql(u8, name, "tokyo_night"))   return BuiltinThemes.tokyo_night;
     if (std.mem.eql(u8, name, "hacker"))        return BuiltinThemes.hacker;
     if (std.mem.eql(u8, name, "cyber"))         return BuiltinThemes.cyber;
@@ -273,7 +294,7 @@ pub fn getThemeByName(name: []const u8) Theme {
     if (std.mem.eql(u8, name, "gruvbox"))       return BuiltinThemes.gruvbox;
     if (std.mem.eql(u8, name, "high_contrast")) return BuiltinThemes.high_contrast;
     if (std.mem.eql(u8, name, "plain"))         return BuiltinThemes.no_color;
-    return BuiltinThemes.tokyo_night; // default
+    return BuiltinThemes.anthropic; // default
 }
 
 pub fn getThemeByIndex(idx: usize) Theme {
