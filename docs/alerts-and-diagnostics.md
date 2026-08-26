@@ -1,50 +1,64 @@
 # Alerts & Diagnostics Engine
 
-Unlike traditional monitors that show only raw percentages, Zyphor incorporates an **explainable root-cause diagnostic engine** and an objective **System Health Score**.
+Traditional monitoring tools display raw metrics but leave the cognitive burden of root-cause correlation entirely to the operator. Zyphor introduces an **Explainable Root-Cause Diagnostic Engine** and an objective **System Health Score (0–100)**.
 
 ---
 
-## 🩺 System Health Score Algorithm
+## 🎯 The System Health Score Algorithm
 
-Zyphor evaluates system health continuously on a scale from **0 to 100**.
+The overall system health score is a composite multi-factor evaluation bounded between $0$ (Catastrophic Degradation) and $100$ (Optimal Performance):
 
-```
-                           System Health Score (0 - 100)
-                                        │
-           ┌──────────────┬─────────────┼──────────────┬──────────────┐
-           ▼              ▼             ▼              ▼              ▼
-       CPU Score     Memory Score   Disk Score    Thermal Score   Network Score
-       (Weight: 25%)  (Weight: 30%)  (Weight: 20%)  (Weight: 15%)  (Weight: 10%)
-```
+$$\text{HealthScore} = w_{\text{cpu}} \cdot S_{\text{cpu}} + w_{\text{mem}} \cdot S_{\text{mem}} + w_{\text{disk}} \cdot S_{\text{disk}} + w_{\text{net}} \cdot S_{\text{net}} + w_{\text{therm}} \cdot S_{\text{therm}}$$
 
-### Health Categories
-* **90 – 100 (EXCELLENT):** All subsystems nominal, low latency, zero thrashing.
-* **75 – 89 (GOOD):** Normal operating load, mild resource utilization.
-* **50 – 74 (FAIR):** Moderate contention; potential elevated thermals or disk I/O wait.
-* **25 – 49 (POOR):** Severe bottleneck detected (e.g. swap thrashing, sustained >95% CPU).
-* **0 – 24 (CRITICAL):** System stability at immediate risk (runaway memory leak, critical thermal throttling).
+### Subsystem Weights ($w_i$)
+* **CPU Subsystem ($w_{\text{cpu}} = 0.30$):** High weight due to immediate impact on system responsiveness and thread scheduling.
+* **Memory Subsystem ($w_{\text{mem}} = 0.30$):** High weight due to thrashing risks when swap spaces are exhausted.
+* **Storage Subsystem ($w_{\text{disk}} = 0.15$):** Evaluates mount point capacity exhaustion and I/O saturation.
+* **Network Subsystem ($w_{\text{net}} = 0.15$):** Evaluates packet drop rates and interface saturation.
+* **Thermal Subsystem ($w_{\text{therm}} = 0.10$):** Evaluates thermal throttling risk.
+
+### Health Status Classifications
+| Score Range | Status | Meaning |
+| :---: | :---: | :--- |
+| **90 – 100** | `EXCELLENT` | Subsystems operating within optimal capacity margins. |
+| **75 – 89** | `GOOD` | Nominal operation with mild resource utilization. |
+| **60 – 74** | `FAIR` | Moderate resource contention; potential bottleneck forming. |
+| **40 – 59** | `POOR` | Significant degradation; active performance penalty. |
+| **0 – 39** | `CRITICAL` | Severe system stress; imminent risk of OOM kills or lockup. |
 
 ---
 
-## 🔍 Deterministic Root-Cause Diagnostics
+## 🔍 Heuristic Anomaly Rules
 
-Zyphor avoids opaque heuristic black-boxes. All diagnostics are rule-based, deterministic, and explainable:
+Zyphor's diagnostic engine continuously evaluates an ensemble of deterministic rules:
 
-### Diagnostic Rule 1: Swap Thrashing Detection
-* **Trigger Condition:** `memory.used_pct > 90%` AND `swap.activity_rate > 10 MB/s` for `> 15s`.
-* **Diagnosis:** *"System is actively swapping memory pages to disk, causing high latency and micro-stutters."*
-* **Root Cause Identified:** Identifies the top 3 processes with the largest `(RSS + Swap)` allocation.
-* **Recommended Action:** Suspend or terminate memory-heavy processes.
+### 1. Memory Pressure & Thrashing Rule
+* **Condition:** Physical Memory Used > 90% AND Swap Utilization > 60%
+* **Severity:** `CRITICAL`
+* **Diagnosis:** Kernel page daemon is actively evicting working set pages to swap disk.
+* **Remediation:** Identify top RSS processes and terminate memory leak culprits.
 
-### Diagnostic Rule 2: I/O Saturation & Storage Bottleneck
-* **Trigger Condition:** `disk.queue_depth > 4` AND `cpu.iowait_pct > 25%`.
-* **Diagnosis:** *"Storage I/O queue is saturated. CPU cores are idling in I/O wait state."*
-* **Root Cause Identified:** Pinpoints the specific PID generating the highest write throughput.
+### 2. Runaway CPU / Thread Starvation Rule
+* **Condition:** Overall CPU Load > 95% for > 5 consecutive sampling ticks
+* **Severity:** `WARNING` / `CRITICAL`
+* **Diagnosis:** Compute pipeline saturation. Context switch latency is elevated.
+* **Remediation:** Check process tree to isolate parallel build scripts or compute tasks.
 
-### Diagnostic Rule 3: Runaway Single-Thread CPU Loop
-* **Trigger Condition:** Single logical core at `100%` while aggregate CPU is `< 25%`, with 1 process consuming exactly `100% / N_cores`.
-* **Diagnosis:** *"Process appears stuck in an unyielding single-threaded computation or infinite loop."*
+### 3. Filesystem Capacity Saturation Rule
+* **Condition:** Any mounted filesystem capacity > 90%
+* **Severity:** `WARNING` (if > 90%), `CRITICAL` (if > 98%)
+* **Diagnosis:** Partition is near capacity; risk of write failure for system logs and database journals.
 
-### Diagnostic Rule 4: Thermal Throttling
-* **Trigger Condition:** `cpu.temperature_c > 90°C` AND `cpu.frequency_mhz < cpu.base_frequency_mhz * 0.7`.
-* **Diagnosis:** *"CPU is aggressively downclocking to prevent thermal damage."*
+### 4. Network Link Degradation Rule
+* **Condition:** Active network interface down or packet drop rate > 5%
+* **Severity:** `WARNING`
+* **Diagnosis:** Network link negotiation failure or packet collision.
+
+---
+
+## 🛡️ Hysteresis & Anti-Flapping State Machine
+
+To prevent transient CPU spikes (e.g., launching an application or compiling a file) from causing noisy alert churn, Zyphor applies an **Exponentially Weighted Moving Average (EWMA)** filter combined with state-transition hysteresis:
+
+* An alert is only triggered when a threshold is breached across multiple consecutive frames.
+* An active alert is only cleared after metrics stay below a recovery threshold for at least 3 sampling cycles.

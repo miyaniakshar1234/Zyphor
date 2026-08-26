@@ -1,112 +1,144 @@
 # Getting Started with Zyphor
 
-This guide walks you through installing, building, and running Zyphor on Linux, Windows, and macOS.
+This guide walks you through acquiring, installing, building, and verifying Zyphor on Linux, Windows, and macOS systems.
 
 ---
 
-## 📥 Installation
+## 📥 Installation Methods
 
-### 1. Precompiled Binary Releases
-Precompiled standalone binaries are published with every GitHub release:
+### 1. Pre-compiled Static Binaries (Recommended)
+Pre-built static binaries with zero external runtime dependencies are available from the official [GitHub Releases](https://github.com/miyaniakshar1234/Zyphor/releases) page.
 
-* **Linux (x86_64, ARM64):** `zyphor-linux-x86_64.tar.gz`
-* **Windows (x86_64):** `zyphor-windows-x86_64.zip`
-* **macOS (Universal / Apple Silicon / Intel):** `zyphor-macos-universal.tar.gz`
+#### Linux (x86_64 / AArch64)
+```bash
+# Download latest static release
+curl -LO https://github.com/miyaniakshar1234/Zyphor/releases/latest/download/zyphor-linux-x86_64.tar.gz
 
-Download and extract the archive, then move `zyphor` (or `zyphor.exe`) to your system `$PATH` (e.g. `/usr/local/bin` or `C:\Program Files\Zyphor`).
+# Extract archive
+tar -xzf zyphor-linux-x86_64.tar.gz
 
----
+# Install binary to system PATH
+sudo install -m 755 zyphor /usr/local/bin/zyphor
 
-### 2. Native Package Managers
+# Verify installation
+zyphor doctor
+```
 
-#### Windows
+#### Windows (x86_64 / AArch64)
 ```powershell
-# Using Winget
-winget install Zyphor.Zyphor
+# Using PowerShell to download latest binary
+Invoke-WebRequest -Uri "https://github.com/miyaniakshar1234/Zyphor/releases/latest/download/zyphor-windows-x86_64.zip" -OutFile "zyphor.zip"
 
-# Using Scoop
-scoop bucket add zyphor https://github.com/zyphor-project/scoop-bucket
-scoop install zyphor
+# Expand archive
+Expand-Archive -Path "zyphor.zip" -DestinationPath "$env:LOCALAPPDATA\Programs\Zyphor"
+
+# Add to User PATH
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+[Environment]::SetEnvironmentVariable("Path", "$userPath;$env:LOCALAPPDATA\Programs\Zyphor", "User")
+
+# Verify
+zyphor doctor
 ```
 
-#### macOS (Homebrew)
+#### macOS (Apple Silicon & Intel)
 ```bash
-brew install zyphor-project/tap/zyphor
-```
-
-#### Linux (Arch AUR, Ubuntu, Fedora)
-```bash
-# Arch Linux (AUR)
-yay -S zyphor
-
-# Debian / Ubuntu (.deb)
-sudo dpkg -i zyphor_amd64.deb
-
-# Fedora / RHEL (.rpm)
-sudo dnf install zyphor.rpm
+# Download universal or architecture-specific binary
+curl -LO https://github.com/miyaniakshar1234/Zyphor/releases/latest/download/zyphor-macos-aarch64.tar.gz
+tar -xzf zyphor-macos-aarch64.tar.gz
+sudo install -m 755 zyphor /usr/local/bin/zyphor
+zyphor doctor
 ```
 
 ---
 
-## 🛠️ Building from Source
+## 🛠️ Compiling from Source
+
+Zyphor is built with **Zig 0.15.x+**. The build system is entirely self-contained with no external C library dependencies.
 
 ### Prerequisites
-* **Zig Compiler**: Version **0.15.x** or higher ([Download Zig](https://ziglang.org/download/)).
-* **Git**: To clone the repository.
+* **Zig Compiler:** [Zig 0.15.2 or later](https://ziglang.org/download/)
+* **Git:** For repository cloning
 
-### Compilation Steps
+### Build Commands
 ```bash
 # 1. Clone the repository
-git clone https://github.com/zyphor-project/zyphor.git
-cd zyphor
+git clone https://github.com/miyaniakshar1234/Zyphor.git
+cd Zyphor
 
-# 2. Build the optimized release binary
+# 2. Build in Debug mode (with full runtime assertions and safety checks)
+zig build
+
+# 3. Build in optimized Release mode (ReleaseFast for maximum throughput)
 zig build -Doptimize=ReleaseFast
 
-# 3. The compiled binary is available in zig-out/bin/
-./zig-out/bin/zyphor --version
+# 4. Run automated test suite
+zig build test
+
+# 5. The resulting executable is placed in:
+./zig-out/bin/zyphor
 ```
 
-### Running Test Suite
+### Cross-Compilation
+Zig natively supports cross-compilation out of the box. You can cross-compile Zyphor from any operating system for any supported target:
+
 ```bash
-zig build test
+# Cross-compile for Linux x86_64 (musl static) from Windows or macOS
+zig build -Dtarget=x86_64-linux-musl -Doptimize=ReleaseFast
+
+# Cross-compile for Windows x86_64 from Linux
+zig build -Dtarget=x86_64-windows -Doptimize=ReleaseFast
+
+# Cross-compile for macOS Apple Silicon from Linux or Windows
+zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
 ```
 
 ---
 
-## 🚀 First Run
+## 🩺 Verifying System Compatibility: `zyphor doctor`
 
-### 1. Verify System Environment
-Before launching the full TUI, run `zyphor doctor` to check OS metrics and terminal support:
+Before launching the full interactive observatory, run `zyphor doctor` to perform an exhaustive environment and kernel sensor audit:
+
 ```bash
 zyphor doctor
 ```
 
-Output will look like:
+### Expected Output Example
 ```text
-Zyphor System Diagnostics & Health Check
-=========================================
-OS Platform:         Windows (x86_64)
-Kernel / Build:      10.0.26100
-Privilege Level:     Standard User
-CPU Telemetry:       ✓ Available (16 logical cores)
-Memory Telemetry:    ✓ Available (32.0 GB RAM)
-Storage Telemetry:   ✓ Available (2 partitions detected)
-Network Telemetry:   ✓ Available (Wi-Fi, Ethernet)
-Process Telemetry:   ✓ Available (NtQuerySystemInformation)
-Terminal VT100 / ANSI: ✓ Supported
-Overall Readiness:   100% - Ready for full observatory mode
+==================================================================
+  ZYPHOR SYSTEM COMPATIBILITY & DIAGNOSTICS AUDIT (zyphor doctor)
+==================================================================
+
+  OS Platform:             windows (x86_64)
+  Compiler & Target:       Zig 0.15.x
+  Privilege Level:         Standard User
+
+  Subsystem Readiness:
+    ✓ CPU Telemetry:       Available (28 logical cores, 3200 MHz)
+    ✓ Memory Telemetry:    Available (31 GB RAM detected)
+    ✓ Disk Telemetry:      Available (2 partitions detected)
+    ✓ Network Telemetry:   Available (2 interfaces active)
+    ✓ Process Explorer:    Available (Direct OS native snapshot)
+    ✓ GPU Telemetry:       Direct3D 12 / Dedicated GPU
+    ✓ Battery / Power:     Battery detected
+    ✓ ANSI Virtual Term:   Fully Supported
+
+  System Health Score:     92/100 [EXCELLENT]
+  Overall Readiness:       100% - Ready for full observatory mode!
+==================================================================
 ```
 
-### 2. Launch the Interactive Dashboard
+---
+
+## 🎯 First Launch
+
+To start the interactive system observatory, simply execute:
 ```bash
 zyphor
 ```
 
-### 3. Basic Navigation Controls
-* Press <kbd>Tab</kbd> to cycle between tabs: **Overview**, **Processes**, **Disks**, **Network**, **Diagnostics**.
-* Press <kbd>↑</kbd> and <kbd>↓</kbd> (or <kbd>j</kbd>/<kbd>k</kbd>) to navigate processes.
-* Press <kbd>t</kbd> to switch to the hierarchical **Process Tree** view.
-* Press <kbd>/</kbd> to filter processes by name or PID.
-* Press <kbd>?</kbd> to view the in-app help modal.
-* Press <kbd>q</kbd> to quit.
+### Common Flags for First-Time Users:
+* `zyphor --plain`: Launches in monochrome ASCII mode without ANSI color escapes (ideal for serial consoles, remote SSH over low-bandwidth connections, or vintage terminal emulators).
+* `zyphor --refresh 250`: Overrides default sampling rate to 250 milliseconds.
+* `zyphor --help`: Displays all command-line flags and subcommands.
+
+Next Step: Read the [User Manual](user-manual.md) to master keyboard navigation, process tree analysis, and diagnostic views.

@@ -1,176 +1,182 @@
 # Zyphor CLI Reference Manual
 
-Zyphor includes a comprehensive command-line interface suitable for direct terminal queries, automated monitoring scripts, and CI/CD pipelines.
+Zyphor features a comprehensive command-line interface designed for terminal power users, cron jobs, system maintenance scripts, and CI/CD observability pipelines.
 
 ---
 
-## 📌 Global Syntax
+## 📖 Global Command Syntax
 
 ```bash
-zyphor [OPTIONS] [SUBCOMMAND] [SUBCOMMAND_OPTIONS]
+zyphor [OPTIONS] [SUBCOMMAND]
 ```
 
-### Global Flags
-| Flag | Short | Description |
+### Global Options
+
+| Flag | Long Option | Description |
 | :--- | :--- | :--- |
-| `--help` | `-h` | Display global help or subcommand help |
-| `--version` | `-v` | Display version information and compiler build mode |
-| `--json` | `-j` | Output results in clean, machine-readable JSON format |
-| `--plain` | `-p` | Disable ANSI color escapes and Unicode symbols (ASCII only) |
-| `--refresh <ms>` | `-r` | Set real-time sampling and refresh interval in milliseconds (default: `1000`) |
-| `--config <path>` | `-c` | Path to custom configuration file |
+| `-j` | `--json` | Format output as structured, machine-readable JSON. |
+| `-p` | `--plain` | Run in monochrome ASCII mode (disables ANSI TrueColor escape sequences). |
+| `-r <ms>`| `--refresh <ms>`| Sampling loop interval in milliseconds (default: `250`). |
+| `-h` | `--help` | Display command usage and exit. |
+| `-v` | `--version` | Display version, commit hash, compiler target, and exit. |
 
 ---
 
-## 🛠️ Subcommands
+## 🛠️ Subcommand Reference
 
-### 1. `zyphor` (Interactive TUI Mode)
-Launches the full interactive terminal user interface.
+### 1. `zyphor doctor`
+Performs an exhaustive audit of operating system telemetry hooks, kernel sensor access, privilege levels, and system health readiness.
+
 ```bash
-zyphor
-zyphor --refresh 500
-zyphor --plain
+zyphor doctor [--json]
 ```
+
+#### Exit Codes:
+* `0`: All subsystems ready; system health is good/excellent.
+* `1`: Subsystem probe failure or critical health warning detected.
 
 ---
 
-### 2. `zyphor doctor` (System Diagnostics)
-Audits the host environment, kernel telemetry availability, hardware sensor access, user privilege level, and terminal capabilities.
+### 2. `zyphor cpu`
+Displays instantaneous processor load, user/system/idle breakdown, active clock frequency, and per-core topologies.
 
 ```bash
-zyphor doctor
-zyphor doctor --json
+zyphor cpu [--json]
 ```
 
-**JSON Output Structure:**
+#### Human-Readable Output:
+```text
+CPU Telemetry:
+  Model:           Intel / AMD x86_64 Processor
+  Total Load:      24.2%
+  User Time:       18.1%
+  System Time:     6.1%
+  Idle Time:       75.8%
+  Clock Frequency: 3200 MHz
+  Logical Cores:   28
+  Physical Cores:  14
+```
+
+#### JSON Output (`zyphor cpu --json`):
 ```json
 {
-  "os": "Windows",
-  "arch": "x86_64",
-  "kernel": "10.0.26100",
-  "is_elevated": false,
-  "telemetry": {
-    "cpu": true,
-    "memory": true,
-    "disk": true,
-    "network": true,
-    "processes": true,
-    "gpu": true,
-    "sensors": true
-  },
-  "compatibility_score": 100
+  "total_usage_pct": 24.20,
+  "user_pct": 18.10,
+  "system_pct": 6.10,
+  "idle_pct": 75.80,
+  "frequency_mhz": 3200,
+  "logical_cores": 28,
+  "physical_cores": 14
 }
 ```
 
 ---
 
-### 3. `zyphor cpu` (Instant CPU Telemetry)
-Displays aggregate and per-core CPU usage, clock speeds, and interrupt statistics.
+### 3. `zyphor memory`
+Displays physical RAM residency, kernel page caches, swap space utilization, and memory pressure levels.
 
 ```bash
-zyphor cpu
-zyphor cpu --cores
-zyphor cpu --json
+zyphor memory [--json]
 ```
 
-**Output Example:**
-```text
-CPU Telemetry:
-  Model:             AMD Ryzen 9 7950X 16-Core Processor
-  Overall Usage:     14.2%
-  User:              9.8%
-  System:            4.4%
-  Clock Frequency:   4,500 MHz
-  Logical Cores:     32
-  Core Utilization:
-    Core #0: [████░░░░░░░░░░░░░░░░] 22.1%
-    Core #1: [██░░░░░░░░░░░░░░░░░░] 11.4%
-    ...
-```
-
----
-
-### 4. `zyphor memory` (Memory & Swap Breakdown)
-Outputs physical memory utilization, cache buffers, swap metrics, and memory pressure state.
-
-```bash
-zyphor memory
-zyphor memory --json
-```
-
-**Output Example:**
+#### Human-Readable Output:
 ```text
 Memory & Swap Telemetry:
-  Physical RAM:      32,768 MB (32.00 GB)
-  Used RAM:          18,420 MB (56.2%)
-  Available RAM:     14,348 MB (43.8%)
-  Cached / Buffers:   6,120 MB
-  Swap / Pagefile:   16,384 MB Total | 512 MB Used (3.1%)
-  Memory Pressure:   LOW (Healthy)
+  Physical RAM:    32472 MB total (31.71 GB)
+  Used RAM:        15961 MB (49.2%)
+  Available RAM:   16510 MB (50.8%)
+  Swap Space:      23988 MB used / 57048 MB total (42.0%)
+  Memory Pressure: LOW (Healthy)
 ```
 
 ---
 
-### 5. `zyphor process` (Process Table Query)
-Queries the live process table without starting the TUI. Supports sorting, filtering, and row limits.
+### 4. `zyphor process` (Alias: `zyphor ps`)
+Queries active operating system processes with configurable sort keys and limits.
 
 ```bash
-# Top 10 processes by CPU
-zyphor process --sort cpu --limit 10
+zyphor process [--sort <cpu|mem|pid|name>] [--limit <n>] [--json]
+```
 
-# Top 5 processes by Memory
+#### Options:
+* `--sort <field>`: Sort column (`cpu`, `mem`, `pid`, `name`). Default: `cpu`.
+* `--limit <n>`: Maximum number of rows to print. Default: `15`.
+
+#### Example:
+```bash
 zyphor process --sort mem --limit 5
-
-# Filter processes containing "zig"
-zyphor process --filter zig
-
-# Complete process table in JSON format
-zyphor process --json
 ```
 
-**Options:**
-* `--sort <cpu|mem|pid|name>`: Column to sort by (default: `cpu`).
-* `--limit <n>`: Number of processes to display (default: `20`).
-* `--filter <query>`: Case-insensitive substring match against executable name.
-* `--tree`: Render as hierarchical text tree.
-
----
-
-### 6. `zyphor disk` (Storage Telemetry)
-Lists mounted partitions, filesystem types, capacity, and current I/O rates.
-
-```bash
-zyphor disk
-zyphor disk --json
+```text
+  PID     PPID    NAME                   CPU%      RAM (MB)   THREADS  STATE
+--------------------------------------------------------------------------------
+  13628   14004   explorer.exe            22.5%         379       189  Running
+  31012   17476   msedge.exe              22.5%          15        42  Running
+  25044   1868    dllhost.exe             22.5%          12         4  Running
+  31500   33392   cmd.exe                 23.5%          11         2  Running
+  3316    1948    svchost.exe             23.5%           0         4  Running
 ```
 
 ---
 
-### 7. `zyphor network` (Network Interfaces & Sockets)
-Lists active interfaces, IP configurations, and instantaneous throughput.
+### 5. `zyphor disk`
+Lists mounted filesystems, total/used capacities, and live I/O transfer rates.
 
 ```bash
-zyphor network
-zyphor network --connections
-zyphor network --json
+zyphor disk [--json]
+```
+
+#### Example Output:
+```text
+Storage Partitions:
+  Mount: C:\          FS: NTFS     Used:  408.4 /  581.3 GB (70.3%)
+  Mount: D:\          FS: NTFS     Used:   65.5 /  224.6 GB (29.2%)
 ```
 
 ---
 
-### 8. `zyphor snapshot` (Point-in-time Export)
-Captures an instantaneous, comprehensive system snapshot (including CPU, Memory, Disk, Network, Top Processes, and System Health) and writes it to a timestamped JSON file.
+### 6. `zyphor network` (Alias: `zyphor net`)
+Lists active network interfaces, IP addresses, and throughput.
 
 ```bash
-zyphor snapshot
-zyphor snapshot --output my-machine-snapshot.json
+zyphor network [--json]
+```
+
+#### Example Output:
+```text
+Network Interfaces:
+  Wi-Fi (Primary Adapter)   192.168.1.105     RX: 4.01 MB/s  TX: 0.81 MB/s
+  Loopback (localhost)      127.0.0.1         RX: 0.01 MB/s  TX: 0.01 MB/s
 ```
 
 ---
 
-### 9. `zyphor export` (Continuous Metrics Export)
-Streams live metrics in JSON or CSV format at regular intervals for ingestion into Prometheus, Grafana, or local log aggregators.
+### 7. `zyphor snapshot`
+Captures an atomic, comprehensive system snapshot across all subsystems and outputs structured JSON to stdout or a designated file.
 
 ```bash
-zyphor export --format json --interval 1000
-zyphor export --format csv --interval 500
+zyphor snapshot [-o <file.json>]
+```
+
+#### Example Automation Script:
+```bash
+# Capture hourly snapshot for server telemetry archiving
+zyphor snapshot -o "/var/log/telemetry/snapshot-$(date +%Y%m%d-%H%M%S).json"
+```
+
+---
+
+## 🤖 Pipeline Integration Examples
+
+### Alert on High Memory Pressure via `jq`:
+```bash
+PRESSURE=$(zyphor memory --json | jq -r .pressure_level)
+if [ "$PRESSURE" = "CRITICAL (Thrashing)" ]; then
+    echo "ALERT: System is thrashing swap space!" | mail -s "Memory Alert" ops@example.com
+fi
+```
+
+### Check Overall Health in CI/CD Pre-flight:
+```bash
+zyphor doctor || { echo "Environment check failed"; exit 1; }
 ```

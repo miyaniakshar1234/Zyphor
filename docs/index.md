@@ -1,34 +1,51 @@
 # Zyphor Documentation Hub
 
-Welcome to the official documentation for **Zyphor**, the high-performance cross-platform system observatory, process explorer, and performance diagnostics toolkit written in Zig.
+Welcome to the technical documentation for **Zyphor**, the high-performance, deterministic system observatory, process explorer, and diagnostics toolkit written in **pure Zig 0.15+**.
+
+Zyphor is engineered for systems developers, infrastructure engineers, and performance analysts who require native kernel telemetry, sub-millisecond visualization, and explainable root-cause diagnostics with negligible CPU and memory overhead.
 
 ---
 
-## 🧭 Navigation & Overview
+## 🗺️ Documentation Directory
 
-### 🚀 Getting Started
-* [**Getting Started Guide**](getting-started.md): Installation methods for Windows, Linux, and macOS, building from source, configuration prerequisites, and your first run.
-* [**Troubleshooting & FAQ**](troubleshooting.md): Diagnosing permission constraints, terminal capability issues, and running `zyphor doctor`.
-
-### 📖 User Manual & Reference
-* [**Comprehensive User Manual**](user-manual.md): Deep walkthrough of all dashboard panels (Overview, Processes, Tree, Disks, Network, GPU, Diagnostics), keyboard shortcuts, and process actions.
-* [**CLI & Automation Reference**](cli-reference.md): Detailed reference for command-line subcommands (`zyphor cpu`, `zyphor memory`, `zyphor process`, `zyphor doctor`), `--json` output, and point-in-time snapshot creation.
-* [**Theming & Customization**](theming-and-customization.md): Configuring themes, keybindings, layout presets, and custom alert thresholds via TOML.
-
-### 🏗️ Engineering & Architecture
-* [**System Architecture**](architecture.md): Deep dive into memory management, double-buffered frame arenas, Struct-of-Arrays (SoA) process tables, and concurrency model.
-* [**Platform Internals**](platform-internals.md): Low-level operating system APIs (Windows NT syscalls, Linux `/proc`/`/sys`, macOS Mach/sysctl), GPU discovery, and rootless telemetry.
-* [**Alerts & Diagnostics Engine**](alerts-and-diagnostics.md): Deterministic root-cause analysis, anomaly detection, and explainable health score algorithms.
-* [**Contributing Guide**](contributing.md): Setup Zig 0.15+ development environment, coding standards, test suite, and submitting pull requests.
+```
+docs/
+├── getting-started.md            # Installation, prerequisites, and first-run guide
+├── user-manual.md                # Interactive TUI guide, panels, and navigation
+├── cli-reference.md              # CLI subcommands, flags, exit codes, and JSON API
+├── architecture.md               # Systems architecture, memory model, and rendering engine
+├── platform-internals.md         # Low-level kernel probes (Windows, Linux, macOS)
+├── alerts-and-diagnostics.md     # Health scoring algorithm, heuristics, and anomaly engine
+├── theming-and-customization.md  # 24-bit TrueColor palettes, themes, and configuration
+├── contributing.md               # Developer setup, coding invariants, and PR workflow
+└── troubleshooting.md            # Terminal rendering, code pages, permissions, and FAQ
+```
 
 ---
 
-## 🎯 Core Product Mission
+## ⚡ Key Architectural Tenets
 
-Zyphor bridges the gap between raw terminal monitors and full-scale enterprise observability agents. Instead of running 5 separate utilities (`htop` + `iotop` + `iftop` + `nvtop` + `dstat`), Zyphor provides a unified, zero-overhead observatory that answers:
+### 1. Zero Runtime Allocations
+Zyphor utilizes a **double-buffered scratch arena** for frame-by-frame telemetry collection. The arena memory is pre-reserved during startup and reset with `.retain_capacity` on each tick. This guarantees zero heap fragmentation, zero memory leaks, and zero garbage collection pauses.
 
-1. **What is happening?** (Instant macro health)
-2. **Which subsystem is affected?** (CPU, Memory, Disk, Network, GPU, Thermals)
-3. **Which process is responsible?** (Aggregated process trees and resource consumption)
-4. **Why is it happening?** (Rule-based diagnostic explanation)
-5. **What can be done?** (Safe, immediate remediation)
+### 2. Differential ANSI Rendering Matrix
+Rather than repainting the entire terminal grid every frame, Zyphor's presentation engine computes a cell-level diff between the previous and current frame buffers. Only modified cells trigger ANSI cursor repositioning and SGR escape sequences, reducing terminal I/O latency to microsecond thresholds.
+
+### 3. Native Kernel Telemetry
+Zyphor bypasses heavy userspace abstraction layers and talks directly to native kernel APIs:
+* **Windows:** `NtQuerySystemInformation`, `Toolhelp32`, `GlobalMemoryStatusEx`, `GetDiskFreeSpaceExW`, DXGI/Direct3D 12.
+* **Linux:** Direct `/proc` and `/sys` single-buffer parsers, `netlink` route sockets, sysfs DRM telemetry.
+* **macOS:** Mach kernel host statistics, `proc_pidinfo`, `sysctlbyname`, IOKit/Metal sensors.
+
+### 4. Explainable Diagnostics
+Zyphor introduces a continuous **0–100 System Health Score** backed by deterministic root-cause analysis. It correlates multi-variate telemetry signals (CPU scheduler pressure, page faults, swap thrashing, disk queue depths, and network dropped packets) to identify system bottlenecks before catastrophic failure occurs.
+
+---
+
+## 🚀 Quick Links for New Users
+
+* **Ready to install?** Read the [Getting Started Guide](getting-started.md).
+* **Want to learn interactive controls?** Explore the [User Manual](user-manual.md).
+* **Building automated scripts or CI checks?** Check the [CLI Reference](cli-reference.md).
+* **Curious about internal systems engineering?** Read the [Systems Architecture](architecture.md).
+* **Encountering terminal or permission quirks?** Consult [Troubleshooting & FAQ](troubleshooting.md).

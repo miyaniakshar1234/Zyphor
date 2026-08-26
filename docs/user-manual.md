@@ -1,117 +1,123 @@
 # Zyphor Comprehensive User Manual
 
-The User Manual details all operational features, dashboard views, process inspection workflows, and diagnostic tools available in Zyphor.
+The **Zyphor User Manual** provides an exhaustive reference for operating the interactive Terminal User Interface (TUI), navigating dashboard panels, inspecting process lineage trees, managing processes defensively, and interpreting real-time telemetry graphs.
 
 ---
 
-## 🖥️ Dashboard Views & Panels
+## 🖥️ User Interface Anatomy
 
-Zyphor is organized into five primary panels accessible via <kbd>Tab</kbd> or numeric shortcuts (<kbd>1</kbd>–<kbd>5</kbd>).
+When launched in full interactive mode (`zyphor`), the screen is divided into 4 primary visual zones:
 
-### 1. Overview Panel (<kbd>1</kbd>)
-The default bird's-eye view of your machine's health and activity:
-
-* **System Health Badge:** Real-time health score from `0` (Critical failure) to `100` (Optimal health), computed via multi-factor subsystem analysis.
-* **CPU Core Grid:** Live utilization gauges for aggregate CPU and individual logical cores, current clock frequency, and package temperature.
-* **Memory Breakdown:** Real-time visual bar of Physical RAM (Used, Free, Cached, Available) and Swap / Pagefile pressure.
-* **Network & Disk Throughput:** Live read/write and download/upload speedometers with micro sparklines.
-* **Top Resource Consumers:** Live ranking of the highest CPU- and memory-consuming processes.
-
----
-
-### 2. Process Explorer & Tree Panel (<kbd>2</kbd>)
-
-The Process Explorer provides two complementary viewing modes:
-
-#### A. Flat Table Mode
-A high-density tabular view showing:
-* **PID:** Process Identifier
-* **PPID:** Parent Process Identifier
-* **Name / Command:** Executable name or truncated command line
-* **CPU%:** Normalized CPU consumption percentage
-* **RAM / RSS:** Resident Set Size in human-readable bytes (MB/GB)
-* **Disk R/W:** Active disk read/write bandwidth
-* **Network I/O:** Current network throughput
-* **Threads:** Number of active threads spawned by the process
-* **User:** Owning username or UID
-
-#### B. Hierarchical Tree Mode (<kbd>t</kbd>)
-Renders the complete process lineage (e.g. `init` -> `systemd` -> `sshd` -> `bash` -> `vim`):
-* Subtrees can be expanded and collapsed with <kbd>Space</kbd> or <kbd>Enter</kbd>.
-* Aggregated resource rollups sum child CPU and memory into the parent branch.
+```text
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ 1. Header Bar: Logo, Version, Title, and System Health Score Badge             │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 2. Tab Navigation Bar: Active Panel Indicator & Section Switcher (1 - 5)        │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│ 3. Main Viewport: Context-specific subsystem visualization & data matrices      │
+│    (Overview 4-Quadrant, Process Explorer, Storage, Network, Diagnostics)       │
+│                                                                                 │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│ 4. Status & Context Bar: Hotkey hints, dynamic status alerts, search status     │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### 3. Deep Process Inspector (<kbd>Enter</kbd> on any process)
-Pressing <kbd>Enter</kbd> opens a dedicated overlay with deep metadata:
+## 🎛️ Navigation & Global Shortcuts
 
-1. **General:** PID, PPID, executable path, start timestamp, uptime, running user, state (Running, Sleeping, Zombie, Stopped).
-2. **CPU Affinity & Threads:** Individual thread IDs, thread states, thread CPU time, core affinity masks.
-3. **Memory Details:** Virtual memory size, Resident Set Size (RSS), Shared memory, Private memory, Page fault counters.
-4. **Open File Descriptors & Handles:** Open files, sockets, and pipes held by the process.
-5. **Network Sockets:** Local address/port, remote address/port, protocol (TCP/UDP), socket state (`ESTABLISHED`, `LISTEN`).
+Zyphor supports standard terminal arrow keys, numerical hotkeys, and full **Vim-style navigation** (`h`, `j`, `k`, `l`, `g`, `G`):
 
----
-
-### 4. Storage & Filesystem Panel (<kbd>3</kbd>)
-* Lists all mounted partitions, physical drives, filesystem types (`ext4`, `btrfs`, `NTFS`, `APFS`, `ZFS`).
-* Displays total, used, and free capacity with color-coded capacity thresholds (Green < 75%, Yellow < 90%, Red >= 90%).
-* Real-time read/write IOPS and throughput meters.
-
----
-
-### 5. Network Explorer Panel (<kbd>4</kbd>)
-* Per-interface metrics: Wi-Fi, Ethernet, VPN, Loopback, Docker/Virtual bridges.
-* Real-time RX/TX rates, total transferred bytes, packet error counters, dropped packet telemetry.
-* Socket connection mapping: Identifies which process is communicating with specific remote IPs.
+| Key | Action | Description |
+| :--- | :---: | :--- |
+| <kbd>Tab</kbd> | Next Tab | Advances viewport to next subsystem tab (wraps around). |
+| <kbd>Shift+Tab</kbd> | Prev Tab | Moves viewport to previous subsystem tab. |
+| <kbd>1</kbd> | Overview | Directly selects Tab 1: 4-Quadrant Overview. |
+| <kbd>2</kbd> | Processes | Directly selects Tab 2: Process Explorer & Lineage Tree. |
+| <kbd>3</kbd> | Storage | Directly selects Tab 3: Filesystem & Disk I/O. |
+| <kbd>4</kbd> | Network | Directly selects Tab 4: Network Adapters & Bandwidth. |
+| <kbd>5</kbd> | Diagnostics | Directly selects Tab 5: System Health & Anomaly Rules. |
+| <kbd>Space</kbd> | Pause/Resume | Toggles freeze mode on live telemetry sampling. |
+| <kbd>T</kbd> | Cycle Theme | Cycles through 7 built-in 24-bit TrueColor palettes. |
+| <kbd>?</kbd> | Help Modal | Opens full keyboard shortcut overlay. |
+| <kbd>q</kbd> / <kbd>Ctrl+C</kbd> | Exit | Restores terminal cursor and exits cleanly. |
 
 ---
 
-### 6. Diagnostics & Alerts Panel (<kbd>5</kbd>)
-* **Active Alerts:** Triggered system alerts (e.g., *“High Memory Pressure detected: Swap usage > 15% and RAM > 90%”*).
-* **Diagnostic Explanations:** Plain-English explanations of system bottlenecks and recommended user remediation.
-* **Timeline Log:** Chronological log of recent significant system events (process spikes, service launches, anomalous behavior).
+## 📑 Viewport Tab Reference
+
+### Tab 1: Overview Dashboard (4-Quadrant Grid)
+
+The Overview panel provides an instantaneous holistic health snapshot split across 4 quadrants:
+
+#### Top-Left: CPU Subsystem
+* **Aggregated Load Meter:** Gradient gauge (`[████░░░░]`) dynamically shifting from emerald green (< 60%) to amber (60–85%) to crimson (> 85%).
+* **Clock Frequency & Topology:** Displays active clock speed (MHz), logical core count, and detected processor microarchitecture.
+* **Double-Row Sparkline:** 120-sample rolling history graph using Unicode block glyphs (` ▂▃▄▅▆▇█`) for sub-second trend visualization.
+* **Per-Core Mini Grid:** Individual bar meters for every logical core (`C0` through `C27+`) enabling immediate detection of single-threaded bottlenecks.
+
+#### Top-Right: Memory Subsystem
+* **Physical RAM Meter:** Real-time Used vs Total capacity in gigabytes with fine-grained percentage.
+* **Swap/Pagefile Meter:** Virtual memory utilization and thrashing indicators.
+* **Memory Pressure Indicator:** Kernel pressure state classified into `LOW (Healthy)`, `MEDIUM (Moderate)`, `HIGH (Contention)`, or `CRITICAL (Thrashing)`.
+* **Rolling Memory Sparkline:** 120-sample trend of memory footprint changes.
+
+#### Bottom-Left: GPU Subsystem
+* **Discrete / Integrated GPU Name:** Direct3D 12 / Metal / NVML device detection.
+* **Core Utilization %:** Compute engine load.
+* **VRAM Residency:** Dedicated video memory allocation (e.g., `2.3 / 8.0 GB`).
+
+#### Bottom-Right: Network Subsystem
+* **Aggregate Throughput:** Real-time download (`↓ RX`) and upload (`↑ TX`) throughput in megabytes per second.
+* **Active Interfaces List:** IP address mapping and link status (`● UP` / `○ DOWN`).
 
 ---
 
-## ⌨️ Complete Keybindings Reference
+### Tab 2: Process Explorer & Lineage Tree
 
-### Global Navigation
-| Key | Action |
-| :--- | :--- |
-| <kbd>Tab</kbd> | Switch to next panel |
-| <kbd>Shift + Tab</kbd> | Switch to previous panel |
-| <kbd>1</kbd> – <kbd>5</kbd> | Jump directly to panel (1: Overview, 2: Processes, 3: Storage, 4: Network, 5: Diagnostics) |
-| <kbd>?</kbd> | Toggle in-app help modal |
-| <kbd>q</kbd> or <kbd>Ctrl + C</kbd> | Quit application |
-| <kbd>T</kbd> | Cycle color themes (Midnight -> Cyber -> Aurora -> Nord -> Solarized -> High Contrast) |
-| <kbd>Space</kbd> | Pause / Resume real-time metric sampling |
-| <kbd>r</kbd> | Force instant screen refresh |
+The Process Explorer provides deep inspection of active OS tasks with millisecond-accurate CPU and memory accounting:
 
-### Process Table Controls
-| Key | Action |
-| :--- | :--- |
-| <kbd>↑</kbd> / <kbd>k</kbd> | Move selection up |
-| <kbd>↓</kbd> / <kbd>j</kbd> | Move selection down |
-| <kbd>Page Up</kbd> / <kbd>Ctrl + U</kbd> | Scroll up one page |
-| <kbd>Page Down</kbd> / <kbd>Ctrl + D</kbd> | Scroll down one page |
-| <kbd>Home</kbd> / <kbd>g</kbd> | Jump to first process |
-| <kbd>End</kbd> / <kbd>G</kbd> | Jump to last process |
-| <kbd>t</kbd> | Toggle Process Tree view |
-| <kbd>/</kbd> | Open live fuzzy search filter |
-| <kbd>Esc</kbd> | Clear search filter or close modal |
-| <kbd>c</kbd> | Sort table by CPU % |
-| <kbd>m</kbd> | Sort table by Memory (RSS) |
-| <kbd>p</kbd> | Sort table by PID |
-| <kbd>n</kbd> | Sort table by Process Name |
-| <kbd>s</kbd> | Suspend selected process (`SIGSTOP` / `NtSuspendProcess`) |
-| <kbd>u</kbd> | Resume selected process (`SIGCONT` / `NtResumeProcess`) |
-| <kbd>x</kbd> or <kbd>k</kbd> | Terminate / Kill selected process (prompts confirmation) |
+#### Process Navigation & Sorting
+| Key | Sort Mode | Description |
+| :---: | :--- | :--- |
+| <kbd>c</kbd> | Sort by CPU% | Orders processes by descending CPU usage. |
+| <kbd>m</kbd> | Sort by Memory | Orders processes by descending Resident Set Size (RSS). |
+| <kbd>p</kbd> | Sort by PID | Orders processes ascending by Process ID. |
+| <kbd>n</kbd> | Sort by Name | Orders processes alphabetically A–Z. |
+| <kbd>↑</kbd> / <kbd>↓</kbd> or <kbd>j</kbd> / <kbd>k</kbd> | Navigate Rows | Moves selected row cursor (`▶`). |
+| <kbd>PgUp</kbd> / <kbd>PgDn</kbd> | Page Scroll | Jumps viewport by half a screen page. |
+| <kbd>Home</kbd> / <kbd>End</kbd> or <kbd>g</kbd> / <kbd>G</kbd> | Jump Bounds | Immediately jumps to top or bottom of process table. |
+
+#### Process Tree Mode (<kbd>t</kbd>)
+Pressing <kbd>t</kbd> toggles the **Hierarchical Process Lineage Tree**. Instead of a flat list, processes are displayed with tree branch characters (`├─`, `└─`) showing parent-child relationships (PPID to PID). This makes it trivial to spot runaway sub-processes spawned by browsers, build tools, or container runtimes.
+
+#### Defensive Process Management (<kbd>x</kbd>, <kbd>s</kbd>, <kbd>u</kbd>)
+* **Kill Process (<kbd>x</kbd>):** Dispatches termination signal (`SIGTERM` / `TerminateProcess`) to the selected PID.
+* **Suspend Process (<kbd>s</kbd>):** Sends `SIGSTOP` / `NtSuspendProcess` to pause execution without losing process memory state.
+* **Resume Process (<kbd>u</kbd>):** Sends `SIGCONT` / `NtResumeProcess` to resume execution.
 
 ---
 
-## 🖱️ Mouse Support
-Where supported by your terminal emulator:
-* **Click on Tab Headers:** Switch active panel.
-* **Click on Process Row:** Select process for inspection.
-* **Mouse Wheel:** Scroll process tables and diagnostic timelines.
+### Tab 3: Storage & Filesystems
+
+The Storage view monitors physical drives, partitions, and live I/O throughput:
+* **Live Disk I/O Rates:** Real-time aggregate Read and Write bandwidth in MB/s.
+* **Partition Table:** Mount point (e.g., `C:\`, `/`, `/data`), filesystem type (NTFS, ext4, APFS, btrfs, ZFS), used vs total gigabytes, and individual capacity gauge bars.
+
+---
+
+### Tab 4: Network Adapters & Throughput
+
+The Network view provides interface-level telemetry:
+* **Aggregate Bandwidth Gauges:** Scaled visual gauges for total RX/TX bandwidth.
+* **Interface Detail Table:** Interface identifier, IPv4/IPv6 binding, RX/TX transfer speed, and link operational state.
+
+---
+
+### Tab 5: System Health & Diagnostics
+
+The Diagnostics view surfaces Zyphor's explainable root-cause diagnostic engine:
+* **Overall Health Score (0–100):** Objective multi-factor assessment of system operational stability.
+* **Subsystem Breakdown Scores:** Individual scores for CPU, Memory, Storage, Network, and Thermals.
+* **Active Diagnostic Alerts:** List of fired heuristic rules (e.g., `[CRITICAL] Memory Pressure Exceeds Threshold`, `[WARNING] Storage Capacity > 85%`) with human-readable explanations.
