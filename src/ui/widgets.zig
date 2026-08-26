@@ -16,6 +16,7 @@ pub const Tab = enum {
     disks,
     network,
     diagnostics,
+    services,
 
     pub fn label(self: Tab) []const u8 {
         return switch (self) {
@@ -24,6 +25,7 @@ pub const Tab = enum {
             .disks => "Storage",
             .network => "Network",
             .diagnostics => "Health & Alerts",
+            .services => "Services",
         };
     }
 
@@ -34,6 +36,7 @@ pub const Tab = enum {
             .disks => "⬢ ",
             .network => "◉ ",
             .diagnostics => "❤ ",
+            .services => "⛯ ",
         };
     }
 };
@@ -104,7 +107,7 @@ pub fn renderTabs(
     const w = buf.width;
     buf.fillRow(2, theme.muted, theme.tab_bg);
 
-    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics };
+    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics, .services };
     var cx: u16 = 1;
 
     for (tabs, 0..) |tab, idx| {
@@ -1080,13 +1083,116 @@ pub fn renderStatusBar(
         return;
     }
 
-    const hints = " [Tab] Tab | [1-5] Jump | [t] Tree | [c] CPU | [m] Mem | [/] Search | [Enter] Inspect | [x] Kill | [T] Theme | [?] Help | [q] Quit";
+    const hints = " [Tab] Tab | [1-6] Jump | [t] Tree | [c] CPU | [m] Mem | [/] Search | [Enter] Inspect | [x] Kill | [T] Theme | [?] Help | [q] Quit";
     buf.writeString(0, y, hints[0..@min(hints.len, w - 1)], theme.muted, theme.tab_bg, false);
 
     if (status_text.len > 0) {
         const offset = w -| @as(u16, @intCast(status_text.len + 3));
         buf.writeString(offset, y, status_text, theme.warning, theme.tab_bg, true);
     }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICES & DAEMONS PANEL (Tab 6 - PRD §23)
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub fn renderServicesPanel(
+    buf: *ScreenBuffer,
+    services: []const types.SystemService,
+    selected_idx: usize,
+    theme: *const Theme,
+    plain: bool,
+    search_query: ?[]const u8,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+    if (w < 40 or h < 8) return;
+
+    const panel_y: u16 = 4;
+    const panel_h = h - panel_y - 2;
+
+    var title_buf: [64]u8 = undefined;
+    const title = if (search_query) |q|
+        std.fmt.bufPrint(&title_buf, " System Services (Filter: \"{s}\") [Esc: Clear] ", .{q}) catch " Services & Daemons "
+    else
+        " System Services & Background Daemons (PRD §23) ";
+
+    buf.drawBox(1, panel_y, w - 2, panel_h, title, theme.border, theme.accent, theme.bg, plain);
+
+    var run_count: usize = 0;
+    var stop_count: usize = 0;
+    for (services) |srv| {
+        if (srv.status == .running) run_count += 1 else stop_count += 1;
+    }
+
+    var sum_buf: [128]u8 = undefined;
+    const sum_str = std.fmt.bufPrint(&sum_buf, " Total Services: {d} | Active: {d} | Inactive: {d} | Telemetry State: ONLINE ", .{
+        services.len, run_count, stop_count,
+    }) catch "";
+    buf.writeString(3, panel_y + 1, sum_str, theme.header, theme.bg, true);
+    graphs.renderSeparator(buf, 2, panel_y + 2, w - 4, theme.border, theme.bg, plain);
+
+    // Column header bar
+    const hdr_y = panel_y + 3;
+    buf.fillRow(hdr_y, theme.header, theme.selected);
+    const hdr = "  SERVICE NAME        STATUS         STARTUP TYPE     DISPLAY NAME / DESCRIPTION";
+    buf.writeString(1, hdr_y, hdr[0..@min(hdr.len, w - 3)], theme.header, theme.selected, true);
+    graphs.renderSeparator(buf, 1, hdr_y + 1, w - 2, theme.border, theme.bg, plain);
+
+    const visible_y_start = hdr_y + 2;
+    const visible_rows = h - visible_y_start - 2;
+    var r: usize = 0;
+
+    while (r < visible_rows and r < services.len) : (r += 1) {
+        const srv = services[r];
+        const row_y = visible_y_start + @as(u16, @intCast(r));
+        const is_selected = (r == selected_idx);
+
+        const row_bg = if (is_selected)
+            theme.selected
+        else if (r % 2 == 0)
+            theme.bg
+        else
+            Color.rgb(
+                @intCast(@min(255, @as(u16, theme.bg.r) + 6)),
+                @intCast(@min(255, @as(u16, theme.bg.g) + 6)),
+                @intCast(@min(255, @as(u16, theme.bg.b) + 6)),
+            );
+
+        // Fill row background
+        var col: u16 = 2;
+        while (col < w - 2) : (col += 1) {
+            buf.setCell(col, row_y, " ", theme.fg, row_bg, false);
+        }
+
+        if (is_selected) {
+            buf.setCell(2, row_y, "▶", theme.accent, row_bg, true);
+        }
+
+        // Service name
+        buf.writeString(4, row_y, srv.getName()[0..@min(srv.getName().len, 18)], if (is_selected) theme.accent else theme.fg, row_bg, is_selected);
+
+        // Status
+        const st_color = if (srv.status == .running) theme.success else theme.warning;
+        const st_text = if (srv.status == .running) "● RUNNING" else "○ STOPPED";
+        buf.writeString(24, row_y, st_text, st_color, row_bg, true);
+
+        // Startup Type
+        buf.writeString(39, row_y, srv.getStartupType()[0..@min(srv.getStartupType().len, 14)], theme.secondary, row_bg, false);
+
+        // Display Name
+        if (w > 58) {
+            buf.writeString(56, row_y, srv.getDisplayName()[0..@min(srv.getDisplayName().len, w - 58)], theme.muted, row_bg, false);
+        }
+    }
+
+    // Scroll footer
+    var scroll_buf: [80]u8 = undefined;
+    const scroll_str = std.fmt.bufPrint(&scroll_buf, " {d}/{d} services | ↑↓ Scroll | /: Search filter ", .{
+        if (services.len > 0) selected_idx + 1 else 0,
+        services.len,
+    }) catch "";
+    buf.writeString(3, panel_y + panel_h - 1, scroll_str, theme.muted, theme.bg, false);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1110,9 +1216,9 @@ pub fn renderHelpModal(
     buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " Keyboard Shortcuts & Navigation ", theme.accent, theme.accent, theme.bg, plain);
 
     const bindings = [_][2][]const u8{
-        .{ "Tab / Shift+Tab", "Cycle forward / backward across 5 subsystem tabs" },
-        .{ "1 / 2 / 3 / 4 / 5", "Directly jump to Overview / Processes / Disk / Net / Health" },
-        .{ "↑ ↓ / j k", "Navigate highlighted row in process list" },
+        .{ "Tab / Shift+Tab", "Cycle forward / backward across 6 observatory tabs" },
+        .{ "1 / 2 / 3 / 4 / 5 / 6", "Jump to Overview / Process / Disk / Net / Health / Services" },
+        .{ "↑ ↓ / j k", "Navigate highlighted row in process/service list" },
         .{ "Enter", "Open deep process inspector modal with metrics" },
         .{ "/", "Open live interactive search filter" },
         .{ "t", "Toggle hierarchical process lineage tree mode" },
@@ -1121,8 +1227,8 @@ pub fn renderHelpModal(
         .{ "s / u", "Suspend (SIGSTOP) / Resume (SIGCONT) process" },
         .{ "Space", "Freeze / unfreeze live telemetry sampling" },
         .{ "T", "Cycle 10 built-in 24-bit TrueColor themes" },
-        .{ "PgUp / PgDn", "Scroll process list by half page" },
-        .{ "Home / End / g / G", "Jump directly to top / bottom of process list" },
+        .{ "PgUp / PgDn", "Scroll table list by half page" },
+        .{ "Home / End / g / G", "Jump directly to top / bottom of list" },
         .{ "?", "Toggle this shortcuts guide" },
         .{ "q / Ctrl+C", "Restore console and exit cleanly" },
     };

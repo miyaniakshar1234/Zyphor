@@ -108,6 +108,9 @@ pub const App = struct {
                 .diagnostics => {
                     widgets.renderDiagnosticsPanel(&self.buffer, &snapshot.health, self.engine.alert_engine.alerts.items, &self.theme, self.plain_mode);
                 },
+                .services => {
+                    widgets.renderServicesPanel(&self.buffer, snapshot.services, self.selected_proc_idx, &self.theme, self.plain_mode, current_search);
+                },
             }
 
             if (self.is_paused) {
@@ -265,6 +268,7 @@ pub const App = struct {
                         '3' => self.active_tab = .disks,
                         '4' => self.active_tab = .network,
                         '5' => self.active_tab = .diagnostics,
+                        '6' => self.active_tab = .services,
                         'c' => {
                             try self.engine.process_mgr.setSort(.cpu, .descending);
                             self.setStatus("Sort: CPU% descending");
@@ -308,17 +312,19 @@ pub const App = struct {
                             .processes   => .disks,
                             .disks       => .network,
                             .network     => .diagnostics,
-                            .diagnostics => .overview,
+                            .diagnostics => .services,
+                            .services    => .overview,
                         };
                         self.selected_proc_idx = 0;
                     },
                     .shift_tab => {
                         self.active_tab = switch (self.active_tab) {
-                            .overview    => .diagnostics,
+                            .overview    => .services,
                             .processes   => .overview,
                             .disks       => .processes,
                             .network     => .disks,
                             .diagnostics => .network,
+                            .services    => .diagnostics,
                         };
                     },
                     .down => {
