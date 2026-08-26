@@ -4,29 +4,49 @@ const theme_mod = @import("theme.zig");
 const ScreenBuffer = buffer_mod.ScreenBuffer;
 const Color = theme_mod.Color;
 
-/// Returns a color gradient: green at 0%, yellow at 60%, red at 85%+
+/// Returns a color gradient: emerald green at 0%, amber at 60%, crimson red at 85%+
 pub fn percentColor(pct: f32) Color {
     const p = std.math.clamp(pct, 0.0, 100.0);
-    if (p < 60.0) {
-        // Green -> Yellow: interpolate g from 185 to 220, r from 63 to 220
-        const t = p / 60.0;
-        const r = @as(u8, @intFromFloat(63.0 + t * 157.0));
-        const g = @as(u8, @intFromFloat(185.0 + t * 35.0));
-        return Color.rgb(r, g, 80 - @as(u8, @intFromFloat(t * 60.0)));
-    } else if (p < 85.0) {
-        // Yellow -> Orange
-        const t = (p - 60.0) / 25.0;
-        const r = @as(u8, @intFromFloat(220.0 + t * 28.0));
-        const g = @as(u8, @intFromFloat(210.0 - t * 110.0));
-        return Color.rgb(r, g, 0);
+    if (p < 50.0) {
+        // Green (63, 185, 80) -> Yellow-Green (120, 205, 60)
+        const t = p / 50.0;
+        const r = @as(u8, @intFromFloat(63.0 + t * 57.0));
+        const g = @as(u8, @intFromFloat(185.0 + t * 20.0));
+        const b = @as(u8, @intFromFloat(80.0 - t * 20.0));
+        return Color.rgb(r, g, b);
+    } else if (p < 75.0) {
+        // Yellow-Green -> Amber (240, 180, 0)
+        const t = (p - 50.0) / 25.0;
+        const r = @as(u8, @intFromFloat(120.0 + t * 120.0));
+        const g = @as(u8, @intFromFloat(205.0 - t * 25.0));
+        const b = @as(u8, @intFromFloat(60.0 - t * 60.0));
+        return Color.rgb(r, g, b);
+    } else if (p < 90.0) {
+        // Amber -> Orange-Red (250, 90, 30)
+        const t = (p - 75.0) / 15.0;
+        const r = @as(u8, @intFromFloat(240.0 + t * 10.0));
+        const g = @as(u8, @intFromFloat(180.0 - t * 90.0));
+        const b = @as(u8, @intFromFloat(t * 30.0));
+        return Color.rgb(r, g, b);
     } else {
-        // Orange -> Red
-        const t = @min((p - 85.0) / 15.0, 1.0);
-        const r = @as(u8, @intFromFloat(248.0));
-        const g = @as(u8, @intFromFloat(100.0 - t * 100.0));
-        return Color.rgb(r, g, @as(u8, @intFromFloat(t * 30.0)));
+        // Crimson Red (255, 45, 55)
+        const t = @min((p - 90.0) / 10.0, 1.0);
+        const r = @as(u8, @intFromFloat(250.0 + t * 5.0));
+        const g = @as(u8, @intFromFloat(90.0 - t * 45.0));
+        const b = @as(u8, @intFromFloat(30.0 + t * 25.0));
+        return Color.rgb(r, g, b);
     }
 }
+
+/// Smooth quarter-fraction sub-cell block characters
+const FRACTION_BLOCKS = [_][]const u8{
+    " ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█",
+};
+
+/// High-resolution braille 8-level column glyphs
+const BRAILLE_LEVELS = [_][]const u8{
+    " ", "⣀", "⣤", "⣶", "⣷", "⣿",
+};
 
 /// Render a full-color gradient gauge bar: [████░░░░░] with % label
 pub fn renderGaugeBar(
@@ -35,7 +55,7 @@ pub fn renderGaugeBar(
     y: u16,
     width: u16,
     percent: f32,
-    _fill_color: Color, // ignored — now gradient-based
+    _fill_color: Color,
     muted_fg: Color,
     bg: Color,
     plain: bool,
@@ -46,29 +66,41 @@ pub fn renderGaugeBar(
     const p = std.math.clamp(percent, 0.0, 100.0);
     const fill_color = percentColor(p);
 
-    // Reserve 6 chars for " XX.X%" label on right
-    const bar_width = if (width > 8) width - 7 else width - 2;
-    const filled = @as(u16, @intFromFloat(p / 100.0 * @as(f32, @floatFromInt(bar_width))));
+    // Reserve space for " XX.X%" label on right if wide enough
+    const has_label = (width > 9);
+    const bar_width = if (has_label) width - 7 else width - 2;
+    const total_substeps = @as(f32, @floatFromInt(bar_width)) * 8.0;
+    const filled_substeps = @as(u32, @intFromFloat(p / 100.0 * total_substeps));
 
     buf.setCell(x, y, "[", muted_fg, bg, false);
+
     var i: u16 = 0;
     while (i < bar_width) : (i += 1) {
         const cx = x + 1 + i;
-        if (i < filled) {
-            // Gradient: full blocks shift color as they approach the fill end
-            const local_pct = @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(bar_width)) * 100.0;
-            const block_color = percentColor(local_pct);
+        const cell_start = @as(u32, i) * 8;
+        const local_pct = @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(bar_width)) * 100.0;
+        const block_color = percentColor(local_pct);
+
+        if (filled_substeps >= cell_start + 8) {
+            // Full block
             const fill = if (plain) "#" else "█";
             buf.setCell(cx, y, fill, block_color, bg, false);
+        } else if (filled_substeps > cell_start) {
+            // Fractional block
+            const fraction = filled_substeps - cell_start;
+            const frac_char = if (plain) "#" else FRACTION_BLOCKS[fraction];
+            buf.setCell(cx, y, frac_char, block_color, bg, false);
         } else {
+            // Empty background
             const empty = if (plain) "." else "░";
             buf.setCell(cx, y, empty, muted_fg, bg, false);
         }
     }
+
     buf.setCell(x + 1 + bar_width, y, "]", muted_fg, bg, false);
 
     // Percentage label
-    if (width > 8) {
+    if (has_label) {
         var label_buf: [7]u8 = undefined;
         const label = std.fmt.bufPrint(&label_buf, " {d:>4.1}%", .{p}) catch " ???%";
         buf.writeString(x + 2 + bar_width, y, label, fill_color, bg, true);
@@ -88,22 +120,28 @@ pub fn renderMiniBar(
     if (width < 2) return;
     const p = std.math.clamp(percent, 0.0, 100.0);
     const fill_color = percentColor(p);
-    const muted = Color.rgb(60, 65, 72);
-    const filled = @as(u16, @intFromFloat(p / 100.0 * @as(f32, @floatFromInt(width))));
+    const muted = Color.rgb(45, 55, 68);
+    const total_substeps = @as(f32, @floatFromInt(width)) * 8.0;
+    const filled_substeps = @as(u32, @intFromFloat(p / 100.0 * total_substeps));
 
     var i: u16 = 0;
     while (i < width) : (i += 1) {
-        if (i < filled) {
+        const cell_start = @as(u32, i) * 8;
+        if (filled_substeps >= cell_start + 8) {
             const fill = if (plain) "#" else "█";
             buf.setCell(x + i, y, fill, fill_color, bg, false);
+        } else if (filled_substeps > cell_start) {
+            const fraction = filled_substeps - cell_start;
+            const frac_char = if (plain) "#" else FRACTION_BLOCKS[fraction];
+            buf.setCell(x + i, y, frac_char, fill_color, bg, false);
         } else {
-            const empty = if (plain) "." else "▁";
+            const empty = if (plain) "." else "░";
             buf.setCell(x + i, y, empty, muted, bg, false);
         }
     }
 }
 
-/// Render a block sparkline history graph with a color gradient bottom line
+/// Render a block sparkline history graph
 pub fn renderSparkline(
     buf: *ScreenBuffer,
     x: u16,
@@ -117,7 +155,7 @@ pub fn renderSparkline(
     _ = _fg;
     if (width == 0 or history.len == 0) return;
 
-    const blocks = [_][]const u8{ " ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" };
+    const blocks = [_][]const u8{ " ", " ", "▂", "▃", "▄", "▅", "▆", "▇", "█" };
     const ascii_blocks = [_][]const u8{ " ", ".", "-", "-", "=", "=", "#", "#", "!" };
 
     const count = @min(@as(usize, width), history.len);
@@ -135,7 +173,7 @@ pub fn renderSparkline(
     }
 }
 
-/// Two-row sparkline for a taller graph section
+/// Two-row sparkline for taller graph sections with smooth vertical graduation
 pub fn renderSparklineDouble(
     buf: *ScreenBuffer,
     x: u16,
@@ -147,8 +185,8 @@ pub fn renderSparklineDouble(
 ) void {
     if (width == 0 or history.len == 0) return;
 
-    const blocks_top = [_][]const u8{ " ", " ", " ", " ", "▄", "▄", "▄", "█", "█" };
-    const blocks_bot = [_][]const u8{ " ", "▄", "▄", "▄", "█", "█", "█", "█", "█" };
+    const blocks_top = [_][]const u8{ " ", " ", " ", " ", " ", "▄", "▅", "▆", "█" };
+    const blocks_bot = [_][]const u8{ " ", "▂", "▃", "▄", "█", "█", "█", "█", "█" };
 
     const count = @min(@as(usize, width), history.len);
     const start = if (history.len > count) history.len - count else 0;
@@ -159,17 +197,65 @@ pub fn renderSparklineDouble(
         const normalized = std.math.clamp(val / 100.0, 0.0, 1.0);
         const block_idx = @as(usize, @intFromFloat(normalized * 8.0));
         const col = percentColor(val);
-        const dark_col = Color.rgb(
-            @intCast(@max(0, @as(i16, col.r) - 40)),
-            @intCast(@max(0, @as(i16, col.g) - 40)),
-            @intCast(@max(0, @as(i16, col.b) - 40)),
-        );
+        const bot_col = col.darken(35);
 
-        const top_char = if (plain) (if (block_idx >= 4) "#" else " ") else blocks_top[block_idx];
-        const bot_char = if (plain) (if (block_idx >= 2) "=" else " ") else blocks_bot[block_idx];
+        const top_char = if (plain) (if (block_idx >= 5) "#" else " ") else blocks_top[block_idx];
+        const bot_char = if (plain) (if (block_idx >= 1) "=" else " ") else blocks_bot[block_idx];
 
         buf.setCell(x + @as(u16, @intCast(i)), y, top_char, col, bg, false);
-        buf.setCell(x + @as(u16, @intCast(i)), y + 1, bot_char, dark_col, bg, false);
+        buf.setCell(x + @as(u16, @intCast(i)), y + 1, bot_char, bot_col, bg, false);
+    }
+}
+
+/// Three-row braille-enhanced area waveform graph for dedicated panel views
+pub fn renderWaveformGraph(
+    buf: *ScreenBuffer,
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+    history: []const f32,
+    color_override: ?Color,
+    bg: Color,
+    plain: bool,
+) void {
+    if (width == 0 or height == 0 or history.len == 0) return;
+
+    const count = @min(@as(usize, width), history.len);
+    const start = if (history.len > count) history.len - count else 0;
+
+    var col: usize = 0;
+    while (col < count) : (col += 1) {
+        const val = history[start + col];
+        const col_fg = color_override orelse percentColor(val);
+
+        // Normalize across height rows (0 to height)
+        const total_steps = @as(f32, @floatFromInt(height)) * 8.0;
+        const filled_steps = (std.math.clamp(val, 0.0, 100.0) / 100.0) * total_steps;
+
+        var row: u16 = 0;
+        while (row < height) : (row += 1) {
+            // Inverted Y: row 0 is top, row (height-1) is bottom
+            const cell_y = y + (height - 1 - row);
+            const row_start = @as(f32, @floatFromInt(row)) * 8.0;
+
+            if (filled_steps >= row_start + 8.0) {
+                // Full block
+                const char = if (plain) "#" else "█";
+                const row_fg = if (row == height - 1) col_fg else col_fg.darken(@as(u8, @intCast((height - 1 - row) * 20)));
+                buf.setCell(x + @as(u16, @intCast(col)), cell_y, char, row_fg, bg, false);
+            } else if (filled_steps > row_start) {
+                // Partial block
+                const step = @as(usize, @intFromFloat(filled_steps - row_start));
+                const char = if (plain) "=" else FRACTION_BLOCKS[@min(step, 8)];
+                buf.setCell(x + @as(u16, @intCast(col)), cell_y, char, col_fg, bg, false);
+            } else {
+                // Empty cell
+                if (!plain) {
+                    buf.setCell(x + @as(u16, @intCast(col)), cell_y, " ", bg, bg, false);
+                }
+            }
+        }
     }
 }
 

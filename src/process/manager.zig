@@ -20,6 +20,8 @@ pub const ProcessManager = struct {
     filtered_indices: std.ArrayList(usize) = .empty,
     sort_field: SortField = .cpu,
     sort_order: SortOrder = .descending,
+    active_filter: [64]u8 = [_]u8{0} ** 64,
+    active_filter_len: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator) ProcessManager {
         return .{
@@ -32,26 +34,54 @@ pub const ProcessManager = struct {
         self.filtered_indices.deinit(self.allocator);
     }
 
+    pub fn setFilter(self: *ProcessManager, query: ?[]const u8) !void {
+        if (query) |q| {
+            const len = @min(q.len, self.active_filter.len);
+            @memcpy(self.active_filter[0..len], q[0..len]);
+            self.active_filter_len = len;
+        } else {
+            self.active_filter_len = 0;
+        }
+        try self.applyFilterAndSort();
+    }
+
+    pub fn getFilter(self: *const ProcessManager) ?[]const u8 {
+        if (self.active_filter_len == 0) return null;
+        return self.active_filter[0..self.active_filter_len];
+    }
+
     pub fn update(self: *ProcessManager, new_procs: []const types.ProcessInfo, filter_query: ?[]const u8) !void {
+        if (filter_query) |q| {
+            const len = @min(q.len, self.active_filter.len);
+            @memcpy(self.active_filter[0..len], q[0..len]);
+            self.active_filter_len = len;
+        }
         self.processes.clearRetainingCapacity();
         try self.processes.appendSlice(self.allocator, new_procs);
-        try self.applyFilterAndSort(filter_query);
+        try self.applyFilterAndSort();
     }
 
     pub fn setSort(self: *ProcessManager, field: SortField, order: SortOrder) !void {
         self.sort_field = field;
         self.sort_order = order;
-        try self.applyFilterAndSort(null);
+        try self.applyFilterAndSort();
     }
 
-    pub fn applyFilterAndSort(self: *ProcessManager, filter_query: ?[]const u8) !void {
+    pub fn applyFilterAndSort(self: *ProcessManager) !void {
         self.filtered_indices.clearRetainingCapacity();
+        const filter = self.getFilter();
 
         for (self.processes.items, 0..) |proc, idx| {
-            if (filter_query) |query| {
+            if (filter) |query| {
                 if (query.len > 0) {
                     const name = proc.getName();
-                    if (!containsIgnoreCase(name, query)) {
+                    var pid_buf: [16]u8 = undefined;
+                    const pid_str = std.fmt.bufPrint(&pid_buf, "{d}", .{proc.pid}) catch "";
+
+                    const name_matches = containsIgnoreCase(name, query);
+                    const pid_matches = containsIgnoreCase(pid_str, query);
+
+                    if (!name_matches and !pid_matches) {
                         continue;
                     }
                 }
