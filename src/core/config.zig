@@ -3,7 +3,7 @@ const std = @import("std");
 pub const Config = struct {
     refresh_rate_ms: u32 = 1000,
     theme_name: [32]u8 = defaultTheme(),
-    theme_name_len: usize = 8,
+    theme_name_len: usize = 9,
     enable_mouse: bool = true,
     plain_mode: bool = false,
     history_capacity: usize = 120, // 2 minutes at 1s intervals
@@ -20,7 +20,7 @@ pub const Config = struct {
 
     fn defaultTheme() [32]u8 {
         var buf = [_]u8{0} ** 32;
-        const name = "cyber";
+        const name = "anthropic";
         @memcpy(buf[0..name.len], name);
         return buf;
     }

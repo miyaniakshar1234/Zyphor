@@ -359,9 +359,6 @@ pub fn renderRadialDial(
     const radius = @as(f32, @floatFromInt(radius_chars)) * 4.0 / 2.0;
     const inner_radius = radius - thickness;
     
-    // Convert 0..100 to angle (start at top: 0, rotate clockwise)
-    // Wait, let's map 0% to -225 deg and 100% to +45 deg for a speedometer look?
-    // Let's just do 0 to 360 starting from 12 o'clock for now.
     const pct = std.math.clamp(percent, 0.0, 100.0) / 100.0;
     const end_angle = pct * std.math.pi * 2.0;
 
@@ -370,6 +367,7 @@ pub fn renderRadialDial(
         var col: u16 = 0;
         while (col < w) : (col += 1) {
             var dots: u8 = 0;
+            var track_dots: u8 = 0;
             var dy: u16 = 0;
             while (dy < 4) : (dy += 1) {
                 var dx: u16 = 0;
@@ -384,9 +382,9 @@ pub fn renderRadialDial(
                         if (angle <= end_angle) {
                             const dot_bit: u8 = @as(u8, 1) << @as(u3, @intCast(dx * 4 + dy));
                             dots |= dot_bit;
-                        } else if (dist <= radius and dist >= radius - 0.5) {
-                            // faint background track
-                            // we don't draw it for simplicity, maybe later
+                        } else if (dist >= radius - 1.0) {
+                            const dot_bit: u8 = @as(u8, 1) << @as(u3, @intCast(dx * 4 + dy));
+                            track_dots |= dot_bit;
                         }
                     }
                 }
@@ -406,6 +404,25 @@ pub fn renderRadialDial(
                 var utf8_buf: [4]u8 = undefined;
                 const len = std.unicode.utf8Encode(@as(u21, @intCast(braille)), &utf8_buf) catch 0;
                 buf.setCell(x + col, y + row, utf8_buf[0..len], fg, bg, false);
+            } else if (track_dots > 0) {
+                var braille: u16 = 0x2800;
+                if (track_dots & (1 << 0) != 0) braille |= 0x01;
+                if (track_dots & (1 << 1) != 0) braille |= 0x02;
+                if (track_dots & (1 << 2) != 0) braille |= 0x04;
+                if (track_dots & (1 << 3) != 0) braille |= 0x40;
+                if (track_dots & (1 << 4) != 0) braille |= 0x08;
+                if (track_dots & (1 << 5) != 0) braille |= 0x10;
+                if (track_dots & (1 << 6) != 0) braille |= 0x20;
+                if (track_dots & (1 << 7) != 0) braille |= 0x80;
+                
+                var utf8_buf: [4]u8 = undefined;
+                const len = std.unicode.utf8Encode(@as(u21, @intCast(braille)), &utf8_buf) catch 0;
+                const dim_fg = Color.rgb(
+                    @as(u8, @intFromFloat(@as(f32, @floatFromInt(fg.r)) * 0.25)),
+                    @as(u8, @intFromFloat(@as(f32, @floatFromInt(fg.g)) * 0.25)),
+                    @as(u8, @intFromFloat(@as(f32, @floatFromInt(fg.b)) * 0.25)),
+                );
+                buf.setCell(x + col, y + row, utf8_buf[0..len], dim_fg, bg, false);
             }
         }
     }

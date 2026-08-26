@@ -42,7 +42,7 @@ pub const App = struct {
 
         const size = term.getSize();
         const buf = try buffer_mod.ScreenBuffer.init(allocator, size.width, size.height);
-        const th = if (plain) theme_mod.BuiltinThemes.no_color else theme_mod.BuiltinThemes.cyber;
+        const th = if (plain) theme_mod.BuiltinThemes.no_color else theme_mod.BuiltinThemes.anthropic;
 
         return App{
             .allocator = allocator,
@@ -50,6 +50,7 @@ pub const App = struct {
             .terminal = term,
             .buffer = buf,
             .theme = th,
+            .theme_idx = 0,
             .plain_mode = plain,
         };
     }
