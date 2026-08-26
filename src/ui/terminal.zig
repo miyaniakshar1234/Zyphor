@@ -8,6 +8,7 @@ const HANDLE = windows.HANDLE;
 const BOOL = windows.BOOL;
 const SHORT = windows.SHORT;
 const WORD = windows.WORD;
+const UINT = c_uint;
 
 const STD_INPUT_HANDLE: DWORD = @bitCast(@as(i32, -10));
 const STD_OUTPUT_HANDLE: DWORD = @bitCast(@as(i32, -11));
@@ -20,6 +21,8 @@ const ENABLE_VIRTUAL_TERMINAL_INPUT: DWORD = 0x0200;
 const ENABLE_PROCESSED_OUTPUT: DWORD = 0x0001;
 const ENABLE_WRAP_AT_EOL_OUTPUT: DWORD = 0x0002;
 const ENABLE_VIRTUAL_TERMINAL_PROCESSING: DWORD = 0x0004;
+
+const CP_UTF8: UINT = 65001;
 
 const COORD = extern struct { X: SHORT, Y: SHORT };
 const SMALL_RECT = extern struct { Left: SHORT, Top: SHORT, Right: SHORT, Bottom: SHORT };
@@ -35,6 +38,10 @@ extern "kernel32" fn GetStdHandle(nStdHandle: DWORD) callconv(.winapi) ?HANDLE;
 extern "kernel32" fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *DWORD) callconv(.winapi) BOOL;
 extern "kernel32" fn SetConsoleMode(hConsoleHandle: HANDLE, dwMode: DWORD) callconv(.winapi) BOOL;
 extern "kernel32" fn GetConsoleScreenBufferInfo(hConsoleOutput: HANDLE, lpConsoleScreenBufferInfo: *CONSOLE_SCREEN_BUFFER_INFO) callconv(.winapi) BOOL;
+extern "kernel32" fn GetConsoleOutputCP() callconv(.winapi) UINT;
+extern "kernel32" fn SetConsoleOutputCP(wCodePageID: UINT) callconv(.winapi) BOOL;
+extern "kernel32" fn GetConsoleCP() callconv(.winapi) UINT;
+extern "kernel32" fn SetConsoleCP(wCodePageID: UINT) callconv(.winapi) BOOL;
 
 pub const Key = union(enum) {
     char: u8,
@@ -64,6 +71,8 @@ pub const TerminalSize = struct {
 pub const Terminal = struct {
     orig_in_mode: DWORD = 0,
     orig_out_mode: DWORD = 0,
+    orig_output_cp: UINT = 0,
+    orig_input_cp: UINT = 0,
     h_in: ?HANDLE = null,
     h_out: ?HANDLE = null,
     in_raw_mode: bool = false,
@@ -75,6 +84,14 @@ pub const Terminal = struct {
     pub fn enterRawMode(self: *Terminal) !void {
         self.h_in = GetStdHandle(STD_INPUT_HANDLE);
         self.h_out = GetStdHandle(STD_OUTPUT_HANDLE);
+
+        // ── CRITICAL: Switch console to UTF-8 code page ──────────────
+        // Without this, all multi-byte UTF-8 characters (box-drawing,
+        // gauge blocks, sparkline chars) render as mojibake on Windows.
+        self.orig_output_cp = GetConsoleOutputCP();
+        self.orig_input_cp = GetConsoleCP();
+        _ = SetConsoleOutputCP(CP_UTF8);
+        _ = SetConsoleCP(CP_UTF8);
 
         if (self.h_in) |hIn| {
             _ = GetConsoleMode(hIn, &self.orig_in_mode);
@@ -103,10 +120,15 @@ pub const Terminal = struct {
         if (!self.in_raw_mode) return;
 
         const stdout = types.getStdout();
+        // Show cursor, exit alternate screen, reset colors
         stdout.writeAll("\x1b[?25h\x1b[?1049l\x1b[0m") catch {};
 
         if (self.h_in) |hIn| _ = SetConsoleMode(hIn, self.orig_in_mode);
         if (self.h_out) |hOut| _ = SetConsoleMode(hOut, self.orig_out_mode);
+
+        // Restore original code pages
+        if (self.orig_output_cp != 0) _ = SetConsoleOutputCP(self.orig_output_cp);
+        if (self.orig_input_cp != 0) _ = SetConsoleCP(self.orig_input_cp);
 
         self.in_raw_mode = false;
     }
@@ -146,7 +168,7 @@ pub const Terminal = struct {
                     'H' => .home,
                     'F' => .end,
                     'Z' => .shift_tab,
-                    '3' => .delete, // ESC [ 3 ~
+                    '3' => .delete,
                     '5' => .page_up,
                     '6' => .page_down,
                     else => .unknown,
