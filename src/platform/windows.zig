@@ -67,6 +67,7 @@ pub const PROCESS_MEMORY_COUNTERS_EX = extern struct {
 const TH32CS_SNAPPROCESS: DWORD = 0x00000002;
 const PROCESS_QUERY_LIMITED_INFORMATION: DWORD = 0x1000;
 const PROCESS_TERMINATE: DWORD = 0x0001;
+const PROCESS_SUSPEND_RESUME: DWORD = 0x0800;
 const INVALID_HANDLE_VALUE = @as(HANDLE, @ptrFromInt(std.math.maxInt(usize)));
 
 extern "kernel32" fn GetSystemTimes(
@@ -113,6 +114,22 @@ extern "kernel32" fn TerminateProcess(
     uExitCode: c_uint,
 ) callconv(.winapi) BOOL;
 
+extern "kernel32" fn GetProcessTimes(
+    hProcess: HANDLE,
+    lpCreationTime: *FILETIME,
+    lpExitTime: *FILETIME,
+    lpKernelTime: *FILETIME,
+    lpUserTime: *FILETIME,
+) callconv(.winapi) BOOL;
+
+extern "ntdll" fn NtSuspendProcess(
+    hProcess: HANDLE,
+) callconv(.winapi) windows.NTSTATUS;
+
+extern "ntdll" fn NtResumeProcess(
+    hProcess: HANDLE,
+) callconv(.winapi) windows.NTSTATUS;
+
 extern "kernel32" fn GetDiskFreeSpaceExW(
     lpDirectoryName: ?[*:0]const u16,
     lpFreeBytesAvailableToCaller: ?*u64,
@@ -135,12 +152,20 @@ extern "psapi" fn GetProcessMemoryInfo(
     cb: DWORD,
 ) callconv(.winapi) BOOL;
 
+const ProcessTimeEntry = struct {
+    pid: DWORD = 0,
+    total_time: u64 = 0,
+    used: bool = false,
+};
+
 pub const WindowsCollector = struct {
     prev_idle: u64 = 0,
     prev_kernel: u64 = 0,
     prev_user: u64 = 0,
+    last_system_delta: u64 = 1,
     num_cores: u32 = 1,
     initialized: bool = false,
+    proc_times: [2048]ProcessTimeEntry = [_]ProcessTimeEntry{.{}} ** 2048,
 
     pub fn init() WindowsCollector {
         var num_cores: u32 = 1;
@@ -217,6 +242,7 @@ pub const WindowsCollector = struct {
 
                 const total = kernel_diff + user_diff;
                 if (total > 0) {
+                    self.last_system_delta = total;
                     const sys_diff = kernel_diff -| idle_diff;
                     const total_used = sys_diff + user_diff;
                     cpu.total_usage = @min(100.0, @as(f32, @floatFromInt(total_used)) * 100.0 / @as(f32, @floatFromInt(total)));
@@ -430,7 +456,8 @@ pub const WindowsCollector = struct {
         };
     }
 
-    fn getProcessList(_: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo {
+    fn getProcessList(ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo {
+        const self: *WindowsCollector = @ptrCast(@alignCast(ctx));
         var list: std.ArrayList(types.ProcessInfo) = .empty;
         defer list.deinit(allocator);
 
@@ -439,6 +466,8 @@ pub const WindowsCollector = struct {
             return error.WindowsSnapshotFailed;
         }
         defer _ = CloseHandle(snap);
+
+        const sys_delta = self.last_system_delta;
 
         var entry = PROCESSENTRY32W{};
         if (Process32FirstW(snap, &entry) != 0) {
@@ -464,24 +493,39 @@ pub const WindowsCollector = struct {
                 if (proc.pid > 4) {
                     if (OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, proc.pid)) |hProc| {
                         defer _ = CloseHandle(hProc);
+
+                        // Working set memory
                         var pmc = PROCESS_MEMORY_COUNTERS_EX{};
                         if (GetProcessMemoryInfo(hProc, &pmc, @sizeOf(PROCESS_MEMORY_COUNTERS_EX)) != 0) {
                             proc.memory_rss = pmc.WorkingSetSize;
                             proc.memory_vsize = pmc.PagefileUsage;
                         }
-                    }
-                }
 
-                if (proc.pid == 0) {
-                    proc.cpu_percent = 0.0;
-                } else {
-                    const hash = (proc.pid *% 2654435761) % 1000;
-                    if (hash > 950) {
-                        proc.cpu_percent = @as(f32, @floatFromInt(hash % 25)) + 1.5;
-                    } else if (hash > 800) {
-                        proc.cpu_percent = @as(f32, @floatFromInt(hash % 10)) + 0.2;
-                    } else {
-                        proc.cpu_percent = 0.0;
+                        // Kernel + User process CPU time delta
+                        var create_ft: FILETIME = .{};
+                        var exit_ft: FILETIME = .{};
+                        var kern_ft: FILETIME = .{};
+                        var usr_ft: FILETIME = .{};
+
+                        if (GetProcessTimes(hProc, &create_ft, &exit_ft, &kern_ft, &usr_ft) != 0) {
+                            const proc_total_time = kern_ft.toU64() + usr_ft.toU64();
+                            const slot = @as(usize, proc.pid) % self.proc_times.len;
+                            const prev = self.proc_times[slot];
+
+                            if (prev.used and prev.pid == proc.pid) {
+                                const delta_proc = proc_total_time -| prev.total_time;
+                                if (sys_delta > 0) {
+                                    const scaled_cpu = @as(f32, @floatFromInt(delta_proc)) * 100.0 * @as(f32, @floatFromInt(self.num_cores)) / @as(f32, @floatFromInt(sys_delta));
+                                    proc.cpu_percent = std.math.clamp(scaled_cpu, 0.0, 100.0);
+                                }
+                            }
+
+                            self.proc_times[slot] = .{
+                                .pid = proc.pid,
+                                .total_time = proc_total_time,
+                                .used = true,
+                            };
+                        }
                     }
                 }
 
@@ -503,6 +547,15 @@ pub const WindowsCollector = struct {
         }
     }
 
-    fn suspendProcess(_: *anyopaque, _: u32) anyerror!void {}
-    fn resumeProcess(_: *anyopaque, _: u32) anyerror!void {}
+    fn suspendProcess(_: *anyopaque, pid: u32) anyerror!void {
+        const handle = OpenProcess(PROCESS_SUSPEND_RESUME, 0, pid) orelse return error.ProcessAccessDenied;
+        defer _ = CloseHandle(handle);
+        _ = NtSuspendProcess(handle);
+    }
+
+    fn resumeProcess(_: *anyopaque, pid: u32) anyerror!void {
+        const handle = OpenProcess(PROCESS_SUSPEND_RESUME, 0, pid) orelse return error.ProcessAccessDenied;
+        defer _ = CloseHandle(handle);
+        _ = NtResumeProcess(handle);
+    }
 };

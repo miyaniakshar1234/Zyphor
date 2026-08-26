@@ -114,6 +114,15 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void
             }
             return;
         } else if (std.mem.eql(u8, cmd, "process") or std.mem.eql(u8, cmd, "ps")) {
+            if (std.mem.eql(u8, sort_field, "mem") or std.mem.eql(u8, sort_field, "memory")) {
+                try engine.process_mgr.setSort(.memory, .descending);
+            } else if (std.mem.eql(u8, sort_field, "pid")) {
+                try engine.process_mgr.setSort(.pid, .ascending);
+            } else if (std.mem.eql(u8, sort_field, "name")) {
+                try engine.process_mgr.setSort(.name, .ascending);
+            } else {
+                try engine.process_mgr.setSort(.cpu, .descending);
+            }
             const snap = try engine.sampleSnapshot();
             if (json_mode) {
                 try export_mod.printJsonSnapshot(stdout, &snap);
