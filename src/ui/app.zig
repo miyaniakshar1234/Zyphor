@@ -12,7 +12,7 @@ pub const App = struct {
     terminal: terminal_mod.Terminal,
     buffer: buffer_mod.ScreenBuffer,
     theme: theme_mod.Theme,
-    theme_idx: usize = 0,
+    theme_idx: usize = 1,
     active_tab: widgets.Tab = .overview,
     selected_proc_idx: usize = 0,
     tree_mode: bool = false,
@@ -42,7 +42,7 @@ pub const App = struct {
 
         const size = term.getSize();
         const buf = try buffer_mod.ScreenBuffer.init(allocator, size.width, size.height);
-        const th = if (plain) theme_mod.BuiltinThemes.no_color else theme_mod.BuiltinThemes.midnight;
+        const th = if (plain) theme_mod.BuiltinThemes.no_color else theme_mod.BuiltinThemes.cyber;
 
         return App{
             .allocator = allocator,

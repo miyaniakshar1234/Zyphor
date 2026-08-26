@@ -906,11 +906,11 @@ pub fn renderHelpModal(
 
 pub fn renderBackgroundGrid(buf: *ScreenBuffer, theme: *const Theme) void {
     var y: u16 = 3;
-    const dot_color = theme.bg.brighten(10);
+    const dot_color = theme.bg.brighten(15);
     while (y < buf.height - 1) : (y += 2) {
         var x: u16 = 2;
         while (x < buf.width) : (x += 4) {
-            buf.writeString(x, y, ".", dot_color, theme.bg, false);
+            buf.writeString(x, y, "·", dot_color, theme.bg, false);
         }
     }
 }
