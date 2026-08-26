@@ -17,6 +17,7 @@ pub const SystemEngine = struct {
     history: history_mod.SystemHistory,
     alert_engine: alert_mod.AlertEngine,
     config: config_mod.Config,
+    cached: types.SystemSnapshot = .{},
 
     pub fn init(allocator: std.mem.Allocator) SystemEngine {
         return .{
@@ -76,15 +77,15 @@ pub const SystemEngine = struct {
             disk_w_mb,
         );
 
-        // 5. Select Top 20 processes
-        const top_count = @min(20, self.process_mgr.getFilteredCount());
+        // 5. Select Top 100 processes
+        const top_count = @min(100, self.process_mgr.getFilteredCount());
         var top_procs = try scratch.alloc(types.ProcessInfo, top_count);
         var i: usize = 0;
         while (i < top_count) : (i += 1) {
             top_procs[i] = self.process_mgr.getProcessAt(i) orelse types.ProcessInfo{};
         }
 
-        return types.SystemSnapshot{
+        const snap = types.SystemSnapshot{
             .timestamp_ms = std.time.milliTimestamp(),
             .cpu = cpu,
             .memory = mem,
@@ -95,5 +96,12 @@ pub const SystemEngine = struct {
             .health = health,
             .top_processes = top_procs,
         };
+        self.cached = snap;
+        return snap;
+    }
+
+    /// Return the last sampled snapshot without re-sampling (for pause mode)
+    pub fn lastSnapshot(self: *const SystemEngine) types.SystemSnapshot {
+        return self.cached;
     }
 };

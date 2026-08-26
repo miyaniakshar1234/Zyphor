@@ -19,14 +19,26 @@ pub const App = struct {
     is_paused: bool = false,
     show_help: bool = false,
     plain_mode: bool = false,
-    status_msg: [64]u8 = [_]u8{0} ** 64,
+    frame_count: u64 = 0,
+    status_msg: [128]u8 = [_]u8{0} ** 128,
     status_len: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, plain: bool) !App {
         var term = terminal_mod.Terminal.init();
+        // Initialize handles so getSize() works, but don't alter console mode yet
+        const win = std.os.windows;
+        const DWORD = win.DWORD;
+        const STD_OUTPUT_HANDLE: DWORD = @bitCast(@as(i32, -11));
+        const STD_INPUT_HANDLE: DWORD = @bitCast(@as(i32, -10));
+        const kernel32 = struct {
+            extern "kernel32" fn GetStdHandle(n: DWORD) callconv(.winapi) ?win.HANDLE;
+        };
+        term.h_in  = kernel32.GetStdHandle(STD_INPUT_HANDLE);
+        term.h_out = kernel32.GetStdHandle(STD_OUTPUT_HANDLE);
+
         const size = term.getSize();
         const buf = try buffer_mod.ScreenBuffer.init(allocator, size.width, size.height);
-        const th = if (plain) theme_mod.BuiltinThemes.plain else theme_mod.BuiltinThemes.midnight;
+        const th = if (plain) theme_mod.BuiltinThemes.no_color else theme_mod.BuiltinThemes.midnight;
 
         return App{
             .allocator = allocator,
@@ -47,15 +59,32 @@ pub const App = struct {
         try self.terminal.enterRawMode();
         defer self.terminal.exitRawMode();
 
+        // buffer.flush() already batches into a 64KB stack buffer, so a single
+        // writeAll call per frame is issued — no extra buffering needed here.
         const stdout = types.getStdout();
+
         var should_quit = false;
+        var last_size = self.terminal.getSize();
 
         while (!should_quit) {
-            // 1. Sample Engine State
-            const snapshot = try self.engine.sampleSnapshot();
+            // 0. Check for terminal resize
+            const cur_size = self.terminal.getSize();
+            if (cur_size.width != last_size.width or cur_size.height != last_size.height) {
+                last_size = cur_size;
+                try self.buffer.resize(cur_size.width, cur_size.height);
+                // Full redraw on resize
+                try stdout.writeAll("\x1b[2J\x1b[H");
+            }
 
-            // 2. Render Screen
+            // 1. Sample telemetry (skip if paused)
+            const snapshot = if (!self.is_paused)
+                try self.engine.sampleSnapshot()
+            else
+                self.engine.lastSnapshot();
+
+            // 2. Render into buffer
             self.buffer.clear(self.theme.bg);
+
             widgets.renderHeader(&self.buffer, &self.theme, &snapshot.health, self.plain_mode);
             widgets.renderTabs(&self.buffer, self.active_tab, &self.theme);
 
@@ -77,6 +106,10 @@ pub const App = struct {
                 },
             }
 
+            if (self.is_paused) {
+                self.setStatus("⏸  PAUSED — press Space to resume");
+            }
+
             const status = if (self.status_len > 0) self.status_msg[0..self.status_len] else "";
             widgets.renderStatusBar(&self.buffer, &self.theme, status);
 
@@ -84,72 +117,105 @@ pub const App = struct {
                 widgets.renderHelpModal(&self.buffer, &self.theme, self.plain_mode);
             }
 
-            // 3. Flush to Terminal
+            // 3. Differential flush to terminal
             try self.buffer.flush(stdout);
 
-            // 4. Handle Input (wait up to 500ms)
-            std.Thread.sleep(500 * std.time.ns_per_ms);
+            self.frame_count += 1;
+
+            // Clear one-shot status messages after 3 frames
+            if (self.status_len > 0 and self.frame_count % 6 == 0 and !self.is_paused) {
+                self.status_len = 0;
+            }
+
+            // 4. Non-blocking input poll (250ms sleep, read once)
+            std.Thread.sleep(250 * std.time.ns_per_ms);
             if (self.terminal.readKey()) |key| {
                 if (self.show_help) {
                     self.show_help = false;
                     continue;
                 }
 
+                const proc_count = snapshot.top_processes.len;
+
                 switch (key) {
                     .char => |c| switch (c) {
-                        'q' => should_quit = true,
+                        'q', 3 => should_quit = true, // q or Ctrl+C
                         '?' => self.show_help = true,
-                        't' => self.tree_mode = !self.tree_mode,
-                        ' ' => self.is_paused = !self.is_paused,
+                        't' => {
+                            self.tree_mode = !self.tree_mode;
+                            self.setStatus(if (self.tree_mode) "Tree view enabled" else "Flat view enabled");
+                        },
+                        ' ' => {
+                            self.is_paused = !self.is_paused;
+                            if (!self.is_paused) self.status_len = 0;
+                        },
                         '1' => self.active_tab = .overview,
                         '2' => self.active_tab = .processes,
                         '3' => self.active_tab = .disks,
                         '4' => self.active_tab = .network,
                         '5' => self.active_tab = .diagnostics,
-                        'c' => try self.engine.process_mgr.setSort(.cpu, .descending),
-                        'm' => try self.engine.process_mgr.setSort(.memory, .descending),
-                        'p' => try self.engine.process_mgr.setSort(.pid, .ascending),
+                        'c' => {
+                            try self.engine.process_mgr.setSort(.cpu, .descending);
+                            self.setStatus("Sort: CPU% descending");
+                        },
+                        'm' => {
+                            try self.engine.process_mgr.setSort(.memory, .descending);
+                            self.setStatus("Sort: Memory descending");
+                        },
+                        'p' => {
+                            try self.engine.process_mgr.setSort(.pid, .ascending);
+                            self.setStatus("Sort: PID ascending");
+                        },
+                        'n' => {
+                            try self.engine.process_mgr.setSort(.name, .ascending);
+                            self.setStatus("Sort: Name A-Z");
+                        },
                         'T' => self.cycleTheme(),
                         'j' => {
-                            if (self.selected_proc_idx + 1 < snapshot.top_processes.len) {
-                                self.selected_proc_idx += 1;
-                            }
+                            if (self.selected_proc_idx + 1 < proc_count) self.selected_proc_idx += 1;
                         },
                         'k' => {
-                            if (self.selected_proc_idx > 0) {
-                                self.selected_proc_idx -= 1;
-                            }
+                            if (self.selected_proc_idx > 0) self.selected_proc_idx -= 1;
                         },
+                        'g' => self.selected_proc_idx = 0,
+                        'G' => self.selected_proc_idx = if (proc_count > 0) proc_count - 1 else 0,
                         else => {},
                     },
                     .tab => {
                         self.active_tab = switch (self.active_tab) {
-                            .overview => .processes,
-                            .processes => .disks,
-                            .disks => .network,
-                            .network => .diagnostics,
+                            .overview    => .processes,
+                            .processes   => .disks,
+                            .disks       => .network,
+                            .network     => .diagnostics,
                             .diagnostics => .overview,
                         };
+                        self.selected_proc_idx = 0;
                     },
                     .shift_tab => {
                         self.active_tab = switch (self.active_tab) {
-                            .overview => .diagnostics,
-                            .processes => .overview,
-                            .disks => .processes,
-                            .network => .disks,
+                            .overview    => .diagnostics,
+                            .processes   => .overview,
+                            .disks       => .processes,
+                            .network     => .disks,
                             .diagnostics => .network,
                         };
                     },
                     .down => {
-                        if (self.selected_proc_idx + 1 < snapshot.top_processes.len) {
-                            self.selected_proc_idx += 1;
-                        }
+                        if (self.selected_proc_idx + 1 < proc_count) self.selected_proc_idx += 1;
                     },
                     .up => {
-                        if (self.selected_proc_idx > 0) {
-                            self.selected_proc_idx -= 1;
-                        }
+                        if (self.selected_proc_idx > 0) self.selected_proc_idx -= 1;
                     },
+                    .page_down => {
+                        const page = @as(usize, self.buffer.height / 2);
+                        self.selected_proc_idx = @min(self.selected_proc_idx + page, if (proc_count > 0) proc_count - 1 else 0);
+                    },
+                    .page_up => {
+                        const page = @as(usize, self.buffer.height / 2);
+                        self.selected_proc_idx = if (self.selected_proc_idx > page) self.selected_proc_idx - page else 0;
+                    },
+                    .home => self.selected_proc_idx = 0,
+                    .end  => self.selected_proc_idx = if (proc_count > 0) proc_count - 1 else 0,
                     .escape => {
                         if (self.show_help) self.show_help = false;
                     },
@@ -161,15 +227,25 @@ pub const App = struct {
 
     fn cycleTheme(self: *App) void {
         if (self.plain_mode) return;
-        const themes = [_]theme_mod.Theme{
-            theme_mod.BuiltinThemes.midnight,
-            theme_mod.BuiltinThemes.cyber,
-            theme_mod.BuiltinThemes.aurora,
-            theme_mod.BuiltinThemes.nord,
-            theme_mod.BuiltinThemes.solarized,
-            theme_mod.BuiltinThemes.high_contrast,
+        self.theme_idx = (self.theme_idx + 1) % theme_mod.ALL_THEMES.len;
+        self.theme = theme_mod.ALL_THEMES[self.theme_idx];
+        // Force full redraw on theme change
+        const sentinel = buffer_mod.Cell{
+            .char = .{ 0, 0, 0, 0 },
+            .char_len = 1,
+            .fg = theme_mod.Color.rgb(1, 1, 1),
+            .bg = theme_mod.Color.rgb(2, 2, 2),
+            .dirty = true,
         };
-        self.theme_idx = (self.theme_idx + 1) % themes.len;
-        self.theme = themes[self.theme_idx];
+        @memset(self.buffer.prev_cells, sentinel);
+        self.setStatus(std.fmt.bufPrint(&self.status_msg, "Theme: {s}", .{self.theme.name}) catch "Theme changed");
+        self.status_len = std.mem.indexOfScalar(u8, &self.status_msg, 0) orelse self.status_msg.len;
+    }
+
+    fn setStatus(self: *App, msg: []const u8) void {
+        const len = @min(msg.len, self.status_msg.len);
+        @memcpy(self.status_msg[0..len], msg[0..len]);
+        self.status_len = len;
+        self.frame_count = 0; // reset timer
     }
 };
