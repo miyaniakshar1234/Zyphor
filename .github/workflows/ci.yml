@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v1
+        with:
+          version: 0.15.2
+
+      - name: Run Test Suite
+        run: zig build test --summary all
+
+      - name: Build Debug Binary
+        run: zig build
+
+      - name: Build Optimized Release Binary
+        run: zig build -Doptimize=ReleaseFast
+
+      - name: Run Doctor (Smoke Test)
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            ./zig-out/bin/zyphor.exe doctor
+          else
+            ./zig-out/bin/zyphor doctor
+          fi
