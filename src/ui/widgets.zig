@@ -155,150 +155,116 @@ pub fn renderOverviewPanel(
 ) void {
     const w = buf.width;
     const h = buf.height;
-    if (w < 50 or h < 12) return;
+    if (w < 60 or h < 20) return;
 
     const content_y: u16 = 4;
     const content_h = h - content_y - 2;
 
-    const half = (w - 3) / 2;
+    const pane_w = (w - 4) / 3;
     const left_x: u16 = 1;
-    const right_x = left_x + half + 1;
+    const center_x: u16 = left_x + pane_w + 1;
+    const right_x: u16 = center_x + pane_w + 1;
 
-    // Responsive split height
-    const top_h: u16 = @max(10, @min(14, (content_h * 55) / 100));
-    const bot_h: u16 = content_h - top_h - 1;
+    // ── 1. CPU Command Center (Left Pane) ──────────────────────────────────
+    buf.drawBox(left_x, content_y, pane_w, content_h, " CPU CORE MATRIX ", theme.border, theme.accent, theme.bg, plain);
 
-    // ── 1. CPU Panel (Top Left) ──────────────────────────────────────────
-    buf.drawBox(left_x, content_y, half, top_h, " CPU Activity ", theme.border, theme.accent, theme.bg, plain);
+    const dial_radius = @min(pane_w / 2 - 2, 8);
+    const dial_cx = left_x + pane_w / 2 - dial_radius;
+    
+    // Draw Radial Dial
+    graphs.renderRadialDial(buf, dial_cx, content_y + 1, dial_radius, 4.0, snapshot.cpu.total_usage, theme.accent, theme.bg, plain);
+    
+    // Center text inside dial
+    var cpu_val_buf: [16]u8 = undefined;
+    const cpu_val = std.fmt.bufPrint(&cpu_val_buf, "{d:>4.1}%", .{snapshot.cpu.total_usage}) catch "?%";
+    buf.writeString(dial_cx + dial_radius - 3, content_y + 1 + dial_radius / 2, cpu_val, theme.fg, theme.bg, true);
 
-    // CPU Usage line
-    var cpu_val_buf: [32]u8 = undefined;
-    const cpu_val = std.fmt.bufPrint(&cpu_val_buf, "{d:.1}%", .{snapshot.cpu.total_usage}) catch "?%";
-    graphs.renderLabel(buf, left_x + 2, content_y + 1, "Load: ", cpu_val,
-        theme.muted, graphs.percentColor(snapshot.cpu.total_usage), theme.bg);
+    var cy: u16 = content_y + dial_radius + 2;
 
-    // High-resolution gauge bar
-    graphs.renderGaugeBar(buf, left_x + 2, content_y + 2, half - 4,
-        snapshot.cpu.total_usage, theme.accent, theme.muted, theme.bg, plain);
-
-    // Model & frequency
     var info_buf: [80]u8 = undefined;
-    const info = std.fmt.bufPrint(&info_buf, "Topology: {d} cores ({d}P/{d}L) @ {d} MHz", .{
-        snapshot.cpu.logical_cores,
-        snapshot.cpu.physical_cores,
-        snapshot.cpu.logical_cores,
-        snapshot.cpu.frequency_mhz,
+    const info = std.fmt.bufPrint(&info_buf, "{d}C @ {d} MHz", .{
+        snapshot.cpu.logical_cores, snapshot.cpu.frequency_mhz,
     }) catch "";
-    buf.writeString(left_x + 2, content_y + 3, info[0..@min(info.len, half - 4)], theme.muted, theme.bg, false);
+    buf.writeStringMax(left_x + 2, cy, info, pane_w - 4, theme.muted, theme.bg, false);
+    cy += 2;
 
-    // CPU Sparkline history
     var cpu_hist: [256]f32 = undefined;
     const hist_count = history.cpu_history.getChronological(&cpu_hist);
-    buf.writeString(left_x + 2, content_y + 4, "Waveform: ", theme.muted, theme.bg, false);
-    const spark_w = half - 14;
+    const spark_w = pane_w - 4;
     if (hist_count > 0 and spark_w > 4) {
-        graphs.renderBrailleGraph(buf, left_x + 12, content_y + 4,
-            spark_w, 2, cpu_hist[0..hist_count], null, theme.bg, plain);
+        graphs.renderBrailleGraph(buf, left_x + 2, cy, spark_w, 4, cpu_hist[0..hist_count], null, theme.bg, plain);
+        cy += 5;
     }
 
-    // Per-core mini heatbars grid
-    if (top_h >= 10) {
-        renderCoreGrid(buf, snapshot, theme, left_x + 2, content_y + 6, half - 4, plain);
-    }
+    renderCoreGrid(buf, snapshot, theme, left_x + 2, cy, pane_w - 4, plain);
 
-    // ── 2. Memory Panel (Top Right) ──────────────────────────────────────
-    buf.drawBox(right_x, content_y, half, top_h, " Memory & Page Cache ", theme.border, theme.secondary, theme.bg, plain);
+    // ── 2. Memory & Page Cache (Center Pane) ──────────────────────────────
+    buf.drawBox(center_x, content_y, pane_w, content_h, " MEMORY SUBSYSTEM ", theme.border, theme.secondary, theme.bg, plain);
+
+    graphs.renderRadialDial(buf, center_x + pane_w / 2 - dial_radius, content_y + 1, dial_radius, 4.0, snapshot.memory.used_percent, theme.secondary, theme.bg, plain);
+
+    var mem_val_buf: [16]u8 = undefined;
+    const mem_val = std.fmt.bufPrint(&mem_val_buf, "{d:>4.1}%", .{snapshot.memory.used_percent}) catch "?%";
+    buf.writeString(center_x + pane_w / 2 - 3, content_y + 1 + dial_radius / 2, mem_val, theme.fg, theme.bg, true);
+
+    var my: u16 = content_y + dial_radius + 2;
 
     const used_gb = @as(f32, @floatFromInt(snapshot.memory.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
     const total_gb = @as(f32, @floatFromInt(snapshot.memory.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
-    const avail_gb = @as(f32, @floatFromInt(snapshot.memory.available_bytes)) / (1024.0 * 1024.0 * 1024.0);
+    var ram_buf: [32]u8 = undefined;
+    const ram_str = std.fmt.bufPrint(&ram_buf, "RAM: {d:.1} / {d:.1} GB", .{ used_gb, total_gb }) catch "?";
+    buf.writeStringMax(center_x + 2, my, ram_str, pane_w - 4, theme.muted, theme.bg, false);
+    my += 2;
 
-    var mem_val_buf: [32]u8 = undefined;
-    const mem_val = std.fmt.bufPrint(&mem_val_buf, "{d:.1} / {d:.1} GB", .{ used_gb, total_gb }) catch "?/?";
-    graphs.renderLabel(buf, right_x + 2, content_y + 1, "RAM:  ", mem_val,
-        theme.muted, graphs.percentColor(snapshot.memory.used_percent), theme.bg);
-
-    graphs.renderGaugeBar(buf, right_x + 2, content_y + 2, half - 4,
-        snapshot.memory.used_percent, theme.secondary, theme.muted, theme.bg, plain);
-
-    var swap_buf: [32]u8 = undefined;
-    const swap_str = std.fmt.bufPrint(&swap_buf, "{d:.1}% used", .{snapshot.memory.swap_used_percent}) catch "?";
-    graphs.renderLabel(buf, right_x + 2, content_y + 3, "Swap: ", swap_str,
-        theme.muted, graphs.percentColor(snapshot.memory.swap_used_percent), theme.bg);
-
-    graphs.renderGaugeBar(buf, right_x + 2, content_y + 4, half - 4,
-        snapshot.memory.swap_used_percent, theme.secondary, theme.muted, theme.bg, plain);
-
-    var avail_buf: [48]u8 = undefined;
-    const avail_str = std.fmt.bufPrint(&avail_buf, "Available: {d:.1} GB free  | Pressure: {s}", .{
-        avail_gb, snapshot.memory.pressure_level.asText(),
-    }) catch "";
-    buf.writeString(right_x + 2, content_y + 5, avail_str[0..@min(avail_str.len, half - 4)], theme.muted, theme.bg, false);
-
-    // Memory history sparkline
     var mem_hist: [256]f32 = undefined;
     const mem_hist_count = history.memory_history.getChronological(&mem_hist);
-    buf.writeString(right_x + 2, content_y + 6, "Waveform: ", theme.muted, theme.bg, false);
     if (mem_hist_count > 0 and spark_w > 4) {
-        graphs.renderBrailleGraph(buf, right_x + 12, content_y + 6,
-            spark_w, 2, mem_hist[0..mem_hist_count], null, theme.bg, plain);
+        graphs.renderBrailleGraph(buf, center_x + 2, my, spark_w, 4, mem_hist[0..mem_hist_count], null, theme.bg, plain);
+        my += 5;
     }
 
-    // ── 3. GPU / Hardware Sensors (Bottom Left) ──────────────────────────
-    if (bot_h >= 4) {
-        const bottom_y = content_y + top_h + 1;
-        buf.drawBox(left_x, bottom_y, half, bot_h, " GPU & Accelerators ", theme.border, theme.header, theme.bg, plain);
+    graphs.renderLabel(buf, center_x + 2, my, "Swap Usage: ", "", theme.muted, theme.fg, theme.bg);
+    my += 1;
+    graphs.renderGaugeBar(buf, center_x + 2, my, pane_w - 4, snapshot.memory.swap_used_percent, theme.secondary, theme.muted, theme.bg, plain);
 
-        if (snapshot.gpu.available) {
-            graphs.renderLabel(buf, left_x + 2, bottom_y + 1, "Device: ",
-                snapshot.gpu.getName()[0..@min(snapshot.gpu.getName().len, half - 12)],
-                theme.muted, theme.fg, theme.bg);
+    // ── 3. Sensors & Edge (Right Pane) ──────────────────────────────────
+    buf.drawBox(right_x, content_y, pane_w, content_h, " SYSTEM EDGE & I/O ", theme.border, theme.header, theme.bg, plain);
+    
+    var ry = content_y + 2;
+    buf.writeString(right_x + 2, ry, "▼ NETWORK INGRESS/EGRESS", theme.muted, theme.bg, true);
+    ry += 2;
 
-            var gpu_pct_buf: [16]u8 = undefined;
-            const gpu_pct = std.fmt.bufPrint(&gpu_pct_buf, "{d:.1}%", .{snapshot.gpu.utilization_pct}) catch "?%";
-            graphs.renderLabel(buf, left_x + 2, bottom_y + 2, "Load:   ", gpu_pct,
-                theme.muted, graphs.percentColor(snapshot.gpu.utilization_pct), theme.bg);
+    const rx_mb = @as(f32, @floatFromInt(snapshot.network.total_rx_sec)) / (1024.0 * 1024.0);
+    const tx_mb = @as(f32, @floatFromInt(snapshot.network.total_tx_sec)) / (1024.0 * 1024.0);
+    
+    var rx_hist: [256]f32 = undefined;
+    var tx_hist: [256]f32 = undefined;
+    const rx_count = history.net_rx_history.getChronological(&rx_hist);
+    const tx_count = history.net_tx_history.getChronological(&tx_hist);
 
-            graphs.renderGaugeBar(buf, left_x + 2, bottom_y + 3, half - 4,
-                snapshot.gpu.utilization_pct, theme.accent, theme.muted, theme.bg, plain);
+    if (rx_count > 0 and spark_w > 4) {
+        var nbuf: [32]u8 = undefined;
+        const rx_s = std.fmt.bufPrint(&nbuf, "RX: {d:.2} MB/s", .{rx_mb}) catch "?";
+        graphs.renderLabel(buf, right_x + 2, ry, "", rx_s, theme.muted, theme.success, theme.bg);
+        ry += 1;
+        graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, rx_hist[0..rx_count], theme.success, theme.bg, plain);
+        ry += 3;
+        
+        const tx_s = std.fmt.bufPrint(&nbuf, "TX: {d:.2} MB/s", .{tx_mb}) catch "?";
+        graphs.renderLabel(buf, right_x + 2, ry, "", tx_s, theme.muted, theme.warning, theme.bg);
+        ry += 1;
+        graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, tx_hist[0..tx_count], theme.warning, theme.bg, plain);
+        ry += 3;
+    }
 
-            const vram_used_gb = @as(f32, @floatFromInt(snapshot.gpu.vram_used_bytes)) / (1024.0 * 1024.0 * 1024.0);
-            const vram_total_gb = @as(f32, @floatFromInt(snapshot.gpu.vram_total_bytes)) / (1024.0 * 1024.0 * 1024.0);
-            const vram_pct = if (vram_total_gb > 0) vram_used_gb / vram_total_gb * 100.0 else 0;
-            var vram_buf: [32]u8 = undefined;
-            const vram_str = std.fmt.bufPrint(&vram_buf, "{d:.1} / {d:.1} GB", .{ vram_used_gb, vram_total_gb }) catch "?";
-            if (bot_h >= 6) {
-                graphs.renderLabel(buf, left_x + 2, bottom_y + 4, "VRAM:   ", vram_str,
-                    theme.muted, graphs.percentColor(vram_pct), theme.bg);
-            }
-        } else {
-            buf.writeString(left_x + 3, bottom_y + 2, "Integrated Graphics / Direct3D Native", theme.muted, theme.bg, false);
-        }
-
-        // ── 4. Network / Throughput (Bottom Right) ────────────────────────
-        buf.drawBox(right_x, bottom_y, half, bot_h, " Network Interfaces ", theme.border, theme.header, theme.bg, plain);
-        const rx_mb = @as(f32, @floatFromInt(snapshot.network.total_rx_sec)) / (1024.0 * 1024.0);
-        const tx_mb = @as(f32, @floatFromInt(snapshot.network.total_tx_sec)) / (1024.0 * 1024.0);
-
-        var rx_buf: [24]u8 = undefined;
-        var tx_buf: [24]u8 = undefined;
-        const rx_str = std.fmt.bufPrint(&rx_buf, "{d:.2} MB/s", .{rx_mb}) catch "?";
-        const tx_str = std.fmt.bufPrint(&tx_buf, "{d:.2} MB/s", .{tx_mb}) catch "?";
-
-        graphs.renderLabel(buf, right_x + 2, bottom_y + 1, "↓ Ingress (RX):  ", rx_str, theme.muted, theme.success, theme.bg);
-        graphs.renderLabel(buf, right_x + 2, bottom_y + 2, "↑ Egress (TX):   ", tx_str, theme.muted, theme.warning, theme.bg);
-
-        var iface_y: u16 = bottom_y + 3;
-        for (snapshot.network.interfaces) |iface| {
-            if (iface_y >= bottom_y + bot_h - 1) break;
-            var iface_buf: [80]u8 = undefined;
-            const iface_str = std.fmt.bufPrint(&iface_buf, "  {s:<22} {s}", .{
-                iface.getName(), iface.getIp(),
-            }) catch "";
-            buf.writeString(right_x + 2, iface_y, iface_str[0..@min(iface_str.len, half - 4)],
-                if (iface.is_up) theme.success else theme.muted, theme.bg, false);
-            iface_y += 1;
-        }
+    buf.writeString(right_x + 2, ry, "▼ HARDWARE SENSORS", theme.muted, theme.bg, true);
+    ry += 2;
+    if (snapshot.gpu.available) {
+        buf.writeStringMax(right_x + 2, ry, snapshot.gpu.getName(), pane_w - 4, theme.accent, theme.bg, false);
+        ry += 1;
+        graphs.renderGaugeBar(buf, right_x + 2, ry, pane_w - 4, snapshot.gpu.utilization_pct, theme.accent, theme.muted, theme.bg, plain);
+    } else {
+        buf.writeString(right_x + 2, ry, "No discrete GPU detected.", theme.muted, theme.bg, false);
     }
 }
 
@@ -519,39 +485,48 @@ pub fn renderDiskPanel(
     buf.writeString(2, panel_y + 1, io_str, theme.header, theme.bg, true);
     graphs.renderSeparator(buf, 2, panel_y + 2, w - 4, theme.border, theme.bg, plain);
 
-    // Table Header
-    const hdr = "  MOUNT          FS         USED        TOTAL       FREE       UTILIZATION";
-    buf.writeString(2, panel_y + 3, hdr[0..@min(hdr.len, w - 4)], theme.header, theme.bg, true);
-    graphs.renderSeparator(buf, 2, panel_y + 4, w - 4, theme.border, theme.bg, plain);
-
     var r: u16 = 0;
+    var c: u16 = 0;
+    
+    const card_w: u16 = 36;
+    const card_h: u16 = 6;
+    const padding_x: u16 = 2;
+    const padding_y: u16 = 1;
+    
+    const max_cols = @max(1, (w - 4) / (card_w + padding_x));
+
     for (disk.partitions) |part| {
-        const row_y = panel_y + 5 + r * 3;
-        if (row_y + 2 >= panel_y + panel_h) break;
+        const cx = 3 + c * (card_w + padding_x);
+        const cy = panel_y + 4 + r * (card_h + padding_y);
+        if (cy + card_h >= panel_y + panel_h) break;
 
         const used_gb = @as(f32, @floatFromInt(part.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
         const total_gb = @as(f32, @floatFromInt(part.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
-        const free_gb = @as(f32, @floatFromInt(part.free_bytes)) / (1024.0 * 1024.0 * 1024.0);
-
+        
+        buf.drawBox(cx, cy, card_w, card_h, part.getMount(), theme.border, theme.accent, theme.bg, plain);
+        
         const disk_color = graphs.percentColor(part.used_percent);
-        buf.writeString(3, row_y, part.getMount(), theme.accent, theme.bg, true);
-        buf.writeString(18, row_y, part.getFs(), theme.muted, theme.bg, false);
-
+        
+        var fs_buf: [32]u8 = undefined;
+        const fs_str = std.fmt.bufPrint(&fs_buf, "FS: {s}", .{part.getFs()}) catch "";
+        buf.writeString(cx + 2, cy + 1, fs_str, theme.muted, theme.bg, false);
+        
         var sz_buf: [64]u8 = undefined;
-        const sz_str = std.fmt.bufPrint(&sz_buf, "{d:>6.1} GB   {d:>6.1} GB   {d:>6.1} GB", .{
-            used_gb, total_gb, free_gb,
-        }) catch "";
-        buf.writeString(28, row_y, sz_str, disk_color, theme.bg, false);
+        const sz_str = std.fmt.bufPrint(&sz_buf, "{d:.1} GB / {d:.1} GB", .{used_gb, total_gb}) catch "";
+        buf.writeString(cx + card_w - 2 - @as(u16, @intCast(sz_str.len)), cy + 1, sz_str, disk_color, theme.bg, true);
 
-        // Capacity gauge on second row
-        const gauge_w = @min(w - 8, 75);
-        graphs.renderGaugeBar(buf, 3, row_y + 1, gauge_w, part.used_percent,
+        graphs.renderGaugeBar(buf, cx + 2, cy + 3, card_w - 4, part.used_percent,
             theme.accent, theme.muted, theme.bg, plain);
+            
+        var pct_buf: [16]u8 = undefined;
+        const pct_str = std.fmt.bufPrint(&pct_buf, "Usage: {d:.1}%", .{part.used_percent}) catch "";
+        buf.writeString(cx + 2, cy + 4, pct_str, disk_color, theme.bg, false);
 
-        if (r + 1 < disk.partitions.len) {
-            graphs.renderSeparator(buf, 2, row_y + 2, w - 4, theme.border, theme.bg, plain);
+        c += 1;
+        if (c >= max_cols) {
+            c = 0;
+            r += 1;
         }
-        r += 1;
     }
 }
 
@@ -562,6 +537,7 @@ pub fn renderDiskPanel(
 pub fn renderNetworkPanel(
     buf: *ScreenBuffer,
     net: *const types.NetworkMetrics,
+    history: *const history_mod.SystemHistory,
     theme: *const Theme,
     plain: bool,
 ) void {
@@ -571,54 +547,63 @@ pub fn renderNetworkPanel(
     const panel_y: u16 = 4;
     const panel_h = h - panel_y - 2;
 
-    buf.drawBox(1, panel_y, w - 2, panel_h, " Network Adapters & Throughput Matrices ", theme.border, theme.accent, theme.bg, plain);
+    buf.drawBox(1, panel_y, w - 2, panel_h, " GLOBAL NETWORK INGRESS/EGRESS MATRIX ", theme.border, theme.accent, theme.bg, plain);
 
     const total_rx = @as(f32, @floatFromInt(net.total_rx_sec)) / (1024.0 * 1024.0);
     const total_tx = @as(f32, @floatFromInt(net.total_tx_sec)) / (1024.0 * 1024.0);
 
-    var agg_buf: [80]u8 = undefined;
-    const agg_str = std.fmt.bufPrint(&agg_buf, "  Total Ingress: {d:.2} MB/s    Total Egress: {d:.2} MB/s", .{
-        total_rx, total_tx,
-    }) catch "";
-    buf.writeString(2, panel_y + 1, agg_str, theme.fg, theme.bg, true);
+    // Left pane for graphs, Right pane for interfaces
+    const left_w = (w - 4) / 2;
+    const right_w = w - 4 - left_w - 1;
+    const right_x = 2 + left_w + 1;
 
-    const rx_pct = @min(total_rx / 100.0 * 100.0, 100.0);
-    const tx_pct = @min(total_tx / 100.0 * 100.0, 100.0);
-    const gauge_w = @min(w - 20, 65);
+    // --- LEFT PANE (Global Graphs) ---
+    var rx_buf: [32]u8 = undefined;
+    var tx_buf: [32]u8 = undefined;
+    const rx_str = std.fmt.bufPrint(&rx_buf, "↓ INGRESS {d:.2} MB/s", .{total_rx}) catch "?";
+    const tx_str = std.fmt.bufPrint(&tx_buf, "↑ EGRESS  {d:.2} MB/s", .{total_tx}) catch "?";
 
-    buf.writeString(3, panel_y + 2, "↓ RX ", Color.rgb(80, 210, 120), theme.bg, false);
-    graphs.renderGaugeBar(buf, 8, panel_y + 2, gauge_w, rx_pct, theme.success, theme.muted, theme.bg, plain);
-    buf.writeString(3, panel_y + 3, "↑ TX ", Color.rgb(255, 180, 60), theme.bg, false);
-    graphs.renderGaugeBar(buf, 8, panel_y + 3, gauge_w, tx_pct, theme.warning, theme.muted, theme.bg, plain);
+    buf.writeString(3, panel_y + 2, rx_str, theme.success, theme.bg, true);
+    buf.writeString(3, panel_y + 9, tx_str, theme.warning, theme.bg, true);
 
-    graphs.renderSeparator(buf, 2, panel_y + 4, w - 4, theme.border, theme.bg, plain);
+    var rx_hist: [256]f32 = undefined;
+    var tx_hist: [256]f32 = undefined;
+    const rx_count = history.net_rx_history.getChronological(&rx_hist);
+    const tx_count = history.net_tx_history.getChronological(&tx_hist);
 
-    const hdr = "  INTERFACE               IP ADDRESS          ↓ INGRESS     ↑ EGRESS   STATUS";
-    buf.writeString(2, panel_y + 5, hdr[0..@min(hdr.len, w - 4)], theme.header, theme.bg, true);
-    graphs.renderSeparator(buf, 2, panel_y + 6, w - 4, theme.border, theme.bg, plain);
+    const spark_w = left_w - 2;
+    if (rx_count > 0 and spark_w > 4) {
+        graphs.renderBrailleGraph(buf, 3, panel_y + 3, spark_w, 5, rx_hist[0..rx_count], theme.success, theme.bg, plain);
+    }
+    if (tx_count > 0 and spark_w > 4) {
+        graphs.renderBrailleGraph(buf, 3, panel_y + 10, spark_w, 5, tx_hist[0..tx_count], theme.warning, theme.bg, plain);
+    }
+    
+    // Vertical separator
+    graphs.renderSeparatorVertical(buf, left_w + 2, panel_y + 1, panel_h - 2, theme.border, theme.bg, plain);
 
+    // --- RIGHT PANE (Interfaces) ---
+    buf.writeString(right_x, panel_y + 1, " ADAPTERS ", theme.header, theme.bg, true);
+    
     var r: u16 = 0;
     for (net.interfaces) |iface| {
-        const row_y = panel_y + 7 + r * 2;
-        if (row_y + 1 >= panel_y + panel_h) break;
+        const row_y = panel_y + 3 + r * 4;
+        if (row_y + 3 >= panel_y + panel_h) break;
 
         const state_color = if (iface.is_up) theme.success else theme.critical;
-        const state_str = if (iface.is_up) "● UP  " else "○ DOWN";
+        const state_str = if (iface.is_up) "● UP" else "○ DOWN";
 
-        buf.writeString(3, row_y, iface.getName(), theme.accent, theme.bg, true);
-        buf.writeString(27, row_y, iface.getIp(), theme.fg, theme.bg, false);
+        buf.drawBox(right_x, row_y, right_w, 4, iface.getName(), theme.border, theme.accent, theme.bg, plain);
+        buf.writeString(right_x + 2, row_y + 1, iface.getIp(), theme.fg, theme.bg, false);
+        buf.writeString(right_x + right_w - 8, row_y + 1, state_str, state_color, theme.bg, true);
 
-        const rx_mb = @as(f32, @floatFromInt(iface.rx_bytes_sec)) / (1024.0 * 1024.0);
-        const tx_mb = @as(f32, @floatFromInt(iface.tx_bytes_sec)) / (1024.0 * 1024.0);
-
-        var rx_if_buf: [16]u8 = undefined;
-        var tx_if_buf: [16]u8 = undefined;
-        const rx_if = std.fmt.bufPrint(&rx_if_buf, "{d:.3} MB/s", .{rx_mb}) catch "?";
-        const tx_if = std.fmt.bufPrint(&tx_if_buf, "{d:.3} MB/s", .{tx_mb}) catch "?";
-
-        buf.writeString(47, row_y, rx_if, theme.success, theme.bg, false);
-        buf.writeString(61, row_y, tx_if, theme.warning, theme.bg, false);
-        buf.writeString(73, row_y, state_str, state_color, theme.bg, true);
+        const i_rx = @as(f32, @floatFromInt(iface.rx_bytes_sec)) / (1024.0 * 1024.0);
+        const i_tx = @as(f32, @floatFromInt(iface.tx_bytes_sec)) / (1024.0 * 1024.0);
+        
+        var stats_buf: [64]u8 = undefined;
+        const stats_str = std.fmt.bufPrint(&stats_buf, "↓ {d:.2} MB/s    ↑ {d:.2} MB/s", .{i_rx, i_tx}) catch "";
+        buf.writeString(right_x + 2, row_y + 2, stats_str, theme.muted, theme.bg, false);
+        
         r += 1;
     }
 }
@@ -649,29 +634,32 @@ pub fn renderDiagnosticsPanel(
         .poor, .critical => theme.critical,
     };
 
+    const dial_radius = 4;
+    graphs.renderRadialDial(buf, 4, panel_y + 1, dial_radius, 4.0, @floatFromInt(health.overall_score), score_color, theme.bg, plain);
+    
     var score_buf: [64]u8 = undefined;
     const score_str = std.fmt.bufPrint(&score_buf, " {d}/100 [{s}]", .{
         health.overall_score, health.status.asText(),
     }) catch "";
-    buf.writeString(3, panel_y + 1, "Composite Health Assessment:", theme.header, theme.bg, true);
-    buf.writeString(32, panel_y + 1, score_str, score_color, theme.bg, true);
-
-    graphs.renderGaugeBar(buf, 3, panel_y + 2, @min(w - 6, 65),
+    
+    buf.writeString(15, panel_y + 1, "Composite Health Assessment:", theme.header, theme.bg, true);
+    buf.writeString(15, panel_y + 3, score_str, score_color, theme.bg, true);
+    graphs.renderGaugeBar(buf, 15, panel_y + 5, @min(w - 20, 50),
         @floatFromInt(health.overall_score), theme.accent, theme.muted, theme.bg, plain);
-
-    graphs.renderSeparator(buf, 2, panel_y + 3, w - 4, theme.border, theme.bg, plain);
-    buf.writeString(3, panel_y + 4, "Subsystem Score Breakdown:", theme.header, theme.bg, true);
+        
+    graphs.renderSeparator(buf, 2, panel_y + 7, w - 4, theme.border, theme.bg, plain);
+    buf.writeString(3, panel_y + 8, "Subsystem Score Breakdown:", theme.header, theme.bg, true);
 
     const sub_w: u16 = @min((w - 6) / 3, 30);
-    renderSubScore(buf, 3, panel_y + 5, "  CPU Compute", health.cpu_score, sub_w, theme, plain);
-    renderSubScore(buf, 3 + sub_w, panel_y + 5, "  Physical RAM", health.memory_score, sub_w, theme, plain);
-    renderSubScore(buf, 3 + sub_w * 2, panel_y + 5, "  Storage I/O", health.disk_score, sub_w, theme, plain);
-    renderSubScore(buf, 3, panel_y + 7, "  Network Link", health.network_score, sub_w, theme, plain);
-    renderSubScore(buf, 3 + sub_w, panel_y + 7, "  Thermal Zone", health.thermal_score, sub_w, theme, plain);
+    renderSubScore(buf, 3, panel_y + 9, "  CPU Compute", health.cpu_score, sub_w, theme, plain);
+    renderSubScore(buf, 3 + sub_w, panel_y + 9, "  Physical RAM", health.memory_score, sub_w, theme, plain);
+    renderSubScore(buf, 3 + sub_w * 2, panel_y + 9, "  Storage I/O", health.disk_score, sub_w, theme, plain);
+    renderSubScore(buf, 3, panel_y + 11, "  Network Link", health.network_score, sub_w, theme, plain);
+    renderSubScore(buf, 3 + sub_w, panel_y + 11, "  Thermal Zone", health.thermal_score, sub_w, theme, plain);
 
-    graphs.renderSeparator(buf, 2, panel_y + 9, w - 4, theme.border, theme.bg, plain);
-    buf.writeString(3, panel_y + 10, "Summary: ", theme.header, theme.bg, true);
-    buf.writeString(12, panel_y + 10, health.getSummary()[0..@min(health.getSummary().len, w - 15)], theme.fg, theme.bg, false);
+    graphs.renderSeparator(buf, 2, panel_y + 13, w - 4, theme.border, theme.bg, plain);
+    buf.writeString(3, panel_y + 14, "Summary: ", theme.header, theme.bg, true);
+    buf.writeString(12, panel_y + 14, health.getSummary()[0..@min(health.getSummary().len, w - 15)], theme.fg, theme.bg, false);
 
     graphs.renderSeparator(buf, 2, panel_y + 11, w - 4, theme.border, theme.bg, plain);
     buf.writeString(3, panel_y + 12, "Active Root-Cause Alerts & Recommendations:", theme.header, theme.bg, true);

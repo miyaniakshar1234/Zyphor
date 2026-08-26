@@ -338,3 +338,89 @@ pub fn renderLabel(buf: *ScreenBuffer, x: u16, y: u16, label: []const u8, value:
     buf.writeString(lx, y, value, value_color, bg, true);
 }
 
+/// High-density radial dial graph mapping 0..100% to a circular gauge
+pub fn renderRadialDial(
+    buf: *ScreenBuffer,
+    x: u16,
+    y: u16,
+    radius_chars: u16,
+    thickness: f32,
+    percent: f32,
+    fg: Color,
+    bg: Color,
+    plain: bool,
+) void {
+    if (plain or radius_chars < 3) return;
+    
+    const w = radius_chars * 2;
+    const h = radius_chars;
+    const cx = @as(f32, @floatFromInt(w)) * 2.0 / 2.0;
+    const cy = @as(f32, @floatFromInt(h)) * 4.0 / 2.0;
+    const radius = @as(f32, @floatFromInt(radius_chars)) * 4.0 / 2.0;
+    const inner_radius = radius - thickness;
+    
+    // Convert 0..100 to angle (start at top: 0, rotate clockwise)
+    // Wait, let's map 0% to -225 deg and 100% to +45 deg for a speedometer look?
+    // Let's just do 0 to 360 starting from 12 o'clock for now.
+    const pct = std.math.clamp(percent, 0.0, 100.0) / 100.0;
+    const end_angle = pct * std.math.pi * 2.0;
+
+    var row: u16 = 0;
+    while (row < h) : (row += 1) {
+        var col: u16 = 0;
+        while (col < w) : (col += 1) {
+            var dots: u8 = 0;
+            var dy: u16 = 0;
+            while (dy < 4) : (dy += 1) {
+                var dx: u16 = 0;
+                while (dx < 2) : (dx += 1) {
+                    const px = @as(f32, @floatFromInt(col * 2 + dx));
+                    const py = @as(f32, @floatFromInt(row * 4 + dy));
+                    
+                    const dist = std.math.hypot(px - cx, py - cy);
+                    if (dist >= inner_radius and dist <= radius) {
+                        var angle = std.math.atan2(px - cx, cy - py);
+                        if (angle < 0) angle += std.math.pi * 2.0;
+                        if (angle <= end_angle) {
+                            const dot_bit: u8 = @as(u8, 1) << @as(u3, @intCast(dx * 4 + dy));
+                            dots |= dot_bit;
+                        } else if (dist <= radius and dist >= radius - 0.5) {
+                            // faint background track
+                            // we don't draw it for simplicity, maybe later
+                        }
+                    }
+                }
+            }
+            
+            if (dots > 0) {
+                var braille: u16 = 0x2800;
+                if (dots & (1 << 0) != 0) braille |= 0x01;
+                if (dots & (1 << 1) != 0) braille |= 0x02;
+                if (dots & (1 << 2) != 0) braille |= 0x04;
+                if (dots & (1 << 3) != 0) braille |= 0x40;
+                if (dots & (1 << 4) != 0) braille |= 0x08;
+                if (dots & (1 << 5) != 0) braille |= 0x10;
+                if (dots & (1 << 6) != 0) braille |= 0x20;
+                if (dots & (1 << 7) != 0) braille |= 0x80;
+                
+                var utf8_buf: [4]u8 = undefined;
+                const len = std.unicode.utf8Encode(@as(u21, @intCast(braille)), &utf8_buf) catch 0;
+                buf.setCell(x + col, y + row, utf8_buf[0..len], fg, bg, false);
+            }
+        }
+    }
+}
+
+
+
+pub fn renderSeparatorVertical(buf: *ScreenBuffer, x: u16, y: u16, h: u16, color: Color, bg: Color, plain: bool) void {
+    var i: u16 = 0;
+    while (i < h) : (i += 1) {
+        if (y + i >= buf.height) break;
+        if (plain) {
+            buf.writeString(x, y + i, "|", color, bg, false);
+        } else {
+            buf.writeString(x, y + i, "│", color, bg, false);
+        }
+    }
+}

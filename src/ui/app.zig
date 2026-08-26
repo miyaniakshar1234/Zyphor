@@ -101,7 +101,7 @@ pub const App = struct {
                     widgets.renderDiskPanel(&self.buffer, &snapshot.disk, &self.theme, self.plain_mode);
                 },
                 .network => {
-                    widgets.renderNetworkPanel(&self.buffer, &snapshot.network, &self.theme, self.plain_mode);
+                    widgets.renderNetworkPanel(&self.buffer, &snapshot.network, &self.engine.history, &self.theme, self.plain_mode);
                 },
                 .diagnostics => {
                     widgets.renderDiagnosticsPanel(&self.buffer, &snapshot.health, self.engine.alert_engine.alerts.items, &self.theme, self.plain_mode);
