@@ -79,23 +79,23 @@ pub const BuiltinThemes = struct {
         .muted      = Color.rgb(100, 116, 139),
     };
 
-    /// Cyber — neon pink on deep black
+    /// Cyber — intense synthwave neon on deep dark purple
     pub const cyber = Theme{
         .name = "cyber",
-        .bg         = Color.rgb(6,   6,   12),
-        .fg         = Color.rgb(238, 238, 255),
-        .accent     = Color.rgb(255, 0,   128),
-        .accent_dim = Color.rgb(100, 0,   60),
-        .secondary  = Color.rgb(0,   240, 255),
-        .success    = Color.rgb(0,   255, 136),
-        .warning    = Color.rgb(255, 230, 0),
-        .critical   = Color.rgb(255, 50,  50),
-        .border     = Color.rgb(90,  0,   140),
-        .header     = Color.rgb(255, 80,  210),
-        .header_bg  = Color.rgb(18,  5,   30),
-        .tab_bg     = Color.rgb(12,  4,   22),
-        .selected   = Color.rgb(40,  8,   60),
-        .muted      = Color.rgb(110, 80,  150),
+        .bg         = Color.rgb(8,   4,   16),
+        .fg         = Color.rgb(240, 240, 255),
+        .accent     = Color.rgb(255, 0,   85), // Hot pink-red
+        .accent_dim = Color.rgb(120, 0,   40),
+        .secondary  = Color.rgb(0,   255, 255), // Pure Cyan
+        .success    = Color.rgb(57,  255, 20), // Neon Lime Green
+        .warning    = Color.rgb(255, 215, 0), // Golden Yellow
+        .critical   = Color.rgb(255, 20,  60), // Laser Red
+        .border     = Color.rgb(138, 43,  226), // Blue Violet
+        .header     = Color.rgb(255, 105, 180), // Hot Pink
+        .header_bg  = Color.rgb(20,  10,  35),
+        .tab_bg     = Color.rgb(14,  6,   24),
+        .selected   = Color.rgb(60,  10,  80),
+        .muted      = Color.rgb(140, 100, 180),
     };
 
     /// Aurora — teal and violet on dark navy

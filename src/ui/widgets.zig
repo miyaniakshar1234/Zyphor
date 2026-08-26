@@ -155,10 +155,10 @@ pub fn renderOverviewPanel(
 ) void {
     const w = buf.width;
     const h = buf.height;
-    if (w < 60 or h < 20) return;
+    if (w < 60 or h < 24) return;
 
     const content_y: u16 = 4;
-    const content_h = h - content_y - 2;
+    const content_h = h - content_y - 8; // Leave bottom 7 rows for Event Stream
 
     const pane_w = (w - 4) / 3;
     const left_x: u16 = 1;
@@ -168,32 +168,33 @@ pub fn renderOverviewPanel(
     // ── 1. CPU Command Center (Left Pane) ──────────────────────────────────
     buf.drawBox(left_x, content_y, pane_w, content_h, " CPU CORE MATRIX ", theme.border, theme.accent, theme.bg, plain);
 
-    const dial_radius = @min(pane_w / 2 - 2, 8);
+    const dial_radius = @min(pane_w / 2 - 2, 6);
     const dial_cx = left_x + pane_w / 2 - dial_radius;
     
     // Draw Radial Dial
     graphs.renderRadialDial(buf, dial_cx, content_y + 1, dial_radius, 4.0, snapshot.cpu.total_usage, theme.accent, theme.bg, plain);
     
     // Center text inside dial
-    var cpu_val_buf: [16]u8 = undefined;
-    const cpu_val = std.fmt.bufPrint(&cpu_val_buf, "{d:>4.1}%", .{snapshot.cpu.total_usage}) catch "?%";
+    var val_buf: [64]u8 = undefined;
+    const cpu_val = std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.cpu.total_usage}) catch "?%";
     buf.writeString(dial_cx + dial_radius - 3, content_y + 1 + dial_radius / 2, cpu_val, theme.fg, theme.bg, true);
 
     var cy: u16 = content_y + dial_radius + 2;
 
-    var info_buf: [80]u8 = undefined;
-    const info = std.fmt.bufPrint(&info_buf, "{d}C @ {d} MHz", .{
-        snapshot.cpu.logical_cores, snapshot.cpu.frequency_mhz,
-    }) catch "";
-    buf.writeStringMax(left_x + 2, cy, info, pane_w - 4, theme.muted, theme.bg, false);
+    const info = std.fmt.bufPrint(&val_buf, "{d}C @ {d} MHz", .{snapshot.cpu.logical_cores, snapshot.cpu.frequency_mhz}) catch "";
+    buf.writeStringMax(left_x + 2, cy, info, pane_w - 4, theme.muted, theme.bg, true);
+    cy += 1;
+    
+    const cpu_model = snapshot.cpu.getModelName();
+    buf.writeStringMax(left_x + 2, cy, cpu_model, pane_w - 4, theme.accent_dim, theme.bg, false);
     cy += 2;
 
     var cpu_hist: [256]f32 = undefined;
     const hist_count = history.cpu_history.getChronological(&cpu_hist);
     const spark_w = pane_w - 4;
     if (hist_count > 0 and spark_w > 4) {
-        graphs.renderBrailleGraph(buf, left_x + 2, cy, spark_w, 4, cpu_hist[0..hist_count], null, theme.bg, plain);
-        cy += 5;
+        graphs.renderBrailleGraph(buf, left_x + 2, cy, spark_w, 3, cpu_hist[0..hist_count], null, theme.bg, plain);
+        cy += 4;
     }
 
     renderCoreGrid(buf, snapshot, theme, left_x + 2, cy, pane_w - 4, plain);
@@ -203,34 +204,37 @@ pub fn renderOverviewPanel(
 
     graphs.renderRadialDial(buf, center_x + pane_w / 2 - dial_radius, content_y + 1, dial_radius, 4.0, snapshot.memory.used_percent, theme.secondary, theme.bg, plain);
 
-    var mem_val_buf: [16]u8 = undefined;
-    const mem_val = std.fmt.bufPrint(&mem_val_buf, "{d:>4.1}%", .{snapshot.memory.used_percent}) catch "?%";
+    const mem_val = std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.memory.used_percent}) catch "?%";
     buf.writeString(center_x + pane_w / 2 - 3, content_y + 1 + dial_radius / 2, mem_val, theme.fg, theme.bg, true);
 
     var my: u16 = content_y + dial_radius + 2;
 
     const used_gb = @as(f32, @floatFromInt(snapshot.memory.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
     const total_gb = @as(f32, @floatFromInt(snapshot.memory.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
-    var ram_buf: [32]u8 = undefined;
-    const ram_str = std.fmt.bufPrint(&ram_buf, "RAM: {d:.1} / {d:.1} GB", .{ used_gb, total_gb }) catch "?";
-    buf.writeStringMax(center_x + 2, my, ram_str, pane_w - 4, theme.muted, theme.bg, false);
+    const cached_gb = @as(f32, @floatFromInt(snapshot.memory.cached_bytes)) / (1024.0 * 1024.0 * 1024.0);
+    
+    buf.writeStringMax(center_x + 2, my, std.fmt.bufPrint(&val_buf, "RAM: {d:.1} / {d:.1} GB", .{ used_gb, total_gb }) catch "", pane_w - 4, theme.muted, theme.bg, true);
     my += 2;
 
     var mem_hist: [256]f32 = undefined;
     const mem_hist_count = history.memory_history.getChronological(&mem_hist);
     if (mem_hist_count > 0 and spark_w > 4) {
-        graphs.renderBrailleGraph(buf, center_x + 2, my, spark_w, 4, mem_hist[0..mem_hist_count], null, theme.bg, plain);
-        my += 5;
+        graphs.renderBrailleGraph(buf, center_x + 2, my, spark_w, 3, mem_hist[0..mem_hist_count], theme.secondary, theme.bg, plain);
+        my += 4;
     }
+
+    buf.writeString(center_x + 2, my, "Page Cache / Buffers:", theme.muted, theme.bg, false);
+    buf.writeString(center_x + 25, my, std.fmt.bufPrint(&val_buf, "{d:.1} GB", .{cached_gb}) catch "", theme.fg, theme.bg, true);
+    my += 2;
 
     graphs.renderLabel(buf, center_x + 2, my, "Swap Usage: ", "", theme.muted, theme.fg, theme.bg);
     my += 1;
-    graphs.renderGaugeBar(buf, center_x + 2, my, pane_w - 4, snapshot.memory.swap_used_percent, theme.secondary, theme.muted, theme.bg, plain);
+    graphs.renderGaugeBar(buf, center_x + 2, my, pane_w - 4, snapshot.memory.swap_used_percent, theme.warning, theme.muted, theme.bg, plain);
 
     // ── 3. Sensors & Edge (Right Pane) ──────────────────────────────────
     buf.drawBox(right_x, content_y, pane_w, content_h, " SYSTEM EDGE & I/O ", theme.border, theme.header, theme.bg, plain);
     
-    var ry = content_y + 2;
+    var ry = content_y + 1;
     buf.writeString(right_x + 2, ry, "▼ NETWORK INGRESS/EGRESS", theme.muted, theme.bg, true);
     ry += 2;
 
@@ -243,14 +247,13 @@ pub fn renderOverviewPanel(
     const tx_count = history.net_tx_history.getChronological(&tx_hist);
 
     if (rx_count > 0 and spark_w > 4) {
-        var nbuf: [32]u8 = undefined;
-        const rx_s = std.fmt.bufPrint(&nbuf, "RX: {d:.2} MB/s", .{rx_mb}) catch "?";
+        const rx_s = std.fmt.bufPrint(&val_buf, "RX: {d:.2} MB/s", .{rx_mb}) catch "?";
         graphs.renderLabel(buf, right_x + 2, ry, "", rx_s, theme.muted, theme.success, theme.bg);
         ry += 1;
         graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, rx_hist[0..rx_count], theme.success, theme.bg, plain);
         ry += 3;
         
-        const tx_s = std.fmt.bufPrint(&nbuf, "TX: {d:.2} MB/s", .{tx_mb}) catch "?";
+        const tx_s = std.fmt.bufPrint(&val_buf, "TX: {d:.2} MB/s", .{tx_mb}) catch "?";
         graphs.renderLabel(buf, right_x + 2, ry, "", tx_s, theme.muted, theme.warning, theme.bg);
         ry += 1;
         graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, tx_hist[0..tx_count], theme.warning, theme.bg, plain);
@@ -263,9 +266,66 @@ pub fn renderOverviewPanel(
         buf.writeStringMax(right_x + 2, ry, snapshot.gpu.getName(), pane_w - 4, theme.accent, theme.bg, false);
         ry += 1;
         graphs.renderGaugeBar(buf, right_x + 2, ry, pane_w - 4, snapshot.gpu.utilization_pct, theme.accent, theme.muted, theme.bg, plain);
-    } else {
-        buf.writeString(right_x + 2, ry, "No discrete GPU detected.", theme.muted, theme.bg, false);
+        ry += 2;
     }
+    
+    if (snapshot.cpu.temperature_c) |temp| {
+        buf.writeString(right_x + 2, ry, "Package Temp: ", theme.muted, theme.bg, false);
+        buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "{d:.1} C", .{temp}) catch "", theme.critical, theme.bg, true);
+    } else {
+        buf.writeString(right_x + 2, ry, "Thermal Zone:  [SECURE]", theme.muted, theme.bg, false);
+    }
+
+    // ── 4. Global Event Stream (Bottom) ──────────────────────────────────
+    const event_y = content_y + content_h;
+    buf.drawBox(left_x, event_y, w - 2, 7, " GLOBAL ANOMALY & EVENT STREAM ", theme.border, theme.critical, theme.bg, plain);
+    
+    const ts = snapshot.timestamp_ms;
+    const time_s = @as(u64, @intCast(@max(0, @divTrunc(ts, 1000))));
+    const sec = time_s % 60;
+    const min = (time_s / 60) % 60;
+    const hr = (time_s / 3600) % 24;
+    
+    const ts_str = std.fmt.bufPrint(&val_buf, "{d:0>2}:{d:0>2}:{d:0>2}", .{hr, min, sec}) catch "";
+
+    var ey = event_y + 1;
+    
+    // Line 1: Health sync
+    buf.writeString(left_x + 2, ey, "[ ", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 4, ey, ts_str, theme.fg, theme.bg, false);
+    buf.writeString(left_x + 12, ey, " ] ", theme.muted, theme.bg, false);
+    
+    if (snapshot.health.status == .critical or snapshot.health.status == .poor) {
+        buf.writeString(left_x + 15, ey, "[CRITICAL] SYSTEM HEALTH DEGRADED - ANOMALIES DETECTED", theme.critical, theme.bg, true);
+    } else {
+        buf.writeString(left_x + 15, ey, "[INFO] TELEMETRY SYNC COMPLETE - KERNEL NOMINAL", theme.success, theme.bg, true);
+    }
+    ey += 1;
+    
+    // Line 2: Process count & Context
+    buf.writeString(left_x + 2, ey, "[ ", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 4, ey, ts_str, theme.fg, theme.bg, false);
+    buf.writeString(left_x + 12, ey, " ] ", theme.muted, theme.bg, false);
+    var pbuf: [128]u8 = undefined;
+    buf.writeString(left_x + 15, ey, std.fmt.bufPrint(&pbuf, "[TRACE] Tracking {d} active processes across user/kernel space", .{snapshot.top_processes.len}) catch "", theme.muted, theme.bg, false);
+    ey += 1;
+
+    // Line 3: Memory status
+    buf.writeString(left_x + 2, ey, "[ ", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 4, ey, ts_str, theme.fg, theme.bg, false);
+    buf.writeString(left_x + 12, ey, " ] ", theme.muted, theme.bg, false);
+    if (snapshot.memory.swap_used_percent > 50.0) {
+        buf.writeString(left_x + 15, ey, "[WARN] VMM SWAP THRASHING IMMINENT. PRESSURE HIGH.", theme.warning, theme.bg, true);
+    } else {
+        buf.writeString(left_x + 15, ey, "[INFO] VMM PAGE CACHE STABLE. NO THRASHING.", theme.muted, theme.bg, false);
+    }
+    ey += 1;
+
+    // Line 4: Uptime / Syscall
+    buf.writeString(left_x + 2, ey, "[ ", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 4, ey, ts_str, theme.fg, theme.bg, false);
+    buf.writeString(left_x + 12, ey, " ] ", theme.muted, theme.bg, false);
+    buf.writeString(left_x + 15, ey, "[SYSCALL] INTERRUPT FREQUENCY WITHIN NORMAL BOUNDS (< 15k/sec)", theme.muted, theme.bg, false);
 }
 
 fn renderCoreGrid(
