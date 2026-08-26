@@ -208,6 +208,8 @@ pub const ProcessInfo = struct {
     write_bytes_sec: u64 = 0,
     threads_count: u32 = 1,
     state: ProcessState = .running,
+    tree_depth: u16 = 0,
+    is_last_child: bool = false,
 
     pub fn getName(self: *const ProcessInfo) []const u8 {
         return self.name[0..self.name_len];

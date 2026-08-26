@@ -146,11 +146,16 @@ pub const ScreenBuffer = struct {
     }
 
     pub fn writeString(self: *ScreenBuffer, x: u16, y: u16, text: []const u8, fg: Color, bg: Color, bold: bool) void {
+        self.writeStringMax(x, y, text, self.width, fg, bg, bold);
+    }
+
+    pub fn writeStringMax(self: *ScreenBuffer, x: u16, y: u16, text: []const u8, max_chars: u16, fg: Color, bg: Color, bold: bool) void {
         if (y >= self.height) return;
         var curr_x = x;
         var i: usize = 0;
+        var chars_written: u16 = 0;
 
-        while (i < text.len and curr_x < self.width) {
+        while (i < text.len and curr_x < self.width and chars_written < max_chars) {
             const byte = text[i];
             var char_len: usize = 1;
             if (byte >= 0xF0) char_len = 4
@@ -161,6 +166,7 @@ pub const ScreenBuffer = struct {
             self.setCell(curr_x, y, text[i..end_idx], fg, bg, bold);
             curr_x += 1;
             i += char_len;
+            chars_written += 1;
         }
     }
 

@@ -100,4 +100,25 @@ pub const ProcessTree = struct {
         node.aggregate_cpu = total_cpu;
         node.aggregate_rss = total_rss;
     }
+
+    pub fn flatten(self: *ProcessTree, out_list: *std.ArrayList(types.ProcessInfo)) !void {
+        for (self.roots.items, 0..) |root, i| {
+            const is_last = (i == self.roots.items.len - 1);
+            try self.flattenNode(root, out_list, is_last);
+        }
+    }
+
+    fn flattenNode(self: *ProcessTree, node: *ProcessTreeNode, out_list: *std.ArrayList(types.ProcessInfo), is_last: bool) !void {
+        var info = node.process;
+        info.tree_depth = @as(u16, @intCast(node.depth));
+        info.is_last_child = is_last;
+        try out_list.append(self.allocator, info);
+
+        if (node.is_expanded) {
+            for (node.children.items, 0..) |child, i| {
+                const child_last = (i == node.children.items.len - 1);
+                try self.flattenNode(child, out_list, child_last);
+            }
+        }
+    }
 };

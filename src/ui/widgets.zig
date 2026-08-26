@@ -422,9 +422,32 @@ pub fn renderProcessPanel(
         buf.writeString(11, row_y, ppid_str, theme.muted, row_bg, false);
 
         // Process name
+        var name_buf: [128]u8 = undefined;
+        var name_len: usize = 0;
+        const plain_char = plain;
+        
+        if (tree_mode and proc.tree_depth > 0) {
+            var i: u16 = 0;
+            while (i < proc.tree_depth and name_len < 60) : (i += 1) {
+                if (i == proc.tree_depth - 1) {
+                    const branch = if (plain_char) "+-" else if (proc.is_last_child) "└─" else "├─";
+                    @memcpy(name_buf[name_len..name_len+branch.len], branch);
+                    name_len += branch.len;
+                } else {
+                    const pipe = if (plain_char) "| " else "│ ";
+                    @memcpy(name_buf[name_len..name_len+pipe.len], pipe);
+                    name_len += pipe.len;
+                }
+            }
+        }
+        
         const name = proc.getName();
-        const name_trunc = name[0..@min(name.len, 22)];
-        buf.writeString(19, row_y, name_trunc, name_fg, row_bg, is_selected);
+        const copy_len = @min(name.len, 128 - name_len);
+        @memcpy(name_buf[name_len..name_len+copy_len], name[0..copy_len]);
+        name_len += copy_len;
+        
+        // Write the tree+name string with max 22 columns
+        buf.writeStringMax(19, row_y, name_buf[0..name_len], 22, name_fg, row_bg, is_selected);
 
         // CPU% with gradient
         const cpu_color = if (is_selected) theme.accent else graphs.percentColor(proc.cpu_percent);

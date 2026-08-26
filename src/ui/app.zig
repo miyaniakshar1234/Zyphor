@@ -251,6 +251,7 @@ pub const App = struct {
                         },
                         't' => {
                             self.tree_mode = !self.tree_mode;
+                            try self.engine.process_mgr.toggleTreeMode();
                             self.setStatus(if (self.tree_mode) "Tree view enabled" else "Flat view enabled");
                         },
                         ' ' => {

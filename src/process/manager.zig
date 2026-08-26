@@ -22,6 +22,7 @@ pub const ProcessManager = struct {
     sort_order: SortOrder = .descending,
     active_filter: [64]u8 = [_]u8{0} ** 64,
     active_filter_len: usize = 0,
+    tree_mode: bool = false,
 
     pub fn init(allocator: std.mem.Allocator) ProcessManager {
         return .{
@@ -32,6 +33,11 @@ pub const ProcessManager = struct {
     pub fn deinit(self: *ProcessManager) void {
         self.processes.deinit(self.allocator);
         self.filtered_indices.deinit(self.allocator);
+    }
+
+    pub fn toggleTreeMode(self: *ProcessManager) !void {
+        self.tree_mode = !self.tree_mode;
+        try self.applyFilterAndSort();
     }
 
     pub fn setFilter(self: *ProcessManager, query: ?[]const u8) !void {
@@ -69,6 +75,21 @@ pub const ProcessManager = struct {
 
     pub fn applyFilterAndSort(self: *ProcessManager) !void {
         self.filtered_indices.clearRetainingCapacity();
+
+        if (self.tree_mode) {
+            const tree_mod = @import("tree.zig");
+            var tree = tree_mod.ProcessTree.init(self.allocator);
+            defer tree.deinit();
+            try tree.build(self.processes.items);
+
+            var flattened = std.ArrayList(types.ProcessInfo).empty;
+            try tree.flatten(&flattened);
+            
+            // Re-assign processes to the flattened tree version (retaining original instances but ordered and annotated)
+            self.processes.deinit(self.allocator);
+            self.processes = flattened;
+        }
+
         const filter = self.getFilter();
 
         for (self.processes.items, 0..) |proc, idx| {
@@ -88,6 +109,8 @@ pub const ProcessManager = struct {
             }
             try self.filtered_indices.append(self.allocator, idx);
         }
+
+        if (self.tree_mode) return; // Skip sorting to preserve tree topology
 
         const items = self.processes.items;
         const field = self.sort_field;
