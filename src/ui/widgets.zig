@@ -146,7 +146,7 @@ pub fn renderTabs(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// OVERVIEW PANEL (High-Density Command Matrix)
+// OVERVIEW PANEL (Tab 1 - System Matrix & Hardware Observatory)
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub fn renderOverviewPanel(
@@ -170,7 +170,7 @@ pub fn renderOverviewPanel(
     const right_x: u16 = center_x + pane_w + 1;
 
     // ── 1. CPU Command Center (Left Pane) ──────────────────────────────────
-    buf.drawBox(left_x, content_y, pane_w, content_h, " CPU CORE MATRIX ", theme.border, theme.accent, theme.bg, plain);
+    buf.drawBox(left_x, content_y, pane_w, content_h, " CPU COMPUTE & CORE MATRIX ", theme.border, theme.accent, theme.bg, plain);
 
     const dial_radius: u16 = @min(pane_w / 2 - 2, 5);
     const dial_cx = left_x + pane_w / 2 - dial_radius;
@@ -182,6 +182,7 @@ pub fn renderOverviewPanel(
 
     var cy: u16 = content_y + dial_radius + 2;
 
+    // Architecture & Frequency
     const info = std.fmt.bufPrint(&val_buf, "{d}C / {d}T @ {d} MHz", .{
         snapshot.cpu.physical_cores, snapshot.cpu.logical_cores, snapshot.cpu.frequency_mhz,
     }) catch "";
@@ -192,7 +193,7 @@ pub fn renderOverviewPanel(
     buf.writeStringMax(left_x + 2, cy, cpu_model, pane_w - 4, theme.accent_dim, theme.bg, false);
     cy += 2;
 
-    // CPU Breakdown
+    // CPU Breakdown (Usr / Sys / IOW / Idle)
     buf.writeString(left_x + 2, cy, "Usr:", theme.muted, theme.bg, false);
     buf.writeString(left_x + 7, cy, std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.cpu.user_usage}) catch "", theme.fg, theme.bg, true);
     
@@ -203,6 +204,7 @@ pub fn renderOverviewPanel(
     buf.writeString(left_x + 31, cy, std.fmt.bufPrint(&val_buf, "{d:>4.1}%", .{snapshot.cpu.iowait_usage}) catch "", theme.critical, theme.bg, true);
     cy += 2;
 
+    // Rolling Braille History Graph
     var cpu_hist: [256]f32 = undefined;
     const hist_count = history.cpu_history.getChronological(&cpu_hist);
     const spark_w = pane_w - 4;
@@ -211,12 +213,22 @@ pub fn renderOverviewPanel(
         cy += 3;
     }
 
+    // Top CPU Consumer Pill
+    if (snapshot.top_processes.len > 0 and cy + 2 < content_y + content_h) {
+        const top_p = snapshot.top_processes[0];
+        var top_buf: [64]u8 = undefined;
+        const top_str = std.fmt.bufPrint(&top_buf, "▶ Top CPU: {s} ({d:.1}%)", .{ top_p.getName(), top_p.cpu_percent }) catch "";
+        buf.writeStringMax(left_x + 2, cy, top_str, pane_w - 4, theme.accent, theme.bg, true);
+        cy += 2;
+    }
+
+    // Multi-Core Grid
     if (cy + 2 < content_y + content_h) {
         renderCoreGrid(buf, snapshot, theme, left_x + 2, cy, pane_w - 4, plain);
     }
 
     // ── 2. Memory Subsystem (Center Pane) ──────────────────────────────────
-    buf.drawBox(center_x, content_y, pane_w, content_h, " MEMORY SUBSYSTEM ", theme.border, theme.secondary, theme.bg, plain);
+    buf.drawBox(center_x, content_y, pane_w, content_h, " MEMORY & VIRTUAL SUBSYSTEM ", theme.border, theme.secondary, theme.bg, plain);
 
     graphs.renderRadialDial(buf, center_x + pane_w / 2 - dial_radius, content_y + 1, dial_radius, 3.5, snapshot.memory.used_percent, theme.secondary, theme.bg, plain);
 
@@ -230,7 +242,7 @@ pub fn renderOverviewPanel(
     const cached_gb = @as(f32, @floatFromInt(snapshot.memory.cached_bytes)) / (1024.0 * 1024.0 * 1024.0);
     const free_gb = @as(f32, @floatFromInt(snapshot.memory.free_bytes)) / (1024.0 * 1024.0 * 1024.0);
     
-    buf.writeStringMax(center_x + 2, my, std.fmt.bufPrint(&val_buf, "RAM: {d:.1} / {d:.1} GB", .{ used_gb, total_gb }) catch "", pane_w - 4, theme.muted, theme.bg, true);
+    buf.writeStringMax(center_x + 2, my, std.fmt.bufPrint(&val_buf, "RAM: {d:.1} / {d:.1} GB ({d:.1}%)", .{ used_gb, total_gb, snapshot.memory.used_percent }) catch "", pane_w - 4, theme.muted, theme.bg, true);
     my += 2;
 
     var mem_hist: [256]f32 = undefined;
@@ -248,23 +260,28 @@ pub fn renderOverviewPanel(
         buf.writeString(center_x + 29, my, std.fmt.bufPrint(&val_buf, "{d:.1} GB", .{free_gb}) catch "", theme.success, theme.bg, true);
         my += 2;
 
-        graphs.renderLabel(buf, center_x + 2, my, "Swap Usage: ", "", theme.muted, theme.fg, theme.bg);
+        const swap_used_gb = @as(f32, @floatFromInt(snapshot.memory.swap_used_bytes)) / (1024.0 * 1024.0 * 1024.0);
+        const swap_tot_gb = @as(f32, @floatFromInt(snapshot.memory.swap_total_bytes)) / (1024.0 * 1024.0 * 1024.0);
+        
+        var sw_buf: [64]u8 = undefined;
+        const sw_str = std.fmt.bufPrint(&sw_buf, "Swap / Pagefile: {d:.1}/{d:.1} GB", .{ swap_used_gb, swap_tot_gb }) catch "Swap: ";
+        graphs.renderLabel(buf, center_x + 2, my, sw_str, "", theme.muted, theme.fg, theme.bg);
         my += 1;
         graphs.renderGaugeBar(buf, center_x + 2, my, pane_w - 4, snapshot.memory.swap_used_percent, theme.warning, theme.muted, theme.bg, plain);
         my += 2;
 
         // System Host Architecture Card
         if (my + 3 < content_y + content_h) {
-            buf.writeString(center_x + 2, my, "▼ SYSTEM TOPOLOGY", theme.muted, theme.bg, true);
+            buf.writeString(center_x + 2, my, "▼ SYSTEM HOST & RUNTIME", theme.muted, theme.bg, true);
             my += 1;
             buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Platform: {s}-{s}", .{@tagName(@import("builtin").os.tag), @tagName(@import("builtin").cpu.arch)}) catch "", theme.accent, theme.bg, false);
             my += 1;
-            buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Runtime:  Zig {s}", .{@import("builtin").zig_version_string}) catch "", theme.muted, theme.bg, false);
+            buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Runtime:  Zig {s} [ReleaseFast]", .{@import("builtin").zig_version_string}) catch "", theme.muted, theme.bg, false);
         }
     }
 
     // ── 3. System Edge & I/O (Right Pane) ──────────────────────────────────
-    buf.drawBox(right_x, content_y, pane_w, content_h, " SYSTEM EDGE & I/O ", theme.border, theme.header, theme.bg, plain);
+    buf.drawBox(right_x, content_y, pane_w, content_h, " SYSTEM EDGE & HARDWARE TELEMETRY ", theme.border, theme.header, theme.bg, plain);
     
     var ry = content_y + 1;
     buf.writeString(right_x + 2, ry, "▼ NETWORK INGRESS/EGRESS", theme.muted, theme.bg, true);
@@ -273,8 +290,8 @@ pub fn renderOverviewPanel(
     const rx_mb = @as(f32, @floatFromInt(snapshot.network.total_rx_sec)) / (1024.0 * 1024.0);
     const tx_mb = @as(f32, @floatFromInt(snapshot.network.total_tx_sec)) / (1024.0 * 1024.0);
     
-    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "RX: {d:>6.2} MB/s", .{rx_mb}) catch "", theme.success, theme.bg, true);
-    buf.writeString(right_x + 20, ry, std.fmt.bufPrint(&val_buf, "TX: {d:>6.2} MB/s", .{tx_mb}) catch "", theme.warning, theme.bg, true);
+    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "↓ RX: {d:>6.2} MB/s", .{rx_mb}) catch "", theme.success, theme.bg, true);
+    buf.writeString(right_x + 20, ry, std.fmt.bufPrint(&val_buf, "↑ TX: {d:>6.2} MB/s", .{tx_mb}) catch "", theme.warning, theme.bg, true);
     ry += 2;
 
     // Disk I/O Block
@@ -293,14 +310,14 @@ pub fn renderOverviewPanel(
         const part0 = snapshot.disk.partitions[0];
         const p_used = @as(f32, @floatFromInt(part0.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
         const p_tot = @as(f32, @floatFromInt(part0.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
-        buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "{s} [{s}] {d:.0}/{d:.0}GB", .{part0.getMount(), part0.getFs(), p_used, p_tot}) catch "", theme.muted, theme.bg, false);
+        buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "{s} [{s}] {d:.0}/{d:.0}GB ({d:.1}%)", .{part0.getMount(), part0.getFs(), p_used, p_tot, part0.used_percent}) catch "", theme.muted, theme.bg, false);
         ry += 1;
         graphs.renderMiniBar(buf, right_x + 2, ry, pane_w - 4, part0.used_percent, theme.bg, plain);
         ry += 2;
     }
 
     if (ry + 3 < content_y + content_h) {
-        buf.writeString(right_x + 2, ry, "▼ HARDWARE SENSORS", theme.muted, theme.bg, true);
+        buf.writeString(right_x + 2, ry, "▼ HARDWARE SENSORS & POWER", theme.muted, theme.bg, true);
         ry += 1;
         if (snapshot.gpu.available) {
             buf.writeStringMax(right_x + 2, ry, snapshot.gpu.getName(), pane_w - 4, theme.accent, theme.bg, false);
@@ -310,23 +327,28 @@ pub fn renderOverviewPanel(
         }
         
         if (snapshot.cpu.temperature_c) |temp| {
+            const temp_color = if (temp > 80.0) theme.critical else if (temp > 65.0) theme.warning else theme.success;
             buf.writeString(right_x + 2, ry, "Package Temp: ", theme.muted, theme.bg, false);
-            buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "{d:.1} °C", .{temp}) catch "", theme.critical, theme.bg, true);
+            buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "{d:.1} °C", .{temp}) catch "", temp_color, theme.bg, true);
             ry += 1;
         } else {
-            buf.writeString(right_x + 2, ry, "Thermal Zone:  [SECURE]", theme.muted, theme.bg, false);
+            buf.writeString(right_x + 2, ry, "Thermal Zone:  [SECURE]", theme.success, theme.bg, false);
             ry += 1;
         }
         
         if (snapshot.battery.available) {
             buf.writeString(right_x + 2, ry, "Battery Power: ", theme.muted, theme.bg, false);
             buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "{d:.1}% {s}", .{snapshot.battery.percentage, if (snapshot.battery.is_charging) "⚡" else ""}) catch "", if (snapshot.battery.is_charging) theme.success else theme.warning, theme.bg, true);
+            ry += 1;
+            if (snapshot.battery.power_watts) |watts| {
+                buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "Power Drain:  {d:.1} W", .{watts}) catch "", theme.muted, theme.bg, false);
+            }
         }
     }
 
     // ── 4. Global Event Stream (Bottom) ──────────────────────────────────
     const event_y = content_y + content_h;
-    buf.drawBox(left_x, event_y, w - 2, bottom_h, " GLOBAL ANOMALY & EVENT STREAM ", theme.border, theme.critical, theme.bg, plain);
+    buf.drawBox(left_x, event_y, w - 2, bottom_h, " GLOBAL ANOMALY & FLIGHT-RECORDER EVENT STREAM ", theme.border, theme.critical, theme.bg, plain);
     
     const ts = snapshot.timestamp_ms;
     const time_s = @as(u64, @intCast(@max(0, @divTrunc(ts, 1000))));
@@ -346,7 +368,7 @@ pub fn renderOverviewPanel(
     if (snapshot.health.status == .critical or snapshot.health.status == .poor) {
         buf.writeString(left_x + 15, ey, "[CRITICAL] SYSTEM HEALTH DEGRADED — ANOMALIES ACTIVE", theme.critical, theme.bg, true);
     } else {
-        buf.writeString(left_x + 15, ey, "[INFO] TELEMETRY SYNC COMPLETE — OS KERNEL NOMINAL", theme.success, theme.bg, true);
+        buf.writeString(left_x + 15, ey, "[INFO] TELEMETRY SYNC COMPLETE — HARDWARE SENSORS & OS KERNEL NOMINAL", theme.success, theme.bg, true);
     }
     ey += 1;
     
@@ -397,15 +419,16 @@ fn renderCoreGrid(
         if (col >= cols_fit) {
             col = 0;
             row += 1;
-            if (row > 1) break; // max 2 rows of cores in overview
+            if (row > 2) break; // max 3 rows of cores in overview
         }
         const cx = x + col * cell_w;
         const cy = y + row;
 
-        var core_label: [5]u8 = undefined;
-        const lbl = std.fmt.bufPrint(&core_label, "C{d:<2}", .{i}) catch "C? ";
+        var core_label: [8]u8 = undefined;
+        const lbl = std.fmt.bufPrint(&core_label, "C{d:0>2}", .{i}) catch "C? ";
+        const load = snapshot.cpu.core_usage[i];
         buf.writeString(cx, cy, lbl, theme.muted, theme.bg, false);
-        graphs.renderMiniBar(buf, cx + 4, cy, bar_w, snapshot.cpu.core_usage[i], theme.bg, plain);
+        graphs.renderMiniBar(buf, cx + 4, cy, bar_w, load, theme.bg, plain);
         col += 1;
     }
 }
