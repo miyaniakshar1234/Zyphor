@@ -60,6 +60,44 @@ pub const Theme = struct {
 
 pub const BuiltinThemes = struct {
 
+    /// Hacker - terminal green matrix style
+    pub const hacker = Theme{
+        .name = "hacker",
+        .bg         = Color.rgb(2,   5,   2),
+        .fg         = Color.rgb(57,  255, 20),
+        .accent     = Color.rgb(0,   255, 0),
+        .accent_dim = Color.rgb(0,   80,  0),
+        .secondary  = Color.rgb(0,   200, 0),
+        .success    = Color.rgb(57,  255, 20),
+        .warning    = Color.rgb(200, 255, 0),
+        .critical   = Color.rgb(255, 0,   0),
+        .border     = Color.rgb(0,   120, 0),
+        .header     = Color.rgb(100, 255, 100),
+        .header_bg  = Color.rgb(5,   15,  5),
+        .tab_bg     = Color.rgb(3,   10,  3),
+        .selected   = Color.rgb(0,   50,  0),
+        .muted      = Color.rgb(0,   150, 0),
+    };
+    
+    /// Tokyo Night - beautiful blue/purple
+    pub const tokyo_night = Theme{
+        .name = "tokyo_night",
+        .bg         = Color.rgb(26,  27,  38),
+        .fg         = Color.rgb(192, 202, 245),
+        .accent     = Color.rgb(187, 154, 247), // Purple
+        .accent_dim = Color.rgb(80,  60,  120),
+        .secondary  = Color.rgb(122, 162, 247), // Blue
+        .success    = Color.rgb(158, 206, 106), // Green
+        .warning    = Color.rgb(224, 175, 104), // Yellow/Orange
+        .critical   = Color.rgb(247, 118, 142), // Red
+        .border     = Color.rgb(86,  95,  137), // Comment grey
+        .header     = Color.rgb(125, 207, 255), // Cyan
+        .header_bg  = Color.rgb(31,  35,  53),
+        .tab_bg     = Color.rgb(22,  22,  30),
+        .selected   = Color.rgb(41,  46,  66),
+        .muted      = Color.rgb(169, 177, 214),
+    };
+
     /// Midnight — deep blue-black with electric blue accents (DEFAULT)
     pub const midnight = Theme{
         .name = "midnight",
@@ -214,6 +252,8 @@ pub const BuiltinThemes = struct {
 };
 
 pub const ALL_THEMES = [_]Theme{
+    BuiltinThemes.tokyo_night,
+    BuiltinThemes.hacker,
     BuiltinThemes.midnight,
     BuiltinThemes.cyber,
     BuiltinThemes.aurora,
@@ -224,6 +264,8 @@ pub const ALL_THEMES = [_]Theme{
 };
 
 pub fn getThemeByName(name: []const u8) Theme {
+    if (std.mem.eql(u8, name, "tokyo_night"))   return BuiltinThemes.tokyo_night;
+    if (std.mem.eql(u8, name, "hacker"))        return BuiltinThemes.hacker;
     if (std.mem.eql(u8, name, "cyber"))         return BuiltinThemes.cyber;
     if (std.mem.eql(u8, name, "aurora"))        return BuiltinThemes.aurora;
     if (std.mem.eql(u8, name, "nord"))          return BuiltinThemes.nord;
@@ -231,7 +273,7 @@ pub fn getThemeByName(name: []const u8) Theme {
     if (std.mem.eql(u8, name, "gruvbox"))       return BuiltinThemes.gruvbox;
     if (std.mem.eql(u8, name, "high_contrast")) return BuiltinThemes.high_contrast;
     if (std.mem.eql(u8, name, "plain"))         return BuiltinThemes.no_color;
-    return BuiltinThemes.midnight; // default
+    return BuiltinThemes.tokyo_night; // default
 }
 
 pub fn getThemeByIndex(idx: usize) Theme {

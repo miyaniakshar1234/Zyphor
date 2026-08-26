@@ -12,7 +12,7 @@ pub const App = struct {
     terminal: terminal_mod.Terminal,
     buffer: buffer_mod.ScreenBuffer,
     theme: theme_mod.Theme,
-    theme_idx: usize = 1,
+    theme_idx: usize = 0,
     active_tab: widgets.Tab = .overview,
     selected_proc_idx: usize = 0,
     tree_mode: bool = false,

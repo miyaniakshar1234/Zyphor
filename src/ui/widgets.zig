@@ -825,7 +825,7 @@ pub fn renderProcessInspectModal(
     const cpu_line = std.fmt.bufPrint(&cpu_line_buf, "{d:>5.1}%", .{proc.cpu_percent}) catch "?%";
     graphs.renderLabel(buf, modal_x + 2, y, "  CPU Load:      ", cpu_line, theme.muted, graphs.percentColor(proc.cpu_percent), theme.bg);
     
-    // Mini CPU bar inside the modal
+        // Mini CPU bar inside the modal
     graphs.renderGaugeBar(buf, modal_x + 30, y, 24, proc.cpu_percent, theme.accent, theme.muted, theme.bg, plain);
     y += 2;
 
@@ -837,6 +837,26 @@ pub fn renderProcessInspectModal(
     var virt_line_buf: [64]u8 = undefined;
     const virt_line = std.fmt.bufPrint(&virt_line_buf, "  Virtual / Pagefile: {d} MB", .{virt_mb}) catch "";
     buf.writeString(modal_x + 2, y, virt_line, theme.muted, theme.bg, false);
+    y += 2;
+
+    // Command Line & IO
+    graphs.renderSeparator(buf, modal_x + 2, y - 1, modal_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(modal_x + 2, y, "  PROCESS METADATA & I/O:", theme.header, theme.bg, true);
+    y += 1;
+    
+    var cmd_buf: [128]u8 = undefined;
+    var cmd_str = proc.getCmdline();
+    if (cmd_str.len == 0) cmd_str = proc.getName();
+    if (cmd_str.len > modal_w - 18) cmd_str = cmd_str[0..modal_w - 18];
+    const cmd_line = std.fmt.bufPrint(&cmd_buf, "  CMD: {s}", .{cmd_str}) catch "";
+    buf.writeString(modal_x + 2, y, cmd_line, theme.accent_dim, theme.bg, false);
+    y += 1;
+
+    var io_buf: [128]u8 = undefined;
+    const read_mb = @as(f32, @floatFromInt(proc.read_bytes_sec)) / (1024.0 * 1024.0);
+    const write_mb = @as(f32, @floatFromInt(proc.write_bytes_sec)) / (1024.0 * 1024.0);
+    const io_line = std.fmt.bufPrint(&io_buf, "  Disk R/W: {d:.2} MB/s Read  |  {d:.2} MB/s Write", .{read_mb, write_mb}) catch "";
+    buf.writeString(modal_x + 2, y, io_line, theme.warning, theme.bg, false);
     y += 2;
 
     // Action Hotkeys
