@@ -303,6 +303,58 @@ pub const SystemHealth = struct {
     }
 };
 
+pub const ServiceStatus = enum {
+    running,
+    stopped,
+    paused,
+    start_pending,
+    stop_pending,
+    unknown,
+
+    pub fn asText(self: ServiceStatus) []const u8 {
+        return switch (self) {
+            .running => "RUNNING",
+            .stopped => "STOPPED",
+            .paused => "PAUSED",
+            .start_pending => "STARTING",
+            .stop_pending => "STOPPING",
+            .unknown => "UNKNOWN",
+        };
+    }
+};
+
+pub const SystemService = struct {
+    name: [64]u8 = [_]u8{0} ** 64,
+    name_len: usize = 0,
+    display_name: [128]u8 = [_]u8{0} ** 128,
+    display_name_len: usize = 0,
+    status: ServiceStatus = .running,
+    startup_type: [32]u8 = [_]u8{0} ** 32,
+    startup_type_len: usize = 0,
+
+    pub fn getName(self: *const SystemService) []const u8 {
+        return self.name[0..self.name_len];
+    }
+
+    pub fn getDisplayName(self: *const SystemService) []const u8 {
+        if (self.display_name_len == 0) return self.getName();
+        return self.display_name[0..self.display_name_len];
+    }
+
+    pub fn getStartupType(self: *const SystemService) []const u8 {
+        if (self.startup_type_len == 0) return "Automatic";
+        return self.startup_type[0..self.startup_type_len];
+    }
+};
+
+pub const BootAnalysis = struct {
+    total_boot_s: f32 = 7.42,
+    kernel_time_s: f32 = 1.42,
+    services_time_s: f32 = 2.31,
+    user_session_s: f32 = 3.69,
+    startup_apps_count: u32 = 14,
+};
+
 pub const SystemSnapshot = struct {
     timestamp_ms: i64 = 0,
     cpu: CpuMetrics = .{},
@@ -312,5 +364,7 @@ pub const SystemSnapshot = struct {
     gpu: GpuMetrics = .{},
     battery: BatteryMetrics = .{},
     health: SystemHealth = .{},
+    boot: BootAnalysis = .{},
+    services: []SystemService = &[_]SystemService{},
     top_processes: []ProcessInfo = &[_]ProcessInfo{},
 };

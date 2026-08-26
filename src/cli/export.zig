@@ -116,9 +116,38 @@ pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
         });
     }
 
+    try writer.print(
+        \\    ],
+        \\  "boot": {{
+        \\    "total_boot_sec": {d:.2},
+        \\    "kernel_time_sec": {d:.2},
+        \\    "services_time_sec": {d:.2},
+        \\    "user_session_sec": {d:.2}
+        \\  }},
+        \\  "services": [
+        \\
+    , .{
+        snap.boot.total_boot_s,
+        snap.boot.kernel_time_s,
+        snap.boot.services_time_s,
+        snap.boot.user_session_s,
+    });
+
+    for (snap.services, 0..) |srv, idx| {
+        try writer.print(
+            \\      {{ "name": "{s}", "display_name": "{s}", "status": "{s}", "startup": "{s}" }}{s}
+            \\
+        , .{
+            srv.getName(),
+            srv.getDisplayName(),
+            srv.status.asText(),
+            srv.getStartupType(),
+            if (idx + 1 < snap.services.len) "," else "",
+        });
+    }
+
     try writer.writeAll(
         \\    ]
-        \\  }
         \\}
         \\
     );

@@ -152,17 +152,26 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void
             if (json_mode) {
                 try export_mod.printJsonSnapshot(stdout, &snap);
             } else {
-                try stdout.print("Storage Partitions:\n", .{});
+                try stdout.print("Storage Drives & Partitions:\n", .{});
                 for (snap.disk.partitions) |p| {
                     const used_gb = @as(f32, @floatFromInt(p.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
                     const total_gb = @as(f32, @floatFromInt(p.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
-                    try stdout.print("  Mount: {s:<12} FS: {s:<8} Used: {d:>6.1} / {d:>6.1} GB ({d:.1}%)\n", .{
+                    try stdout.print("  Mount: {s:<10} FS: {s:<8} Used: {d:>6.1} / {d:>6.1} GB ({d:.1}%)\n", .{
                         p.getMount(),
                         p.getFs(),
                         used_gb,
                         total_gb,
                         p.used_percent,
                     });
+                }
+                if (snap.disk.top_directories.len > 0) {
+                    try stdout.print("\nTop Directory Space Consumers (PRD §16):\n", .{});
+                    for (snap.disk.top_directories) |d| {
+                        const sz_gb = @as(f32, @floatFromInt(d.size_bytes)) / (1024.0 * 1024.0 * 1024.0);
+                        try stdout.print("  📁 {s:<28}  Size: {d:>6.1} GB  Files: {d:>7}  ({d:.1}%)\n", .{
+                            d.getName(), sz_gb, d.file_count, d.used_percent,
+                        });
+                    }
                 }
             }
             return;
@@ -182,6 +191,68 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void
                         tx_mb,
                     });
                 }
+                if (snap.network.connections.len > 0) {
+                    try stdout.print("\nActive Network Socket Connections (PRD §18):\n", .{});
+                    try stdout.print("  PID     PROCESS       LOCAL:PORT   REMOTE:PORT       STATE\n", .{});
+                    try stdout.print("  ----------------------------------------------------------------\n", .{});
+                    for (snap.network.connections) |conn| {
+                        try stdout.print("  {d:<7} {s:<13} :{d:<9} {s}:{d:<5} {s}\n", .{
+                            conn.pid,
+                            conn.getProcessName(),
+                            conn.local_port,
+                            conn.getRemoteAddr(),
+                            conn.remote_port,
+                            conn.state.asText(),
+                        });
+                    }
+                }
+            }
+            return;
+        } else if (std.mem.eql(u8, cmd, "services") or std.mem.eql(u8, cmd, "srv")) {
+            const snap = try engine.sampleSnapshot();
+            if (json_mode) {
+                try export_mod.printJsonSnapshot(stdout, &snap);
+            } else {
+                try stdout.print("System Services & Daemons (PRD §23):\n", .{});
+                try stdout.print("  SERVICE NAME    STATUS      STARTUP     DISPLAY NAME\n", .{});
+                try stdout.print("  ------------------------------------------------------------------------\n", .{});
+                for (snap.services) |srv| {
+                    try stdout.print("  {s:<15} {s:<11} {s:<11} {s}\n", .{
+                        srv.getName(),
+                        srv.status.asText(),
+                        srv.getStartupType(),
+                        srv.getDisplayName(),
+                    });
+                }
+            }
+            return;
+        } else if (std.mem.eql(u8, cmd, "health") or std.mem.eql(u8, cmd, "diagnostics") or std.mem.eql(u8, cmd, "diag")) {
+            const snap = try engine.sampleSnapshot();
+            if (json_mode) {
+                try export_mod.printJsonSnapshot(stdout, &snap);
+            } else {
+                try stdout.print(
+                    \\Explainable Root-Cause Diagnostics & Health Audit:
+                    \\  Composite Health Score: {d}/100 [{s}]
+                    \\  CPU Compute Score:      {d}/100
+                    \\  Physical RAM Score:     {d}/100
+                    \\  Storage I/O Score:      {d}/100
+                    \\  Network Link Score:     {d}/100
+                    \\  Thermal Zone Score:     {d}/100
+                    \\
+                    \\Diagnostics Summary:
+                    \\  {s}
+                    \\
+                , .{
+                    snap.health.overall_score,
+                    snap.health.status.asText(),
+                    snap.health.cpu_score,
+                    snap.health.memory_score,
+                    snap.health.disk_score,
+                    snap.health.network_score,
+                    snap.health.thermal_score,
+                    snap.health.getSummary(),
+                });
             }
             return;
         } else if (std.mem.eql(u8, cmd, "gpu")) {
@@ -229,11 +300,13 @@ fn printHelp() void {
         \\
         \\SUBCOMMANDS:
         \\  doctor           Audit OS kernel telemetry, sensor availability, and readiness
-        \\  cpu              Display instant CPU metrics and per-core breakdown
-        \\  memory           Display physical RAM, cache, swap, and memory pressure
+        \\  cpu              Display instant CPU metrics, user/sys load, and core breakdown
+        \\  memory, mem      Display physical RAM, cache, swap, and memory pressure
         \\  process, ps      Query live process table with sorting and filtering
-        \\  disk             List storage mounts, filesystems, and capacity
-        \\  network, net     Display active network interfaces and throughput
+        \\  disk             List storage mounts, partitions, and top directory consumers
+        \\  network, net     Display active network interfaces and process socket map
+        \\  services, srv    List active OS background services and daemons (PRD §23)
+        \\  health, diag     Run explainable root-cause diagnostics & scoring audit
         \\  gpu              Display GPU utilization, VRAM residency, and thermals
         \\  snapshot         Capture instantaneous comprehensive system state to JSON
         \\

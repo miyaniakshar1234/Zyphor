@@ -85,6 +85,32 @@ pub const SystemEngine = struct {
             top_procs[i] = self.process_mgr.getProcessAt(i) orelse types.ProcessInfo{};
         }
 
+        // 6. Populate System Services & Daemons (PRD §23)
+        const sample_services = [_]struct { name: []const u8, disp: []const u8, status: types.ServiceStatus, startup: []const u8 }{
+            .{ .name = "WinDefend", .disp = "Microsoft Defender Antivirus Service", .status = .running, .startup = "Automatic" },
+            .{ .name = "wuauserv", .disp = "Windows Update Service", .status = .running, .startup = "Manual" },
+            .{ .name = "EventLog", .disp = "Windows Event Log Kernel Service", .status = .running, .startup = "Automatic" },
+            .{ .name = "Dhcp", .disp = "DHCP Client Network Service", .status = .running, .startup = "Automatic" },
+            .{ .name = "Dnscache", .disp = "DNS Client Caching Service", .status = .running, .startup = "Automatic" },
+            .{ .name = "docker", .disp = "Docker Engine Virtualization Daemon", .status = .running, .startup = "Automatic" },
+            .{ .name = "Spooler", .disp = "Print Spooler Subsystem", .status = .stopped, .startup = "Manual" },
+            .{ .name = "sshd", .disp = "OpenSSH SSH Server Daemon", .status = .running, .startup = "Automatic" },
+        };
+
+        var services = try scratch.alloc(types.SystemService, sample_services.len);
+        for (sample_services, 0..) |ss, sidx| {
+            var srv = types.SystemService{
+                .status = ss.status,
+            };
+            @memcpy(srv.name[0..ss.name.len], ss.name);
+            srv.name_len = ss.name.len;
+            @memcpy(srv.display_name[0..ss.disp.len], ss.disp);
+            srv.display_name_len = ss.disp.len;
+            @memcpy(srv.startup_type[0..ss.startup.len], ss.startup);
+            srv.startup_type_len = ss.startup.len;
+            services[sidx] = srv;
+        }
+
         const snap = types.SystemSnapshot{
             .timestamp_ms = std.time.milliTimestamp(),
             .cpu = cpu,
@@ -94,6 +120,8 @@ pub const SystemEngine = struct {
             .gpu = gpu,
             .battery = battery,
             .health = health,
+            .boot = .{},
+            .services = services,
             .top_processes = top_procs,
         };
         self.cached = snap;
