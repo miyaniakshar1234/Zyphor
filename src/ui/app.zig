@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const engine_mod = @import("../core/engine.zig");
 const types = @import("../core/types.zig");
 const terminal_mod = @import("terminal.zig");
@@ -32,15 +33,17 @@ pub const App = struct {
 
     pub fn init(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, plain: bool) !App {
         var term = terminal_mod.Terminal.init();
-        const win = std.os.windows;
-        const DWORD = win.DWORD;
-        const STD_OUTPUT_HANDLE: DWORD = @bitCast(@as(i32, -11));
-        const STD_INPUT_HANDLE: DWORD = @bitCast(@as(i32, -10));
-        const kernel32 = struct {
-            extern "kernel32" fn GetStdHandle(n: DWORD) callconv(.winapi) ?win.HANDLE;
-        };
-        term.h_in  = kernel32.GetStdHandle(STD_INPUT_HANDLE);
-        term.h_out = kernel32.GetStdHandle(STD_OUTPUT_HANDLE);
+        if (builtin.os.tag == .windows) {
+            const win = std.os.windows;
+            const DWORD = win.DWORD;
+            const STD_OUTPUT_HANDLE: DWORD = @bitCast(@as(i32, -11));
+            const STD_INPUT_HANDLE: DWORD = @bitCast(@as(i32, -10));
+            const kernel32 = struct {
+                extern "kernel32" fn GetStdHandle(n: DWORD) callconv(.winapi) ?win.HANDLE;
+            };
+            term.h_in  = kernel32.GetStdHandle(STD_INPUT_HANDLE);
+            term.h_out = kernel32.GetStdHandle(STD_OUTPUT_HANDLE);
+        }
 
         const size = term.getSize();
         const buf = try buffer_mod.ScreenBuffer.init(allocator, size.width, size.height);

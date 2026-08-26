@@ -2,16 +2,18 @@ const std = @import("std");
 const builtin = @import("builtin");
 const types = @import("../core/types.zig");
 
-const windows = std.os.windows;
-const DWORD = windows.DWORD;
-const HANDLE = windows.HANDLE;
-const BOOL = windows.BOOL;
-const SHORT = windows.SHORT;
-const WORD = windows.WORD;
+const is_windows = builtin.os.tag == .windows;
+
+const windows = if (is_windows) std.os.windows else struct {};
+const DWORD = if (is_windows) windows.DWORD else u32;
+const HANDLE = if (is_windows) windows.HANDLE else ?*anyopaque;
+const BOOL = if (is_windows) windows.BOOL else i32;
+const SHORT = if (is_windows) windows.SHORT else i16;
+const WORD = if (is_windows) windows.WORD else u16;
 const UINT = c_uint;
 
-const STD_INPUT_HANDLE: DWORD = @bitCast(@as(i32, -10));
-const STD_OUTPUT_HANDLE: DWORD = @bitCast(@as(i32, -11));
+const STD_INPUT_HANDLE: DWORD = if (is_windows) @bitCast(@as(i32, -10)) else 0;
+const STD_OUTPUT_HANDLE: DWORD = if (is_windows) @bitCast(@as(i32, -11)) else 0;
 
 const ENABLE_PROCESSED_INPUT: DWORD = 0x0001;
 const ENABLE_LINE_INPUT: DWORD = 0x0002;
@@ -34,14 +36,16 @@ const CONSOLE_SCREEN_BUFFER_INFO = extern struct {
     dwMaximumWindowSize: COORD,
 };
 
-extern "kernel32" fn GetStdHandle(nStdHandle: DWORD) callconv(.winapi) ?HANDLE;
-extern "kernel32" fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *DWORD) callconv(.winapi) BOOL;
-extern "kernel32" fn SetConsoleMode(hConsoleHandle: HANDLE, dwMode: DWORD) callconv(.winapi) BOOL;
-extern "kernel32" fn GetConsoleScreenBufferInfo(hConsoleOutput: HANDLE, lpConsoleScreenBufferInfo: *CONSOLE_SCREEN_BUFFER_INFO) callconv(.winapi) BOOL;
-extern "kernel32" fn GetConsoleOutputCP() callconv(.winapi) UINT;
-extern "kernel32" fn SetConsoleOutputCP(wCodePageID: UINT) callconv(.winapi) BOOL;
-extern "kernel32" fn GetConsoleCP() callconv(.winapi) UINT;
-extern "kernel32" fn SetConsoleCP(wCodePageID: UINT) callconv(.winapi) BOOL;
+const win_kernel32 = if (is_windows) struct {
+    extern "kernel32" fn GetStdHandle(nStdHandle: DWORD) callconv(.winapi) ?HANDLE;
+    extern "kernel32" fn GetConsoleMode(hConsoleHandle: HANDLE, lpMode: *DWORD) callconv(.winapi) BOOL;
+    extern "kernel32" fn SetConsoleMode(hConsoleHandle: HANDLE, dwMode: DWORD) callconv(.winapi) BOOL;
+    extern "kernel32" fn GetConsoleScreenBufferInfo(hConsoleOutput: HANDLE, lpConsoleScreenBufferInfo: *CONSOLE_SCREEN_BUFFER_INFO) callconv(.winapi) BOOL;
+    extern "kernel32" fn GetConsoleOutputCP() callconv(.winapi) UINT;
+    extern "kernel32" fn SetConsoleOutputCP(wCodePageID: UINT) callconv(.winapi) BOOL;
+    extern "kernel32" fn GetConsoleCP() callconv(.winapi) UINT;
+    extern "kernel32" fn SetConsoleCP(wCodePageID: UINT) callconv(.winapi) BOOL;
+} else struct {};
 
 pub const Key = union(enum) {
     char: u8,
@@ -82,32 +86,34 @@ pub const Terminal = struct {
     }
 
     pub fn enterRawMode(self: *Terminal) !void {
-        self.h_in = GetStdHandle(STD_INPUT_HANDLE);
-        self.h_out = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (is_windows) {
+            self.h_in = win_kernel32.GetStdHandle(STD_INPUT_HANDLE);
+            self.h_out = win_kernel32.GetStdHandle(STD_OUTPUT_HANDLE);
 
-        // ── CRITICAL: Switch console to UTF-8 code page ──────────────
-        // Without this, all multi-byte UTF-8 characters (box-drawing,
-        // gauge blocks, sparkline chars) render as mojibake on Windows.
-        self.orig_output_cp = GetConsoleOutputCP();
-        self.orig_input_cp = GetConsoleCP();
-        _ = SetConsoleOutputCP(CP_UTF8);
-        _ = SetConsoleCP(CP_UTF8);
+            // ── CRITICAL: Switch console to UTF-8 code page ──────────────
+            // Without this, all multi-byte UTF-8 characters (box-drawing,
+            // gauge blocks, sparkline chars) render as mojibake on Windows.
+            self.orig_output_cp = win_kernel32.GetConsoleOutputCP();
+            self.orig_input_cp = win_kernel32.GetConsoleCP();
+            _ = win_kernel32.SetConsoleOutputCP(CP_UTF8);
+            _ = win_kernel32.SetConsoleCP(CP_UTF8);
 
-        if (self.h_in) |hIn| {
-            _ = GetConsoleMode(hIn, &self.orig_in_mode);
-            const raw_in = (self.orig_in_mode &
-                ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT)) |
-                ENABLE_VIRTUAL_TERMINAL_INPUT;
-            _ = SetConsoleMode(hIn, raw_in);
-        }
+            if (self.h_in) |hIn| {
+                _ = win_kernel32.GetConsoleMode(hIn, &self.orig_in_mode);
+                const raw_in = (self.orig_in_mode &
+                    ~(ENABLE_LINE_INPUT | ENABLE_ECHO_INPUT | ENABLE_PROCESSED_INPUT)) |
+                    ENABLE_VIRTUAL_TERMINAL_INPUT;
+                _ = win_kernel32.SetConsoleMode(hIn, raw_in);
+            }
 
-        if (self.h_out) |hOut| {
-            _ = GetConsoleMode(hOut, &self.orig_out_mode);
-            const raw_out = self.orig_out_mode |
-                ENABLE_PROCESSED_OUTPUT |
-                ENABLE_WRAP_AT_EOL_OUTPUT |
-                ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-            _ = SetConsoleMode(hOut, raw_out);
+            if (self.h_out) |hOut| {
+                _ = win_kernel32.GetConsoleMode(hOut, &self.orig_out_mode);
+                const raw_out = self.orig_out_mode |
+                    ENABLE_PROCESSED_OUTPUT |
+                    ENABLE_WRAP_AT_EOL_OUTPUT |
+                    ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+                _ = win_kernel32.SetConsoleMode(hOut, raw_out);
+            }
         }
 
         const stdout = types.getStdout();
@@ -123,23 +129,27 @@ pub const Terminal = struct {
         // Show cursor, exit alternate screen, reset colors
         stdout.writeAll("\x1b[?25h\x1b[?1049l\x1b[0m") catch {};
 
-        if (self.h_in) |hIn| _ = SetConsoleMode(hIn, self.orig_in_mode);
-        if (self.h_out) |hOut| _ = SetConsoleMode(hOut, self.orig_out_mode);
+        if (is_windows) {
+            if (self.h_in) |hIn| _ = win_kernel32.SetConsoleMode(hIn, self.orig_in_mode);
+            if (self.h_out) |hOut| _ = win_kernel32.SetConsoleMode(hOut, self.orig_out_mode);
 
-        // Restore original code pages
-        if (self.orig_output_cp != 0) _ = SetConsoleOutputCP(self.orig_output_cp);
-        if (self.orig_input_cp != 0) _ = SetConsoleCP(self.orig_input_cp);
+            // Restore original code pages
+            if (self.orig_output_cp != 0) _ = win_kernel32.SetConsoleOutputCP(self.orig_output_cp);
+            if (self.orig_input_cp != 0) _ = win_kernel32.SetConsoleCP(self.orig_input_cp);
+        }
 
         self.in_raw_mode = false;
     }
 
     pub fn getSize(self: *const Terminal) TerminalSize {
-        if (self.h_out) |hOut| {
-            var info: CONSOLE_SCREEN_BUFFER_INFO = undefined;
-            if (GetConsoleScreenBufferInfo(hOut, &info) != 0) {
-                const w = @as(u16, @intCast(info.srWindow.Right - info.srWindow.Left + 1));
-                const h = @as(u16, @intCast(info.srWindow.Bottom - info.srWindow.Top + 1));
-                if (w > 20 and h > 5) return .{ .width = w, .height = h };
+        if (is_windows) {
+            if (self.h_out) |hOut| {
+                var info: CONSOLE_SCREEN_BUFFER_INFO = undefined;
+                if (win_kernel32.GetConsoleScreenBufferInfo(hOut, &info) != 0) {
+                    const w = @as(u16, @intCast(info.srWindow.Right - info.srWindow.Left + 1));
+                    const h = @as(u16, @intCast(info.srWindow.Bottom - info.srWindow.Top + 1));
+                    if (w > 20 and h > 5) return .{ .width = w, .height = h };
+                }
             }
         }
         return .{ .width = 120, .height = 36 };
