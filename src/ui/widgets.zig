@@ -902,3 +902,15 @@ pub fn renderHelpModal(
     graphs.renderSeparator(buf, modal_x + 1, modal_y + modal_h - 2, modal_w - 2, theme.border, theme.bg, plain);
     buf.writeString(modal_x + 3, modal_y + modal_h - 1, "  Press [Esc] or any key to close help  ", theme.muted, theme.bg, false);
 }
+
+
+pub fn renderBackgroundGrid(buf: *ScreenBuffer, theme: *const Theme) void {
+    var y: u16 = 3;
+    const dot_color = theme.bg.brighten(10);
+    while (y < buf.height - 1) : (y += 2) {
+        var x: u16 = 2;
+        while (x < buf.width) : (x += 4) {
+            buf.writeString(x, y, ".", dot_color, theme.bg, false);
+        }
+    }
+}

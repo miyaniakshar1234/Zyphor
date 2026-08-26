@@ -86,6 +86,7 @@ pub const App = struct {
 
             // 2. Render viewport into double buffer
             self.buffer.clear(self.theme.bg);
+            widgets.renderBackgroundGrid(&self.buffer, &self.theme);
 
             widgets.renderHeader(&self.buffer, &self.theme, &snapshot.health, self.plain_mode);
             widgets.renderTabs(&self.buffer, self.active_tab, &self.theme, current_search);

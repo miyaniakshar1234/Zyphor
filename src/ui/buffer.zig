@@ -204,12 +204,12 @@ pub const ScreenBuffer = struct {
         const right = x + w - 1;
         const bottom = y + h - 1;
 
-        const tl = if (plain) "+" else "╭";
-        const tr = if (plain) "+" else "╮";
-        const bl = if (plain) "+" else "╰";
-        const br = if (plain) "+" else "╯";
-        const horiz = if (plain) "-" else "─";
-        const vert = if (plain) "|" else "│";
+        const tl = if (plain) "+" else "╔";
+        const tr = if (plain) "+" else "╗";
+        const bl = if (plain) "+" else "╚";
+        const br = if (plain) "+" else "╝";
+        const horiz = if (plain) "-" else "═";
+        const vert = if (plain) "|" else "║";
 
         self.setCell(x, y, tl, border_color, bg_color, false);
         self.setCell(right, y, tr, border_color, bg_color, false);
