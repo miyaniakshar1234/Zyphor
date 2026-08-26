@@ -1,0 +1,29 @@
+# Zig build artifacts
+.zig-cache/
+zig-out/
+zig-pkg/
+
+# Binary outputs
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# Snapshots & Exports generated locally
+zyphor-snapshot-*.json
+*.snapshot.json
+zyphor-export-*.json
+zyphor-export-*.csv
+
+# Editor & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
