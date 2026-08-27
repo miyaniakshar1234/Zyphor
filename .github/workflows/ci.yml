@@ -8,12 +8,24 @@ on:
 
 jobs:
   test:
-    name: Build & Test (${{ matrix.os }})
+    name: Build & Test (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-latest ]
+        include:
+          - os: ubuntu-latest
+            name: Linux x86_64
+            target_flag: "-Dtarget=x86_64-linux"
+            bin_path: "./zig-out/bin/zyphor"
+          - os: windows-latest
+            name: Windows x86_64
+            target_flag: "-Dtarget=x86_64-windows"
+            bin_path: "./zig-out/bin/zyphor.exe"
+          - os: macos-latest
+            name: macOS aarch64
+            target_flag: "-Dtarget=aarch64-macos"
+            bin_path: "./zig-out/bin/zyphor"
 
     steps:
       - name: Checkout Code
@@ -36,19 +48,13 @@ jobs:
             ${{ runner.os }}-zig-
 
       - name: Build Debug Binary
-        run: zig build
+        run: zig build ${{ matrix.target_flag }}
 
       - name: Build Optimized Release Binary
-        run: zig build -Doptimize=ReleaseFast
+        run: zig build ${{ matrix.target_flag }} -Doptimize=ReleaseFast
 
       - name: Run Test Suite
-        run: zig build test --summary all
+        run: zig build test ${{ matrix.target_flag }} --summary all
 
       - name: Run Doctor (Smoke Test)
-        shell: bash
-        run: |
-          if [ "${{ runner.os }}" == "Windows" ]; then
-            ./zig-out/bin/zyphor.exe doctor
-          else
-            ./zig-out/bin/zyphor doctor
-          fi
+        run: ${{ matrix.bin_path }} doctor
