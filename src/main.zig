@@ -47,29 +47,14 @@ fn mainOld() !void {
 }
 
 fn mainNew(init: if (@hasDecl(std.process, "Init")) std.process.Init else void) !void {
-    const GPA = if (@hasDecl(std.heap, "GeneralPurposeAllocator"))
-        std.heap.GeneralPurposeAllocator(.{})
-    else
-        std.heap.DebugAllocator(.{});
-
-    var gpa = GPA{};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    var engine = engine_mod.SystemEngine.init(allocator);
-    defer engine.deinit();
-
-    var args_list: std.ArrayList([]const u8) = .empty;
-    defer args_list.deinit(allocator);
-
     if (comptime @hasDecl(std.process, "Init")) {
-        var it = init.args;
-        while (it.next()) |arg| {
-            try args_list.append(allocator, arg);
+        const info = @typeInfo(std.process.Init).Struct;
+        var msg: []const u8 = "Init fields: ";
+        for (info.fields) |f| {
+            msg = msg ++ f.name ++ ", ";
         }
+        @compileError(msg);
     }
-
-    try cli_mod.run(allocator, &engine, args_list.items);
 }
 
 pub const main = if (@hasDecl(std.process, "Init")) mainNew else mainOld;
