@@ -32,6 +32,9 @@ Unlike traditional tabular layouts, Zyphor renders real-time telemetry like a **
 
 ---
 
+- **Remote Monitoring Daemon (PRD §48):** Headless HTTP TCP server (zyphor daemon) streaming live telemetry payloads to remote dashboards.
+- **Pluggable Architecture (PRD §42):** First-class support for modular subsystems, including full Docker/OCI container observation (Tab 7).
+
 ## ⚡ Zero-Flicker Architecture
 
 Zyphor operates entirely on a **Double-Buffered Differential Rendering Engine**:
@@ -152,6 +155,12 @@ zyphor doctor
 # Run native CPU compute and RAM bandwidth benchmark
 zyphor bench
 
+# Measure internal Zyphor telemetry overhead and RAM footprint
+zyphor overhead
+
+# Start a headless TCP server streaming live JSON telemetry on port 7777
+zyphor daemon
+
 # Explainable root-cause health & diagnostics audit
 zyphor health
 
@@ -180,7 +189,8 @@ Zyphor supports standard arrow keys, numerical hotkeys, and full **Vim-style nav
 | Key | Action | Description |
 | :--- | :---: | :--- |
 | <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Next / Prev Tab | Advances viewport across the 6 sub-system panels. |
-| <kbd>1</kbd> .. <kbd>6</kbd> | Direct Jump | Switch to Overview, Processes, Storage, Net, Health, or Services. |
+| <kbd>1</kbd> .. <kbd>7</kbd> | Direct Jump | Switch to Overview, Processes, Storage, Net, Health, Services, or Containers.
+<kbd>P</kbd> | Process Profiler | Record real-time CPU & RAM trace of a target process over 10s. |
 | <kbd>:</kbd> / <kbd>Ctrl+P</kbd> | Command Palette | Opens floating quick action command palette (PRD §33). |
 | <kbd>/</kbd> | Search / Filter | Activates live search mode to filter processes or services. |
 | <kbd>Enter</kbd> | Deep Inspector | Opens full-screen process inspector modal for highlighted task. |
@@ -234,3 +244,4 @@ We want to make Zyphor the undisputed king of terminal monitors. If you want to 
 <div align="center">
   <i>Created and maintained with precision for the systems engineering community.</i>
 </div>
+
