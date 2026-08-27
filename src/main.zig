@@ -30,7 +30,7 @@ pub fn main() !void {
     var args_list: std.ArrayList([]const u8) = .empty;
     defer args_list.deinit(allocator);
 
-    // Cross-version compatible arg fetching: argsAlloc is available in 0.14–0.15.x
+    // Cross-version compatible arg fetching:
     if (comptime @hasDecl(std.process, "argsAlloc")) {
         const parsed = try std.process.argsAlloc(allocator);
         defer std.process.argsFree(allocator, parsed);
@@ -38,6 +38,9 @@ pub fn main() !void {
     } else if (comptime @hasDecl(std.process, "argsWithAllocator")) {
         var it = try std.process.argsWithAllocator(allocator);
         defer it.deinit();
+        while (it.next()) |a| try args_list.append(allocator, a);
+    } else if (comptime @hasDecl(std.process, "args")) {
+        var it = std.process.args();
         while (it.next()) |a| try args_list.append(allocator, a);
     }
 
