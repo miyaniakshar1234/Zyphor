@@ -6,27 +6,7 @@ const bench_mod = @import("bench.zig");
 const app_mod = @import("../ui/app.zig");
 const types = @import("../core/types.zig");
 
-pub fn runOld(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void {
-    var args_list: std.ArrayList([]const u8) = .empty;
-    defer args_list.deinit(allocator);
-
-    if (@hasDecl(std.process, "argsAlloc")) {
-        const parsed = try std.process.argsAlloc(allocator);
-        defer std.process.argsFree(allocator, parsed);
-        for (parsed) |a| try args_list.append(allocator, a);
-    } else if (@hasDecl(std.process, "argsWithAllocator")) {
-        var it = try std.process.argsWithAllocator(allocator);
-        defer it.deinit();
-        while (it.next()) |a| try args_list.append(allocator, a);
-    } else {
-        var it = std.process.args();
-        while (it.next()) |a| try args_list.append(allocator, a);
-    }
-    
-    try runNew(allocator, engine, args_list.items);
-}
-
-pub fn runNew(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args: []const []const u8) !void {
+pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args: []const []const u8) !void {
     var json_mode = false;
     var plain_mode = false;
     var subcommand: ?[]const u8 = null;
