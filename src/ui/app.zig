@@ -140,7 +140,7 @@ pub const App = struct {
                     widgets.renderProcessPanel(&self.buffer, snapshot.top_processes, self.selected_proc_idx, self.tree_mode, &self.theme, self.plain_mode, current_search);
                 },
                 .disks => {
-                    widgets.renderDiskPanel(&self.buffer, &snapshot.disk, &self.theme, self.plain_mode);
+                    widgets.renderDiskPanel(&self.buffer, &snapshot.disk, &self.engine.history, &self.theme, self.plain_mode);
                 },
                 .network => {
                     widgets.renderNetworkPanel(&self.buffer, &snapshot.network, &self.engine.history, &self.theme, self.plain_mode);

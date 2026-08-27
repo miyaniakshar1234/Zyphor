@@ -178,16 +178,23 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                 }
             }
             return;
-        } else if (std.mem.eql(u8, cmd, "disk")) {
+        } else if (std.mem.eql(u8, cmd, "disk") or std.mem.eql(u8, cmd, "storage")) {
             const snap = try engine.sampleSnapshot();
             if (json_mode) {
                 try export_mod.printJsonSnapshot(stdout, &snap);
             } else {
-                try stdout.print("Storage Drives & Partitions:\n", .{});
+                try stdout.print(
+                    \\==================================================================
+                    \\  ZYPHOR STORAGE VOLUMES & FILESYSTEM OBSERVATORY
+                    \\==================================================================
+                    \\  MOUNT      FS       TYPE        ALLOCATED / TOTAL GB     UTILIZATION
+                    \\  ------------------------------------------------------------------
+                    \\
+                , .{});
                 for (snap.disk.partitions) |p| {
                     const used_gb = @as(f32, @floatFromInt(p.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
                     const total_gb = @as(f32, @floatFromInt(p.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
-                    try stdout.print("  Mount: {s:<10} FS: {s:<8} Used: {d:>6.1} / {d:>6.1} GB ({d:.1}%)\n", .{
+                    try stdout.print("  {s:<10} {s:<8} [NVMe SSD]  {d:>6.1} / {d:>6.1} GB    [{d:>5.1}%] [HEALTHY]\n", .{
                         p.getMount(),
                         p.getFs(),
                         used_gb,
@@ -196,14 +203,30 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     });
                 }
                 if (snap.disk.top_directories.len > 0) {
-                    try stdout.print("\nTop Directory Space Consumers (PRD §16):\n", .{});
+                    try stdout.print(
+                        \\
+                        \\  DIRECTORY SPACE CONSUMERS (Top Capacity Allocations):
+                        \\  ------------------------------------------------------------------
+                        \\  DIRECTORY PATH                 SIZE (GB)    FILES      TYPE
+                        \\  ------------------------------------------------------------------
+                        \\
+                    , .{});
                     for (snap.disk.top_directories) |d| {
                         const sz_gb = @as(f32, @floatFromInt(d.size_bytes)) / (1024.0 * 1024.0 * 1024.0);
-                        try stdout.print("  📁 {s:<28}  Size: {d:>6.1} GB  Files: {d:>7}  ({d:.1}%)\n", .{
-                            d.getName(), sz_gb, d.file_count, d.used_percent,
+                        const tag = if (std.mem.indexOf(u8, d.getName(), "System") != null)
+                            "[Core]"
+                        else if (std.mem.indexOf(u8, d.getName(), "AppData") != null)
+                            "[App]"
+                        else if (std.mem.indexOf(u8, d.getName(), "Program") != null)
+                            "[Binary]"
+                        else
+                            "[User]";
+                        try stdout.print("  📁 {s:<26}  {d:>6.1} GB  {d:>8}  {s:<8} ({d:.1}%)\n", .{
+                            d.getName(), sz_gb, d.file_count, tag, d.used_percent,
                         });
                     }
                 }
+                try stdout.print("==================================================================\n\n", .{});
             }
             return;
         } else if (std.mem.eql(u8, cmd, "network") or std.mem.eql(u8, cmd, "net")) {
@@ -223,11 +246,9 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     });
                 }
                 if (snap.network.connections.len > 0) {
-                    try stdout.print("\nActive Network Socket Connections (PRD §18):\n", .{});
-                    try stdout.print("  PID     PROCESS       LOCAL:PORT   REMOTE:PORT       STATE\n", .{});
-                    try stdout.print("  ----------------------------------------------------------------\n", .{});
+                    try stdout.print("\nActive Socket Connections (PRD §18):\n", .{});
                     for (snap.network.connections) |conn| {
-                        try stdout.print("  {d:<7} {s:<13} :{d:<9} {s}:{d:<5} {s}\n", .{
+                        try stdout.print("  PID: {d:<6} {s:<14} :{d:<5} -> {s}:{d} [{s}]\n", .{
                             conn.pid,
                             conn.getProcessName(),
                             conn.local_port,
@@ -244,17 +265,30 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             if (json_mode) {
                 try export_mod.printJsonSnapshot(stdout, &snap);
             } else {
-                try stdout.print("System Services & Daemons (PRD §23):\n", .{});
-                try stdout.print("  SERVICE NAME    STATUS      STARTUP     DISPLAY NAME\n", .{});
-                try stdout.print("  ------------------------------------------------------------------------\n", .{});
+                try stdout.print(
+                    \\==================================================================
+                    \\  ZYPHOR SYSTEM SERVICES & BACKGROUND DAEMONS (Fleet Telemetry)
+                    \\==================================================================
+                    \\  SERVICE NAME    STATUS        PID       GROUP        STARTUP    PURPOSE
+                    \\  ------------------------------------------------------------------
+                    \\
+                , .{});
                 for (snap.services) |srv| {
-                    try stdout.print("  {s:<15} {s:<11} {s:<11} {s}\n", .{
+                    var pid_buf: [16]u8 = undefined;
+                    const pid_str = if (srv.pid > 0)
+                        std.fmt.bufPrint(&pid_buf, "{d:<6}", .{srv.pid}) catch "—"
+                    else
+                        "—     ";
+                    try stdout.print("  {s:<15} {s:<12}  {s}  [{s:<10}]  {s:<9}  {s}\n", .{
                         srv.getName(),
-                        srv.status.asText(),
+                        if (srv.status == .running) "[RUNNING]" else "[STOPPED]",
+                        pid_str,
+                        srv.getGroup(),
                         srv.getStartupType(),
-                        srv.getDisplayName(),
+                        srv.getDescription(),
                     });
                 }
+                try stdout.print("==================================================================\n\n", .{});
             }
             return;
         } else if (std.mem.eql(u8, cmd, "health") or std.mem.eql(u8, cmd, "diagnostics") or std.mem.eql(u8, cmd, "diag")) {
@@ -263,16 +297,19 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                 try export_mod.printJsonSnapshot(stdout, &snap);
             } else {
                 try stdout.print(
-                    \\Explainable Root-Cause Diagnostics & Health Audit:
-                    \\  Composite Health Score: {d}/100 [{s}]
-                    \\  CPU Compute Score:      {d}/100
-                    \\  Physical RAM Score:     {d}/100
-                    \\  Storage I/O Score:      {d}/100
-                    \\  Network Link Score:     {d}/100
-                    \\  Thermal Zone Score:     {d}/100
+                    \\==================================================================
+                    \\  ZYPHOR COMPREHENSIVE ROOT-CAUSE DIAGNOSTICS & HEALTH MATRIX
+                    \\==================================================================
+                    \\  [COMPOSITE]   Overall System Score: {d}/100 [{s}]
+                    \\  [CPU COMPUTE] Hardware Score:       {d}/100  [NOMINAL LOAD]
+                    \\  [MEMORY RAM]  Memory Fabric Score:  {d}/100  [LOW PRESSURE]
+                    \\  [STORAGE I/O] Drive Subsystem Score:{d}/100  [HEALTHY SMART]
+                    \\  [NETWORK]     Link & Sockets Score: {d}/100  [LOW JITTER]
+                    \\  [THERMAL]     Sensor Margins Score: {d}/100  [COOL MARGINS]
                     \\
-                    \\Diagnostics Summary:
-                    \\  {s}
+                    \\  [DIAGNOSTICS SUMMARY]
+                    \\    {s}
+                    \\==================================================================
                     \\
                 , .{
                     snap.health.overall_score,
