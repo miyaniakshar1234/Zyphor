@@ -3,6 +3,7 @@ const engine_mod = @import("../core/engine.zig");
 const doctor_mod = @import("doctor.zig");
 const export_mod = @import("export.zig");
 const bench_mod = @import("bench.zig");
+const speedtest_mod = @import("../net/speedtest.zig");
 const app_mod = @import("../ui/app.zig");
 const types = @import("../core/types.zig");
 
@@ -297,6 +298,102 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             const res = try bench_mod.runBenchmark(allocator);
             try bench_mod.printBenchmark(stdout, &res, json_mode);
             return;
+        } else if (std.mem.eql(u8, cmd, "speedtest") or std.mem.eql(u8, cmd, "speed")) {
+            try stdout.writeAll("▶ Measuring internet ping, jitter, download, and upload throughput...\n");
+            const res = try speedtest_mod.runSpeedTest(allocator);
+            if (json_mode) {
+                try stdout.print(
+                    \\{{
+                    \\  "ping_ms": {d:.2},
+                    \\  "jitter_ms": {d:.2},
+                    \\  "download_mbps": {d:.2},
+                    \\  "upload_mbps": {d:.2},
+                    \\  "grade": "{s}"
+                    \\}}
+                    \\
+                , .{ res.ping_ms, res.jitter_ms, res.download_mbps, res.upload_mbps, res.quality_grade });
+            } else {
+                try stdout.print(
+                    \\
+                    \\==================================================================
+                    \\  ZYPHOR HIGH-PRECISION INTERNET SPEED & BUFFERBLOAT TEST
+                    \\==================================================================
+                    \\
+                    \\  Target Server:  {s}
+                    \\  Protocol:       Native Low-Latency TCP Stream Engine
+                    \\
+                    \\  Latency & Jitter Assessment:
+                    \\    • Round-Trip Ping:     {d:.1} ms (Min: {d:.1} ms, Max: {d:.1} ms)
+                    \\    • Connection Jitter:    {d:.1} ms
+                    \\    • Packet Drop Rate:     {d:.1}%
+                    \\
+                    \\  Bandwidth Throughput:
+                    \\    • Ingress (Download):  {d:.2} Mbps ({d:.2} MB/s)
+                    \\    • Egress  (Upload):    {d:.2} Mbps ({d:.2} MB/s)
+                    \\
+                    \\  Broadband Rating:       {s}
+                    \\==================================================================
+                    \\
+                , .{
+                    res.server_target,
+                    res.ping_ms,
+                    res.min_ping_ms,
+                    res.max_ping_ms,
+                    res.jitter_ms,
+                    res.packet_loss_pct,
+                    res.download_mbps,
+                    res.download_mbps / 8.0,
+                    res.upload_mbps,
+                    res.upload_mbps / 8.0,
+                    res.quality_grade,
+                });
+            }
+            return;
+        } else if (std.mem.eql(u8, cmd, "stress")) {
+            try stdout.writeAll("▶ Initiating multi-stream network socket saturation stress test...\n");
+            const res = try speedtest_mod.runNetworkStressTest(allocator, 5, 8);
+            if (json_mode) {
+                try stdout.print(
+                    \\{{
+                    \\  "total_mb": {d:.2},
+                    \\  "peak_mbps": {d:.2},
+                    \\  "average_mbps": {d:.2},
+                    \\  "stability_score": {d}
+                    \\}}
+                    \\
+                , .{ res.total_mb_transferred, res.peak_throughput_mbps, res.average_throughput_mbps, res.stability_score });
+            } else {
+                try stdout.print(
+                    \\
+                    \\==================================================================
+                    \\  ZYPHOR MULTI-STREAM NETWORK SATURATION & STRESS TEST
+                    \\==================================================================
+                    \\
+                    \\  Test Parameters:  {d} Concurrent Streams / {d}s Burst
+                    \\  Total Data:       {d:.1} MB Transferred ({d} Packets)
+                    \\
+                    \\  Stress Throughput:
+                    \\    • Peak Burst Rate:     {d:.1} Mbps
+                    \\    • Average Throughput:  {d:.1} Mbps
+                    \\    • Latency Under Load:  {d:.1} ms
+                    \\    • Packet Failure Rate: {d:.1}%
+                    \\
+                    \\  Stability Index:  {d}/100 [ROCK SOLID]
+                    \\==================================================================
+                    \\
+                , .{
+                    res.active_streams,
+                    res.duration_secs,
+                    res.total_mb_transferred,
+                    res.packets_sent,
+                    res.peak_throughput_mbps,
+                    res.average_throughput_mbps,
+                    res.latency_under_load_ms,
+                    @as(f32, @floatFromInt(res.packets_failed)),
+                    res.stability_score,
+                });
+            }
+            return;
         }
     }
 
@@ -323,6 +420,8 @@ fn printHelp() void {
         \\SUBCOMMANDS:
         \\  doctor           Audit OS kernel telemetry, sensor availability, and readiness
         \\  bench, benchmark Run native hardware compute & RAM bandwidth benchmark (PRD §25)
+        \\  speedtest, speed Measure ping, jitter, download, and upload throughput
+        \\  stress           Run multi-stream network socket saturation stress test
         \\  cpu              Display instant CPU metrics, user/sys load, and core breakdown
         \\  memory, mem      Display physical RAM, cache, swap, and memory pressure
         \\  process, ps      Query live process table with sorting and filtering
@@ -332,6 +431,7 @@ fn printHelp() void {
         \\  health, diag     Run explainable root-cause diagnostics & scoring audit
         \\  gpu              Display GPU utilization, VRAM residency, and thermals
         \\  snapshot         Capture instantaneous comprehensive system state to JSON
+        \\  report           Export standalone interactive dark-mode HTML report
         \\
         \\OPTIONS:
         \\  -j, --json       Output results in machine-readable JSON format
@@ -347,5 +447,5 @@ fn printHelp() void {
 
 fn printVersion() void {
     const stdout = types.getStdout();
-    stdout.writeAll("Zyphor v0.1.0 (Built with Zig 0.15.x - Native Systems Observatory)\n") catch {};
+    stdout.writeAll("Zyphor v0.1.1 (Built with Zig 0.15.x - Native Systems Observatory)\n") catch {};
 }

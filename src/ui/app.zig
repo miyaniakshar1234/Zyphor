@@ -6,6 +6,7 @@ const terminal_mod = @import("terminal.zig");
 const buffer_mod = @import("buffer.zig");
 const theme_mod = @import("theme.zig");
 const widgets = @import("widgets.zig");
+const speedtest_mod = @import("../net/speedtest.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -21,6 +22,10 @@ pub const App = struct {
     show_help: bool = false,
     show_inspect_modal: bool = false,
     show_kill_modal: bool = false,
+    show_speedtest_modal: bool = false,
+    show_stress_modal: bool = false,
+    speedtest_result: ?speedtest_mod.SpeedTestResult = null,
+    stress_result: ?speedtest_mod.StressTestResult = null,
     search_input_active: bool = false,
     search_buffer: [64]u8 = @splat(0),
     search_len: usize = 0,
@@ -139,6 +144,14 @@ pub const App = struct {
                     const proc = &snapshot.top_processes[self.selected_proc_idx];
                     widgets.renderKillConfirmModal(&self.buffer, proc, &self.theme, self.plain_mode);
                 }
+            } else if (self.show_speedtest_modal) {
+                if (self.speedtest_result) |*res| {
+                    widgets.renderSpeedTestModal(&self.buffer, res, &self.theme, self.plain_mode);
+                }
+            } else if (self.show_stress_modal) {
+                if (self.stress_result) |*res| {
+                    widgets.renderStressTestModal(&self.buffer, res, &self.theme, self.plain_mode);
+                }
             } else if (self.show_help) {
                 widgets.renderHelpModal(&self.buffer, &self.theme, self.plain_mode);
             }
@@ -242,6 +255,24 @@ pub const App = struct {
                             else => {},
                         },
                         .escape => self.show_kill_modal = false,
+                        else => {},
+                    }
+                    continue;
+                }
+
+                if (self.show_speedtest_modal) {
+                    switch (key) {
+                        .escape, .enter => self.show_speedtest_modal = false,
+                        .char => self.show_speedtest_modal = false,
+                        else => {},
+                    }
+                    continue;
+                }
+
+                if (self.show_stress_modal) {
+                    switch (key) {
+                        .escape, .enter => self.show_stress_modal = false,
+                        .char => self.show_stress_modal = false,
                         else => {},
                     }
                     continue;
@@ -377,13 +408,34 @@ pub const App = struct {
                             }
                         },
                         's' => {
-                            if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
+                            if (self.active_tab == .network) {
+                                self.setStatus("Running network speed & latency test...");
+                                if (speedtest_mod.runSpeedTest(self.allocator)) |r| {
+                                    self.speedtest_result = r;
+                                    self.show_speedtest_modal = true;
+                                    self.setStatus("Speedtest complete");
+                                } else |_| {
+                                    self.setStatus("Speedtest failed");
+                                }
+                            } else if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
                                 const proc = &snapshot.top_processes[self.selected_proc_idx];
                                 var col = self.engine.platform.getCollector();
                                 if (col.suspendProcess(proc.pid)) |_| {
                                     self.setStatus("Process suspended (SIGSTOP)");
                                 } else |_| {
                                     self.setStatus("Failed to suspend process (Access Denied)");
+                                }
+                            }
+                        },
+                        'S' => {
+                            if (self.active_tab == .network) {
+                                self.setStatus("Running multi-stream network saturation stress test...");
+                                if (speedtest_mod.runNetworkStressTest(self.allocator, 5, 8)) |r| {
+                                    self.stress_result = r;
+                                    self.show_stress_modal = true;
+                                    self.setStatus("Stress test complete");
+                                } else |_| {
+                                    self.setStatus("Stress test failed");
                                 }
                             }
                         },
