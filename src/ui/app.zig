@@ -145,8 +145,8 @@ pub const App = struct {
                 .network => {
                     const net_res_ptr: ?*const speedtest_mod.SpeedTestResult = if (self.speedtest_result) |*r| r else null; widgets.renderNetworkPanel(&self.buffer, &snapshot.network, &self.engine.history, &self.theme, self.plain_mode, &self.speedtest_tracker, net_res_ptr);
                 },
-                .diagnostics => {
-                    widgets.renderDiagnosticsPanel(&self.buffer, &snapshot.health, self.engine.alert_engine.alerts.items, &self.theme, self.plain_mode);
+                                .diagnostics => {
+                    widgets.renderDiagnosticsPanel(&self.buffer, &snapshot, self.engine.alert_engine.alerts.items, &self.theme, self.plain_mode);
                 },
                                 .services => {
                     widgets.renderServicesPanel(&self.buffer, snapshot.services, self.selected_proc_idx, &self.theme, self.plain_mode, current_search);
@@ -612,6 +612,7 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
+
 
 
 

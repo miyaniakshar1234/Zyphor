@@ -5,6 +5,7 @@ const buffer_mod = @import("buffer.zig");
 const graphs = @import("graphs.zig");
 const history_mod = @import("../core/history.zig");
 const alert_mod = @import("../alerts/engine.zig");
+const ai_mod = @import("../core/ai.zig");
 
 const ScreenBuffer = buffer_mod.ScreenBuffer;
 const Theme = theme_mod.Theme;
@@ -1061,11 +1062,12 @@ pub fn renderNetworkPanel(
 
 pub fn renderDiagnosticsPanel(
     buf: *ScreenBuffer,
-    health: *const types.SystemHealth,
+    snapshot: *const types.SystemSnapshot,
     alerts: []const alert_mod.Alert,
     theme: *const Theme,
     plain: bool,
 ) void {
+    const health = &snapshot.health;
     const w = buf.width;
     const h = buf.height;
 
@@ -1126,22 +1128,50 @@ pub fn renderDiagnosticsPanel(
         graphs.renderSeparator(buf, 2, diag_y - 1, w - 4, theme.border, theme.bg, plain);
         buf.writeString(3, diag_y, "▼ AUTONOMOUS ROOT-CAUSE DIAGNOSTICS & DEFENSIVE ACTION PLAYBOOK", theme.header, theme.bg, true);
 
-        var sum_buf: [160]u8 = undefined;
-        const sum_str = std.fmt.bufPrint(&sum_buf, " Telemetry Summary: {s}", .{health.getSummary()}) catch "";
-        buf.writeString(3, diag_y + 1, sum_str[0..@min(sum_str.len, w - 6)], theme.fg, theme.bg, false);
+        // In-memory allocation for AI heuristic insights (frame limited)
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer arena.deinit();
+        const insights = ai_mod.generateHeuristicInsights(arena.allocator(), snapshot) catch &[_]ai_mod.AIInsight{};
 
-        if (alerts.len == 0) {
-            buf.writeString(5, diag_y + 3, "✓ [OPTIMAL] All kernel subsystems operating within nominal safety tolerances.",
-                theme.success, theme.bg, true);
-            buf.writeString(5, diag_y + 4, "  • Compute Core:   No runaway threads or priority inversions detected.", theme.muted, theme.bg, false);
-            buf.writeString(5, diag_y + 5, "  • Memory Subsystem: Physical RSS allocations are nominal with healthy page cache.", theme.muted, theme.bg, false);
-            buf.writeString(5, diag_y + 6, "  • Storage Engine: NVMe controller responding within sub-millisecond bus latencies.", theme.muted, theme.bg, false);
-            buf.writeString(5, diag_y + 7, "  • Network Fabric: Socket state table clean with zero bufferbloat.", theme.muted, theme.bg, false);
+        if (insights.len > 0) {
+            const ins = insights[0];
             
-            buf.writeString(5, diag_y + 9, "⚡ Playbook Shortcuts: [2] Process List [c/m] | [3] Storage Tree | [4] Sockets Explorer | [s] Speedtest", theme.accent, theme.bg, true);
+            const ai_color = switch (ins.severity) {
+                .excellent => theme.success,
+                .good => Color.rgb(80, 210, 130),
+                .fair => theme.warning,
+                .poor, .critical => theme.critical,
+            };
+
+            buf.drawCyberBox(3, diag_y + 1, w - 6, 8, " ▼ LOCAL AI DIAGNOSTICS & HEURISTIC ENGINE ", theme.border, theme.header, theme.bg, plain);
+            
+            buf.writeString(5, diag_y + 3, "QUESTION: Why is my system slow?", theme.muted, theme.bg, false);
+            
+            var t_buf: [128]u8 = undefined;
+            const t_str = std.fmt.bufPrint(&t_buf, "DIAGNOSIS: {s}", .{ins.title}) catch "";
+            buf.writeString(5, diag_y + 4, t_str, ai_color, theme.bg, true);
+            
+            var x_buf: [256]u8 = undefined;
+            const x_str = std.fmt.bufPrint(&x_buf, "EVIDENCE: {s}", .{ins.explanation}) catch "";
+            buf.writeString(5, diag_y + 5, x_str[0..@min(x_str.len, w - 10)], theme.fg, theme.bg, false);
+            
+            var a_buf: [256]u8 = undefined;
+            const a_str = std.fmt.bufPrint(&a_buf, "ACTION: {s}", .{ins.action}) catch "";
+            buf.writeString(5, diag_y + 6, a_str[0..@min(a_str.len, w - 10)], theme.accent, theme.bg, false);
         } else {
+            var sum_buf: [160]u8 = undefined;
+            const sum_str = std.fmt.bufPrint(&sum_buf, " Telemetry Summary: {s}", .{health.getSummary()}) catch "";
+            buf.writeString(3, diag_y + 1, sum_str[0..@min(sum_str.len, w - 6)], theme.fg, theme.bg, false);
+        }
+
+        const alerts_start_y = diag_y + 10;
+        
+        if (alerts.len == 0) {
+            buf.writeString(5, alerts_start_y, "⚡ Playbook Shortcuts: [2] Process List [c/m] | [3] Storage Tree | [4] Sockets Explorer | [s] Speedtest", theme.accent, theme.bg, true);
+        } else {
+            buf.writeString(3, alerts_start_y - 1, "▼ REAL-TIME SYSTEM ALERTS", theme.header, theme.bg, true);
             for (alerts, 0..) |alert, idx| {
-                const alert_y = diag_y + 3 + @as(u16, @intCast(idx * 3));
+                const alert_y = alerts_start_y + @as(u16, @intCast(idx * 3));
                 if (alert_y + 2 >= panel_y + panel_h) break;
 
                 const sev_color = switch (alert.severity) {
@@ -2111,6 +2141,8 @@ pub fn renderContainersPanel(
         buf.writeString(right_x + 2, panel_y + 2, "No container selected", theme.muted, theme.bg, false);
     }
 }
+
+
 
 
 
