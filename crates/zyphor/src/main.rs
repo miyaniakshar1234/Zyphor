@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 const REPO: &str = "miyaniakshar1234/Zyphor";
-const VERSION: &str = "v0.1.0";
+const VERSION: &str = "v1.0.0";
 
 fn get_binary_target() -> Result<(&'static str, &'static str, &'static str), String> {
     let os = match env::consts::OS {
