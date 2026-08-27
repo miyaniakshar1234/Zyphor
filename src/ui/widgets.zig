@@ -925,10 +925,20 @@ pub fn renderDiagnosticsPanel(
         health.overall_score, health.status.asText(),
     }) catch "";
     
-    buf.writeString(15, panel_y + 1, "Composite Health Assessment:", theme.header, theme.bg, true);
+    buf.writeString(15, panel_y + 1, "Composite System Health Assessment:", theme.header, theme.bg, true);
     buf.writeString(15, panel_y + 3, score_str, score_color, theme.bg, true);
-    graphs.renderGaugeBar(buf, 15, panel_y + 5, @min(w - 20, 50),
+    graphs.renderGaugeBar(buf, 15, panel_y + 5, @min(w - 20, 42),
         @floatFromInt(health.overall_score), theme.accent, theme.muted, theme.bg, plain);
+
+    // Subsystem Health Balance Matrix Card (Right side when width allows)
+    if (w > 85) {
+        const rbox_w: u16 = 36;
+        const rbox_x = w - rbox_w - 3;
+        buf.drawBox(rbox_x, panel_y + 1, rbox_w, 6, " HEALTH SUBSYSTEM RADAR ", theme.border, theme.secondary, theme.bg, plain);
+        renderSubScore(buf, rbox_x + 2, panel_y + 2, "CPU", health.cpu_score, rbox_w - 4, theme, plain);
+        renderSubScore(buf, rbox_x + 2, panel_y + 3, "RAM", health.memory_score, rbox_w - 4, theme, plain);
+        renderSubScore(buf, rbox_x + 2, panel_y + 4, "DSK", health.disk_score, rbox_w - 4, theme, plain);
+    }
         
     graphs.renderSeparator(buf, 2, panel_y + 7, w - 4, theme.border, theme.bg, plain);
     buf.writeString(3, panel_y + 8, "Subsystem Score Breakdown:", theme.header, theme.bg, true);
@@ -945,15 +955,15 @@ pub fn renderDiagnosticsPanel(
     buf.writeString(24, panel_y + 14, health.getSummary()[0..@min(health.getSummary().len, w - 26)], theme.fg, theme.bg, false);
 
     graphs.renderSeparator(buf, 2, panel_y + 16, w - 4, theme.border, theme.bg, plain);
-    buf.writeString(3, panel_y + 17, "Active Root-Cause Alerts & Recommendations:", theme.header, theme.bg, true);
+    buf.writeString(3, panel_y + 17, "Active Root-Cause Alerts & Actionable Remediation Guidance:", theme.header, theme.bg, true);
 
     if (alerts.len == 0) {
         buf.writeString(5, panel_y + 19, "✓ Zero active alerts. All kernel subsystems operating within nominal thresholds.",
             theme.success, theme.bg, false);
     } else {
         for (alerts, 0..) |alert, idx| {
-            const alert_y = panel_y + 19 + @as(u16, @intCast(idx * 2));
-            if (alert_y + 1 >= panel_y + panel_h) break;
+            const alert_y = panel_y + 19 + @as(u16, @intCast(idx * 3));
+            if (alert_y + 2 >= panel_y + panel_h) break;
 
             const sev_color = switch (alert.severity) {
                 .critical => theme.critical,
@@ -968,6 +978,22 @@ pub fn renderDiagnosticsPanel(
 
             const msg = alert.getMessage();
             buf.writeString(7, alert_y + 1, msg[0..@min(msg.len, w - 10)], theme.muted, theme.bg, false);
+
+            // Actionable remediation guidance pill
+            const title = alert.getTitle();
+            const rem_hint = if (std.mem.indexOf(u8, title, "CPU") != null)
+                "⚡ Action: Jump to Tab 2 [c] to sort and terminate runaway threads"
+            else if (std.mem.indexOf(u8, title, "Memory") != null or std.mem.indexOf(u8, title, "Swap") != null)
+                "⚡ Action: Jump to Tab 2 [m] to inspect high-RSS memory leaks"
+            else if (std.mem.indexOf(u8, title, "Disk") != null or std.mem.indexOf(u8, title, "Storage") != null)
+                "⚡ Action: Jump to Tab 3 to scan directory storage consumers"
+            else if (std.mem.indexOf(u8, title, "Network") != null)
+                "⚡ Action: Jump to Tab 4 to inspect active remote socket connections"
+            else if (std.mem.indexOf(u8, title, "Thermal") != null or std.mem.indexOf(u8, title, "Temp") != null)
+                "⚡ Action: Verify fan speed and background thermal workloads"
+            else
+                "⚡ Action: Review system events stream for root-cause context";
+            buf.writeString(7, alert_y + 2, rem_hint[0..@min(rem_hint.len, w - 10)], theme.accent, theme.bg, false);
         }
     }
 }
