@@ -348,6 +348,9 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             try bench_mod.printBenchmark(stdout, &res, json_mode);
             return;
         } else if (std.mem.eql(u8, cmd, "speedtest") or std.mem.eql(u8, cmd, "speed")) {
+            var tracker = speedtest_mod.LiveSpeedTestTracker{};
+            var test_thread = try std.Thread.spawn(.{}, speedtest_mod.speedTestWorker, .{ allocator, &tracker });
+
             if (!json_mode) {
                 try stdout.writeAll(
                     \\==================================================================
@@ -355,11 +358,28 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     \\==================================================================
                     \\  Target: Global Anycast CDN (1.1.1.1) | Mode: Low-Latency TCP
                     \\
-                    \\  [1/4] Probing Anycast Edge Latency & Jitter...
-                    \\
                 );
             }
-            const res = try speedtest_mod.runSpeedTest(allocator);
+
+            var frame: u32 = 0;
+            const spinner = [4][]const u8{ "⠋", "⠙", "⠹", "⠼" };
+            while (!tracker.has_result) {
+                if (!json_mode) {
+                    try stdout.print("\r {s} [Phase: {s}] Progress: {d:>3.0}% | DL: {d:>6.1} Mbps | UL: {d:>6.1} Mbps | Ping: {d:>5.1} ms   ", .{
+                        spinner[frame % 4],
+                        @tagName(tracker.phase),
+                        tracker.progress_pct,
+                        tracker.live_download_mbps,
+                        tracker.live_upload_mbps,
+                        tracker.live_ping_ms,
+                    });
+                }
+                std.Thread.sleep(100 * std.time.ns_per_ms);
+                frame += 1;
+            }
+            test_thread.join();
+            if (!json_mode) try stdout.print("\n\n", .{});
+            const res = tracker.final_result;
             if (json_mode) {
                 try stdout.print(
                     \\{{
@@ -445,12 +465,36 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     \\  ZYPHOR MULTI-STREAM NETWORK SATURATION STRESS ENGINE
                     \\==================================================================
                     \\  Config:  {d} Concurrent Streams | Duration: {d}s | Target: Anycast Edge
-                    \\  [BURST]  Sockets Connected. Running Saturation Burst...
                     \\
                 , .{ stress_streams, dur_secs });
             }
 
-            const res = try speedtest_mod.runNetworkStressTest(allocator, dur_secs, stress_streams);
+            var tracker = speedtest_mod.LiveStressTestTracker{};
+            var test_thread = try std.Thread.spawn(.{}, speedtest_mod.stressTestWorker, .{speedtest_mod.StressWorkerArgs{
+                .allocator = allocator,
+                .duration_secs = dur_secs,
+                .streams = stress_streams,
+                .tracker = &tracker,
+            }});
+
+            var frame: u32 = 0;
+            const spinner = [4][]const u8{ "⠋", "⠙", "⠹", "⠼" };
+            while (!tracker.has_result) {
+                if (!json_mode) {
+                    try stdout.print("\r {s} [Stress] Progress: {d:>3.0}% | Transferred: {d:>6.1} MB | Live Throughput: {d:>6.1} Mbps   ", .{
+                        spinner[frame % 4],
+                        tracker.progress_pct,
+                        tracker.live_transferred_mb,
+                        tracker.live_current_mbps,
+                    });
+                }
+                std.Thread.sleep(100 * std.time.ns_per_ms);
+                frame += 1;
+            }
+            test_thread.join();
+            if (!json_mode) try stdout.print("\n\n", .{});
+            
+            const res = tracker.final_result;
             if (json_mode) {
                 try stdout.print(
                     \\{{
@@ -560,3 +604,5 @@ fn printVersion() void {
     const stdout = types.getStdout();
     stdout.writeAll("Zyphor v0.1.1 (Built with Zig 0.15.x - Native Systems Observatory)\n") catch {};
 }
+
+

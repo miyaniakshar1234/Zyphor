@@ -143,7 +143,7 @@ pub const App = struct {
                     widgets.renderDiskPanel(&self.buffer, &snapshot.disk, &self.engine.history, &self.theme, self.plain_mode);
                 },
                 .network => {
-                    widgets.renderNetworkPanel(&self.buffer, &snapshot.network, &self.engine.history, &self.theme, self.plain_mode);
+                    const net_res_ptr: ?*const speedtest_mod.SpeedTestResult = if (self.speedtest_result) |*r| r else null; widgets.renderNetworkPanel(&self.buffer, &snapshot.network, &self.engine.history, &self.theme, self.plain_mode, &self.speedtest_tracker, net_res_ptr);
                 },
                 .diagnostics => {
                     widgets.renderDiagnosticsPanel(&self.buffer, &snapshot.health, self.engine.alert_engine.alerts.items, &self.theme, self.plain_mode);
@@ -200,7 +200,11 @@ pub const App = struct {
             }
 
             // 4. Non-blocking input handling
-            std.Thread.sleep(200 * std.time.ns_per_ms);
+                        if (self.show_speedtest_modal or self.show_stress_modal) {
+                std.Thread.sleep(33 * std.time.ns_per_ms);
+            } else {
+                std.Thread.sleep(200 * std.time.ns_per_ms);
+            }
             if (self.terminal.readKey()) |key| {
                 const proc_count = snapshot.top_processes.len;
 
@@ -602,3 +606,6 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
+
+
+
