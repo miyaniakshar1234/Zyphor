@@ -207,8 +207,8 @@ pub const LinuxCollector = struct {
         const len = file.readAll(&buf) catch return error.FileReadFailed;
         const text = buf[0..len];
 
-        var list = std.ArrayList(types.NetworkInterface).init(allocator);
-        defer list.deinit();
+        var list: std.ArrayListUnmanaged(types.NetworkInterface) = .empty;
+        defer list.deinit(allocator);
 
         var total_rx: u64 = 0;
         var total_tx: u64 = 0;
@@ -255,11 +255,11 @@ pub const LinuxCollector = struct {
             @memcpy(iface.name[0..n_len], name[0..n_len]);
             iface.name_len = n_len;
 
-            try list.append(iface);
+            try list.append(allocator, iface);
         }
 
         return types.NetworkMetrics{
-            .interfaces = try list.toOwnedSlice(),
+            .interfaces = try list.toOwnedSlice(allocator),
             .total_rx_sec = 0,
             .total_tx_sec = 0,
         };
@@ -290,8 +290,8 @@ pub const LinuxCollector = struct {
         var dir = try std.fs.cwd().openDir("/proc", .{ .iterate = true });
         defer dir.close();
 
-        var procs = std.ArrayList(types.ProcessInfo).init(allocator);
-        defer procs.deinit();
+        var procs: std.ArrayListUnmanaged(types.ProcessInfo) = .empty;
+        defer procs.deinit(allocator);
 
         var it = dir.iterate();
         var buf: [4096]u8 = undefined;
@@ -359,10 +359,10 @@ pub const LinuxCollector = struct {
             @memcpy(proc.name[0..n_len], name[0..n_len]);
             proc.name_len = n_len;
 
-            try procs.append(proc);
+            try procs.append(allocator, proc);
         }
 
-        return procs.toOwnedSlice();
+        return try procs.toOwnedSlice(allocator);
     }
 
     fn killProcess(_: *anyopaque, _: u32) anyerror!void {}
