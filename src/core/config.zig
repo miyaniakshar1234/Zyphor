@@ -19,7 +19,7 @@ pub const Config = struct {
     temp_critical_c: f32 = 90.0,
 
     fn defaultTheme() [32]u8 {
-        var buf = [_]u8{0} ** 32;
+        var buf: [32]u8 = @splat(0);
         const name = "anthropic";
         @memcpy(buf[0..name.len], name);
         return buf;

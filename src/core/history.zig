@@ -4,7 +4,7 @@ pub fn RingBuffer(comptime T: type, comptime Capacity: usize) type {
     return struct {
         const Self = @This();
 
-        buffer: [Capacity]T = [_]T{0} ** Capacity,
+        buffer: [Capacity]T = @splat(0),
         head: usize = 0,
         count: usize = 0,
 

@@ -94,7 +94,7 @@ pub const CpuMetrics = struct {
     physical_cores: u32 = 1,
     core_usage: []f32 = &[_]f32{},
     temperature_c: ?f32 = null,
-    model_name: [128]u8 = [_]u8{0} ** 128,
+    model_name: [128]u8 = @splat(0),
     model_name_len: usize = 0,
 
     pub fn getModelName(self: *const CpuMetrics) []const u8 {
@@ -118,9 +118,9 @@ pub const MemoryMetrics = struct {
 };
 
 pub const DiskPartition = struct {
-    mount_point: [64]u8 = [_]u8{0} ** 64,
+    mount_point: [64]u8 = @splat(0),
     mount_len: usize = 0,
-    fs_type: [32]u8 = [_]u8{0} ** 32,
+    fs_type: [32]u8 = @splat(0),
     fs_len: usize = 0,
     total_bytes: u64 = 0,
     used_bytes: u64 = 0,
@@ -137,7 +137,7 @@ pub const DiskPartition = struct {
 };
 
 pub const DirectoryNode = struct {
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
     name_len: usize = 0,
     size_bytes: u64 = 0,
     file_count: u32 = 0,
@@ -183,11 +183,11 @@ pub const ConnectionState = enum {
 
 pub const NetworkConnection = struct {
     pid: u32 = 0,
-    process_name: [64]u8 = [_]u8{0} ** 64,
+    process_name: [64]u8 = @splat(0),
     process_name_len: usize = 0,
     proto_tcp: bool = true,
     local_port: u16 = 0,
-    remote_addr: [32]u8 = [_]u8{0} ** 32,
+    remote_addr: [32]u8 = @splat(0),
     remote_addr_len: usize = 0,
     remote_port: u16 = 0,
     state: ConnectionState = .listen,
@@ -204,9 +204,9 @@ pub const NetworkConnection = struct {
 };
 
 pub const NetworkInterface = struct {
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
     name_len: usize = 0,
-    ip_address: [64]u8 = [_]u8{0} ** 64,
+    ip_address: [64]u8 = @splat(0),
     ip_len: usize = 0,
     rx_bytes_sec: u64 = 0,
     tx_bytes_sec: u64 = 0,
@@ -232,7 +232,7 @@ pub const NetworkMetrics = struct {
 
 pub const GpuMetrics = struct {
     available: bool = false,
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
     name_len: usize = 0,
     utilization_pct: f32 = 0.0,
     vram_total_bytes: u64 = 0,
@@ -256,11 +256,11 @@ pub const BatteryMetrics = struct {
 pub const ProcessInfo = struct {
     pid: u32 = 0,
     ppid: u32 = 0,
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
     name_len: usize = 0,
-    cmdline: [256]u8 = [_]u8{0} ** 256,
+    cmdline: [256]u8 = @splat(0),
     cmdline_len: usize = 0,
-    user: [32]u8 = [_]u8{0} ** 32,
+    user: [32]u8 = @splat(0),
     user_len: usize = 0,
     cpu_percent: f32 = 0.0,
     memory_rss: u64 = 0,
@@ -294,7 +294,7 @@ pub const SystemHealth = struct {
     disk_score: u8 = 100,
     network_score: u8 = 100,
     thermal_score: u8 = 100,
-    summary: [128]u8 = [_]u8{0} ** 128,
+    summary: [128]u8 = @splat(0),
     summary_len: usize = 0,
 
     pub fn getSummary(self: *const SystemHealth) []const u8 {
@@ -324,12 +324,12 @@ pub const ServiceStatus = enum {
 };
 
 pub const SystemService = struct {
-    name: [64]u8 = [_]u8{0} ** 64,
+    name: [64]u8 = @splat(0),
     name_len: usize = 0,
-    display_name: [128]u8 = [_]u8{0} ** 128,
+    display_name: [128]u8 = @splat(0),
     display_name_len: usize = 0,
     status: ServiceStatus = .running,
-    startup_type: [32]u8 = [_]u8{0} ** 32,
+    startup_type: [32]u8 = @splat(0),
     startup_type_len: usize = 0,
 
     pub fn getName(self: *const SystemService) []const u8 {

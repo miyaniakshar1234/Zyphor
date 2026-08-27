@@ -17,9 +17,9 @@ pub const AlertSeverity = enum {
 
 pub const Alert = struct {
     severity: AlertSeverity,
-    title: [64]u8 = [_]u8{0} ** 64,
+    title: [64]u8 = @splat(0),
     title_len: usize = 0,
-    message: [128]u8 = [_]u8{0} ** 128,
+    message: [128]u8 = @splat(0),
     message_len: usize = 0,
     timestamp_ms: i64 = 0,
 

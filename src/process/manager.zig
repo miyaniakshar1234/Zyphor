@@ -20,7 +20,7 @@ pub const ProcessManager = struct {
     filtered_indices: std.ArrayList(usize) = .empty,
     sort_field: SortField = .cpu,
     sort_order: SortOrder = .descending,
-    active_filter: [64]u8 = [_]u8{0} ** 64,
+    active_filter: [64]u8 = @splat(0),
     active_filter_len: usize = 0,
     tree_mode: bool = false,
 

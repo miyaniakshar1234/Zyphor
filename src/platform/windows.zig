@@ -47,7 +47,7 @@ pub const PROCESSENTRY32W = extern struct {
     th32ParentProcessID: DWORD = 0,
     pcPriClassBase: i32 = 0,
     dwFlags: DWORD = 0,
-    szExeFile: [260]u16 = [_]u16{0} ** 260,
+    szExeFile: [260]u16 = @splat(0),
 };
 
 pub const PROCESS_MEMORY_COUNTERS_EX = extern struct {
@@ -165,7 +165,7 @@ pub const WindowsCollector = struct {
     last_system_delta: u64 = 1,
     num_cores: u32 = 1,
     initialized: bool = false,
-    proc_times: [2048]ProcessTimeEntry = [_]ProcessTimeEntry{.{}} ** 2048,
+    proc_times: [2048]ProcessTimeEntry = @splat(.{}),
 
     pub fn init() WindowsCollector {
         var num_cores: u32 = 1;
@@ -321,7 +321,7 @@ pub const WindowsCollector = struct {
         var partitions: std.ArrayList(types.DiskPartition) = .empty;
         defer partitions.deinit(allocator);
 
-        var drive_buf: [512]u16 = [_]u16{0} ** 512;
+        var drive_buf: [512]u16 = @splat(0);
         const len = GetLogicalDriveStringsW(512, &drive_buf);
         if (len > 0 and len < 512) {
             var i: usize = 0;

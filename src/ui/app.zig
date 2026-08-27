@@ -22,13 +22,13 @@ pub const App = struct {
     show_inspect_modal: bool = false,
     show_kill_modal: bool = false,
     search_input_active: bool = false,
-    search_buffer: [64]u8 = [_]u8{0} ** 64,
+    search_buffer: [64]u8 = @splat(0),
     search_len: usize = 0,
     show_palette: bool = false,
     palette_idx: usize = 0,
     plain_mode: bool = false,
     frame_count: u64 = 0,
-    status_msg: [128]u8 = [_]u8{0} ** 128,
+    status_msg: [128]u8 = @splat(0),
     status_len: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, plain: bool) !App {

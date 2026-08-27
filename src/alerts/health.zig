@@ -91,7 +91,7 @@ pub fn computeHealthScore(
         .thermal_score = @as(u8, @intFromFloat(thermal_score)),
     };
 
-    var summary_buf = [_]u8{0} ** 128;
+    var summary_buf: [128]u8 = @splat(0);
     const summary_str = switch (status) {
         .excellent => "All subsystems operating within optimal nominal bounds.",
         .good => "System is stable with standard background workload.",
