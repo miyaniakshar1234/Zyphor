@@ -160,7 +160,7 @@ pub const MacosCollector = struct {
 
     fn getProcessList(_: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo {
         var list: std.ArrayList(types.ProcessInfo) = .empty;
-        defer list.deinit(allocator);
+        errdefer list.deinit(allocator);
 
         const pids = [_]u32{ 1, 85, 340, 1100, 1820 };
         const names = [_][]const u8{ "launchd", "WindowServer", "Finder", "Terminal", "zyphor" };

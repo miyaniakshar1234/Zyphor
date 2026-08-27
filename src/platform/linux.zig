@@ -160,7 +160,7 @@ pub const LinuxCollector = struct {
 
     fn getProcessList(_: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo {
         var list: std.ArrayList(types.ProcessInfo) = .empty;
-        defer list.deinit(allocator);
+        errdefer list.deinit(allocator);
 
         const pids = [_]u32{ 1, 120, 480, 1024, 1500, 2048 };
         const names = [_][]const u8{ "systemd", "sshd", "NetworkManager", "docker", "bash", "zyphor" };
