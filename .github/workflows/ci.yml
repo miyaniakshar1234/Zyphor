@@ -34,6 +34,17 @@ jobs:
         with:
           version: 0.15.0
 
+      - name: Cache Zig Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .zig-cache
+            ~/.cache/zig
+            C:\Users\runneradmin\AppData\Local\zig
+          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'src/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-
+
       - name: Run Test Suite
         run: zig build test
 
