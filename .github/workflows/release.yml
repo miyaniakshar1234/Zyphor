@@ -7,38 +7,58 @@ on:
 
 jobs:
   build-release:
-    name: Build Release Binary (${{ matrix.target }})
+    name: Build Release (${{ matrix.artifact_name }})
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
             target: x86_64-windows
             artifact_name: zyphor-windows-x86_64.zip
             binary_name: zyphor.exe
+          - os: windows-latest
+            target: aarch64-windows
+            artifact_name: zyphor-windows-aarch64.zip
+            binary_name: zyphor.exe
           - os: ubuntu-latest
             target: x86_64-linux
             artifact_name: zyphor-linux-x86_64.tar.gz
+            binary_name: zyphor
+          - os: ubuntu-latest
+            target: aarch64-linux
+            artifact_name: zyphor-linux-aarch64.tar.gz
             binary_name: zyphor
           - os: macos-13
             target: x86_64-macos
             artifact_name: zyphor-macos-x86_64.tar.gz
             binary_name: zyphor
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "15.0"
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Select Xcode / macOS SDK
+        if: runner.os == 'macOS'
+        run: |
+          sudo xcode-select -s /Library/Developer/CommandLineTools || true
+          SDK_PATH=$(xcrun --show-sdk-path 2>/dev/null || echo "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk")
+          echo "SDKROOT=$SDK_PATH" >> $GITHUB_ENV
+          echo "DEVELOPER_DIR=/Library/Developer/CommandLineTools" >> $GITHUB_ENV
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
           version: 0.15.0
 
-      - name: Build Optimized Binary
-        run: zig build -Doptimize=ReleaseSafe
+      - name: Build Optimized Release Binary
+        run: zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }}
 
       - name: Package Artifact (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           Compress-Archive -Path ./zig-out/bin/zyphor.exe, ./README.md, ./LICENSE -DestinationPath ${{ matrix.artifact_name }}
 
@@ -50,6 +70,9 @@ jobs:
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact_name }}
+          files: |
+            ${{ matrix.artifact_name }}
+            install.sh
+            install.ps1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

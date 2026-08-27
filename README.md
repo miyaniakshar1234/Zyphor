@@ -44,13 +44,62 @@ The result? Absolute zero tearing, zero flickering, and sub-0.1% CPU overhead ev
 
 ---
 
-## 🛠️ Quickstart
+## 📦 Installation
 
-### Pre-built Binaries
-Download the latest static binary for your architecture from the [Releases](https://github.com/miyaniakshar1234/Zyphor/releases) page. Zyphor is distributed as a single, zero-dependency native executable.
+### 1. Universal One-Line Installers
 
-### Build from Source
-Building Zyphor requires [Zig 0.15.x](https://ziglang.org/download/):
+#### Linux & macOS (Bash / Zsh):
+```bash
+curl -fsSL https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/install.sh | bash
+```
+
+#### Windows (PowerShell):
+```powershell
+irm https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/install.ps1 | iex
+```
+
+---
+
+### 2. Package Managers
+
+#### Homebrew (macOS & Linux):
+```bash
+brew tap miyaniakshar1234/zyphor
+brew install zyphor
+```
+
+#### Windows Package Manager (Winget):
+```powershell
+winget install miyaniakshar1234.Zyphor
+```
+
+#### Scoop (Windows):
+```powershell
+scoop bucket add zyphor https://github.com/miyaniakshar1234/scoop-zyphor
+scoop install zyphor
+```
+
+#### Arch Linux (AUR):
+```bash
+yay -S zyphor-bin
+# or with paru:
+paru -S zyphor-bin
+```
+
+---
+
+### 3. Pre-built Standalone Binaries
+Download the compiled single-file binary directly from [GitHub Releases](https://github.com/miyaniakshar1234/Zyphor/releases):
+- `zyphor-linux-x86_64.tar.gz`
+- `zyphor-linux-aarch64.tar.gz`
+- `zyphor-macos-x86_64.tar.gz`
+- `zyphor-windows-x86_64.zip`
+- `zyphor-windows-aarch64.zip`
+
+---
+
+### 4. Build from Source
+Building Zyphor requires [Zig 0.15+](https://ziglang.org/download/):
 
 ```bash
 git clone https://github.com/miyaniakshar1234/Zyphor.git
