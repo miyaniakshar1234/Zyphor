@@ -15,6 +15,8 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
     var sort_field: []const u8 = "cpu";
     var limit: usize = 15;
     var output_file: ?[]const u8 = null;
+    var stress_duration_str: ?[]const u8 = null;
+    var stress_streams: u32 = 8;
 
     var i: usize = 1;
     while (i < args.len) : (i += 1) {
@@ -31,6 +33,16 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
         } else if (std.mem.eql(u8, arg, "--version") or std.mem.eql(u8, arg, "-v")) {
             printVersion();
             return;
+        } else if (std.mem.eql(u8, arg, "--duration") or std.mem.eql(u8, arg, "-d")) {
+            if (i + 1 < args.len) {
+                i += 1;
+                stress_duration_str = args[i];
+            }
+        } else if (std.mem.eql(u8, arg, "--streams")) {
+            if (i + 1 < args.len) {
+                i += 1;
+                stress_streams = std.fmt.parseInt(u32, args[i], 10) catch 8;
+            }
         } else if (std.mem.eql(u8, arg, "--sort")) {
             if (i + 1 < args.len) {
                 i += 1;
@@ -350,18 +362,25 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             }
             return;
         } else if (std.mem.eql(u8, cmd, "stress")) {
-            try stdout.writeAll("▶ Initiating multi-stream network socket saturation stress test...\n");
-            const res = try speedtest_mod.runNetworkStressTest(allocator, 5, 8);
+            const dur_secs = if (stress_duration_str) |d|
+                speedtest_mod.parseDuration(d) catch 10
+            else
+                10;
+
+            try stdout.print("▶ Initiating multi-stream network socket saturation stress test ({d}s duration, {d} streams)...\n", .{ dur_secs, stress_streams });
+            const res = try speedtest_mod.runNetworkStressTest(allocator, dur_secs, stress_streams);
             if (json_mode) {
                 try stdout.print(
                     \\{{
+                    \\  "duration_secs": {d},
+                    \\  "streams": {d},
                     \\  "total_mb": {d:.2},
                     \\  "peak_mbps": {d:.2},
                     \\  "average_mbps": {d:.2},
                     \\  "stability_score": {d}
                     \\}}
                     \\
-                , .{ res.total_mb_transferred, res.peak_throughput_mbps, res.average_throughput_mbps, res.stability_score });
+                , .{ res.duration_secs, res.active_streams, res.total_mb_transferred, res.peak_throughput_mbps, res.average_throughput_mbps, res.stability_score });
             } else {
                 try stdout.print(
                     \\
@@ -369,7 +388,7 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     \\  ZYPHOR MULTI-STREAM NETWORK SATURATION & STRESS TEST
                     \\==================================================================
                     \\
-                    \\  Test Parameters:  {d} Concurrent Streams / {d}s Burst
+                    \\  Test Parameters:  {d} Concurrent Streams / {d}s Saturation
                     \\  Total Data:       {d:.1} MB Transferred ({d} Packets)
                     \\
                     \\  Stress Throughput:
@@ -378,7 +397,7 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     \\    • Latency Under Load:  {d:.1} ms
                     \\    • Packet Failure Rate: {d:.1}%
                     \\
-                    \\  Stability Index:  {d}/100 [ROCK SOLID]
+                    \\  Stability Index:  {d}/100 [ROCK SOLID SATURATION]
                     \\==================================================================
                     \\
                 , .{
@@ -436,6 +455,8 @@ fn printHelp() void {
         \\OPTIONS:
         \\  -j, --json       Output results in machine-readable JSON format
         \\  -p, --plain      Run in ASCII/monochrome mode (no color escapes)
+        \\  -d, --duration   Stress test duration (e.g. 10s, 30s, 1m, 5m, 1h)
+        \\  --streams <n>    Number of concurrent socket streams for stress test (default: 8)
         \\  --sort <field>   Sort column for process list: cpu, mem, pid, name
         \\  --limit <n>      Number of processes to display (default: 15)
         \\  -o, --output <f> Target file for snapshot export

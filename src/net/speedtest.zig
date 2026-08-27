@@ -23,6 +23,52 @@ pub const SpeedTestPhase = enum {
     }
 };
 
+pub const AppSuitability = struct {
+    streaming_4k: bool = true,
+    gaming_low_latency: bool = true,
+    video_conferencing: bool = true,
+    cloud_backup: bool = true,
+};
+
+pub const StressPreset = enum(u32) {
+    quick_10s = 10,
+    burst_30s = 30,
+    soak_1m = 60,
+    heavy_5m = 300,
+    torture_15m = 900,
+    endurance_1h = 3600,
+    custom = 0,
+
+    pub fn asLabel(self: StressPreset) []const u8 {
+        return switch (self) {
+            .quick_10s => "10 Seconds [Quick Burst]",
+            .burst_30s => "30 Seconds [Standard Stress]",
+            .soak_1m => "1 Minute [Sustained Load]",
+            .heavy_5m => "5 Minutes [Heavy Soak]",
+            .torture_15m => "15 Minutes [Torture Soak]",
+            .endurance_1h => "1 Hour [Endurance Run]",
+            .custom => "Custom Duration",
+        };
+    }
+};
+
+pub fn parseDuration(str: []const u8) !u32 {
+    if (str.len == 0) return 10;
+    const last_char = str[str.len - 1];
+    if (last_char == 's' or last_char == 'S') {
+        const num = try std.fmt.parseInt(u32, str[0..str.len - 1], 10);
+        return num;
+    } else if (last_char == 'm' or last_char == 'M') {
+        const num = try std.fmt.parseInt(u32, str[0..str.len - 1], 10);
+        return num * 60;
+    } else if (last_char == 'h' or last_char == 'H') {
+        const num = try std.fmt.parseInt(u32, str[0..str.len - 1], 10);
+        return num * 3600;
+    } else {
+        return try std.fmt.parseInt(u32, str, 10);
+    }
+}
+
 pub const SpeedTestResult = struct {
     ping_ms: f32 = 0.0,
     min_ping_ms: f32 = 0.0,
@@ -37,6 +83,7 @@ pub const SpeedTestResult = struct {
     quality_grade: []const u8 = "A",
     server_target: []const u8 = "Global Anycast Edge CDN",
     phase: SpeedTestPhase = .idle,
+    suitability: AppSuitability = .{},
 };
 
 pub const StressTestResult = struct {
@@ -254,13 +301,21 @@ pub fn runSpeedTest(allocator: std.mem.Allocator) !SpeedTestResult {
         result.quality_grade = "C (High Latency / Constrained)";
     }
 
+    // Populate Application Suitability Matrix
+    result.suitability = AppSuitability{
+        .streaming_4k = result.download_mbps >= 25.0,
+        .gaming_low_latency = result.ping_ms <= 45.0 and result.jitter_ms <= 10.0,
+        .video_conferencing = result.ping_ms <= 80.0 and result.upload_mbps >= 5.0,
+        .cloud_backup = result.upload_mbps >= 15.0,
+    };
+
     return result;
 }
 
-/// Runs Multi-Stream Network Stress Test
+/// Runs Multi-Stream Network Stress Test with user-configurable duration (seconds, minutes, hours)
 pub fn runNetworkStressTest(allocator: std.mem.Allocator, duration_secs: u32, streams_count: u32) !StressTestResult {
-    const streams = @min(@max(1, streams_count), 8);
-    const duration = @min(@max(1, duration_secs), 10);
+    const streams = @min(@max(1, streams_count), 32);
+    const duration = @max(5, duration_secs);
 
     const ping_res = measurePingAndJitter();
 
