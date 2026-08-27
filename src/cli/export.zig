@@ -3,24 +3,38 @@ const types = @import("../core/types.zig");
 
 pub fn writeJsonEscapedString(writer: anytype, str: []const u8) !void {
     try writer.writeAll("\"");
-    for (str) |c| {
+    var span_start: usize = 0;
+    for (str, 0..) |c, idx| {
         switch (c) {
-            '"' => try writer.writeAll("\\\""),
-            '\\' => try writer.writeAll("\\\\"),
-            '\n' => try writer.writeAll("\\n"),
-            '\r' => try writer.writeAll("\\r"),
-            '\t' => try writer.writeAll("\\t"),
+            '"', '\\', '\n', '\r', '\t' => {
+                if (idx > span_start) {
+                    try writer.writeAll(str[span_start..idx]);
+                }
+                switch (c) {
+                    '"' => try writer.writeAll("\\\""),
+                    '\\' => try writer.writeAll("\\\\"),
+                    '\n' => try writer.writeAll("\\n"),
+                    '\r' => try writer.writeAll("\\r"),
+                    '\t' => try writer.writeAll("\\t"),
+                    else => unreachable,
+                }
+                span_start = idx + 1;
+            },
             else => {
                 if (c < 0x20) {
+                    if (idx > span_start) {
+                        try writer.writeAll(str[span_start..idx]);
+                    }
                     var hex_buf: [6]u8 = undefined;
                     _ = std.fmt.bufPrint(&hex_buf, "\\u{x:0>4}", .{c}) catch unreachable;
                     try writer.writeAll(&hex_buf);
-                } else {
-                    const char_slice = [_]u8{c};
-                    try writer.writeAll(&char_slice);
+                    span_start = idx + 1;
                 }
             },
         }
+    }
+    if (span_start < str.len) {
+        try writer.writeAll(str[span_start..]);
     }
     try writer.writeAll("\"");
 }
@@ -213,4 +227,16 @@ test "JSON string escaping handles quotes, backslashes, and control characters" 
     try writeJsonEscapedString(writer, "Hello \"World\" \\ path\n");
     const result = fbs.getWritten();
     try std.testing.expectEqualStrings("\"Hello \\\"World\\\" \\\\ path\\n\"", result);
+
+    var buf2: [256]u8 = undefined;
+    var fbs2 = std.io.fixedBufferStream(&buf2);
+    const writer2 = fbs2.writer();
+    try writeJsonEscapedString(writer2, "line1\rline2\tend");
+    try std.testing.expectEqualStrings("\"line1\\rline2\\tend\"", fbs2.getWritten());
+
+    var buf3: [256]u8 = undefined;
+    var fbs3 = std.io.fixedBufferStream(&buf3);
+    const writer3 = fbs3.writer();
+    try writeJsonEscapedString(writer3, "A\x01B");
+    try std.testing.expectEqualStrings("\"A\\u0001B\"", fbs3.getWritten());
 }
