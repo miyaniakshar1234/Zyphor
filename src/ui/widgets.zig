@@ -854,10 +854,8 @@ pub fn renderNetworkPanel(
     const tx_count = history.net_tx_history.getChronological(&tx_hist);
 
     const spark_w = left_w - 2;
-    if (rx_count > 0 and spark_w > 4) {
+    if (spark_w > 4) {
         graphs.renderBrailleGraph(buf, 3, panel_y + 3, spark_w, 5, rx_hist[0..rx_count], theme.success, theme.bg, plain);
-    }
-    if (tx_count > 0 and spark_w > 4) {
         graphs.renderBrailleGraph(buf, 3, panel_y + 10, spark_w, 5, tx_hist[0..tx_count], theme.warning, theme.bg, plain);
     }
     
