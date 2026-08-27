@@ -25,5 +25,15 @@ zyphor-export-*.csv
 .DS_Store
 Thumbs.db
 
+# Rust & Cargo
+target/
+crates/**/target/
+Cargo.lock
+
+# Node & NPM
+node_modules/
+npm/bin/zyphor
+npm/bin/zyphor.exe
+
 # Logs
 *.log
