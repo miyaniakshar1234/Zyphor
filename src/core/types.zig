@@ -5,8 +5,14 @@ pub const OutWriter = struct {
 
     pub fn print(self: OutWriter, comptime fmt: []const u8, args: anytype) !void {
         var buf: [8192]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, fmt, args);
-        try self.file.writeAll(msg);
+        if (std.fmt.bufPrint(&buf, fmt, args)) |msg| {
+            try self.file.writeAll(msg);
+        } else |_| {
+            const heap = std.heap.page_allocator;
+            const dyn = try std.fmt.allocPrint(heap, fmt, args);
+            defer heap.free(dyn);
+            try self.file.writeAll(dyn);
+        }
     }
 
     pub fn writeAll(self: OutWriter, bytes: []const u8) !void {
