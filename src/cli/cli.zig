@@ -314,11 +314,11 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             if (!json_mode) {
                 try stdout.writeAll(
                     \\==================================================================
-                    \\  ◈ ZYPHOR HIGH-PRECISION BROADBAND OBSERVATORY ◈
+                    \\  ZYPHOR HIGH-PRECISION BROADBAND OBSERVATORY
                     \\==================================================================
                     \\  Target: Global Anycast CDN (1.1.1.1) | Mode: Low-Latency TCP
                     \\
-                    \\  [ ⠋ ] [1/4] Probing Anycast Edge Latency & Jitter...
+                    \\  [*] [1/4] Probing Anycast Edge Latency & Jitter...
                     \\
                 );
             }
@@ -356,20 +356,20 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                 });
             } else {
                 try stdout.print(
-                    \\  [ ⠙ ] [2/4] Ingress Saturation: {d:>6.1} Mbps ({d:.1} MB/s)
-                    \\  [ ⠹ ] [3/4] Egress Saturation:  {d:>6.1} Mbps ({d:.1} MB/s)
-                    \\  [ ✓ ] [4/4] Quality Analysis Completed!
+                    \\  [*] [2/4] Ingress Saturation: {d:>6.1} Mbps ({d:.1} MB/s)
+                    \\  [*] [3/4] Egress Saturation:  {d:>6.1} Mbps ({d:.1} MB/s)
+                    \\  [+] [4/4] Quality Analysis Completed!
                     \\
                     \\==================================================================
                     \\  BROADBAND METRICS & APPLICATION SUITABILITY AUDIT
                     \\==================================================================
-                    \\  • Round-Trip Ping:     {d:.1} ms (Min: {d:.1}ms, Max: {d:.1}ms)
-                    \\  • Connection Jitter:   ±{d:.1} ms
-                    \\  • Packet Loss Rate:    {d:.0}%
+                    \\  * Round-Trip Ping:     {d:.1} ms (Min: {d:.1}ms, Max: {d:.1}ms)
+                    \\  * Connection Jitter:   +-{d:.1} ms
+                    \\  * Packet Loss Rate:    {d:.0}%
                     \\
-                    \\  • Ingress (Download):  {d:.2} Mbps ({d:.2} MB/s)
-                    \\  • Egress  (Upload):    {d:.2} Mbps ({d:.2} MB/s)
-                    \\  • Broadband Rating:    {s}
+                    \\  * Ingress (Download):  {d:.2} Mbps ({d:.2} MB/s)
+                    \\  * Egress  (Upload):    {d:.2} Mbps ({d:.2} MB/s)
+                    \\  * Broadband Rating:    {s}
                     \\
                     \\  Application Readiness Matrix:
                     \\    [{s}] 4K / 8K Ultra-HD Video Streaming
@@ -393,10 +393,10 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     res.upload_mbps,
                     res.upload_mbps / 8.0,
                     res.quality_grade,
-                    if (res.suitability.streaming_4k) "✓ READY" else "✕ LIMITED",
-                    if (res.suitability.gaming_low_latency) "✓ LOW LATENCY" else "▲ HIGH JITTER",
-                    if (res.suitability.video_conferencing) "✓ HD CLEAR" else "▲ BUFFERING",
-                    if (res.suitability.cloud_backup) "✓ FAST SYNC" else "▲ SLOW SYNC",
+                    if (res.suitability.streaming_4k) "READY" else "LIMITED",
+                    if (res.suitability.gaming_low_latency) "LOW LATENCY" else "HIGH JITTER",
+                    if (res.suitability.video_conferencing) "HD CLEAR" else "BUFFERING",
+                    if (res.suitability.cloud_backup) "FAST SYNC" else "SLOW SYNC",
                 });
             }
             return;
@@ -409,10 +409,10 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             if (!json_mode) {
                 try stdout.print(
                     \\==================================================================
-                    \\  🌪️ ZYPHOR MULTI-STREAM NETWORK SATURATION STRESS ENGINE 🌪️
+                    \\  ZYPHOR MULTI-STREAM NETWORK SATURATION STRESS ENGINE
                     \\==================================================================
                     \\  Config:  {d} Concurrent Streams | Duration: {d}s | Target: Anycast Edge
-                    \\  [ ⠋ ] Sockets Connected. Running Saturation Burst...
+                    \\  [*] Sockets Connected. Running Saturation Burst...
                     \\
                 , .{ stress_streams, dur_secs });
             }
@@ -441,17 +441,17 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                 });
             } else {
                 try stdout.print(
-                    \\  [ ✓ ] Stress Saturation Complete!
+                    \\  [+] Stress Saturation Complete!
                     \\
                     \\==================================================================
-                    \\  FINAL SATURATION AUDIT REPORT:
+                    \\  FINAL SATURATION AUDIT REPORT
                     \\==================================================================
-                    \\  • Duration Executed:   {d} Seconds ({d} Streams)
-                    \\  • Peak Burst Rate:     {d:.1} Mbps ({d:.1} MB/s)
-                    \\  • Average Throughput:  {d:.1} Mbps ({d:.1} MB/s)
-                    \\  • Total Data Moved:    {d:.1} MB ({d} Packets)
-                    \\  • Latency Under Load:  {d:.1} ms (Bufferbloat: +4.2ms)
-                    \\  • Packet Failure Rate: {d:.1}%
+                    \\  * Duration Executed:   {d} Seconds ({d} Streams)
+                    \\  * Peak Burst Rate:     {d:.1} Mbps ({d:.1} MB/s)
+                    \\  * Average Throughput:  {d:.1} Mbps ({d:.1} MB/s)
+                    \\  * Total Data Moved:    {d:.1} MB ({d} Packets)
+                    \\  * Latency Under Load:  {d:.1} ms (Bufferbloat: +4.2ms)
+                    \\  * Packet Failure Rate: {d:.1}%
                     \\
                     \\  Stability Index:       {d}/100 [ROCK SOLID SATURATION]
                     \\==================================================================
