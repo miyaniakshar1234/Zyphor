@@ -1204,7 +1204,9 @@ pub fn renderKillConfirmModal(
 
 pub fn renderSpeedTestModal(
     buf: *ScreenBuffer,
-    res: *const @import("../net/speedtest.zig").SpeedTestResult,
+    tracker: *const @import("../net/speedtest.zig").LiveSpeedTestTracker,
+    res: ?*const @import("../net/speedtest.zig").SpeedTestResult,
+    frame_count: u64,
     theme: *const Theme,
     plain: bool,
 ) void {
@@ -1219,48 +1221,94 @@ pub fn renderSpeedTestModal(
     buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
     buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ◈ BROADBAND SPEED & BUFFERBLOAT OBSERVATORY ◈ ", theme.accent, theme.accent, theme.bg, plain);
 
+    if (tracker.is_running) {
+        // --- LIVE ANIMATED RUNNER HUD ---
+        const spinners = [_][]const u8{ "◤ ⬡ ◥", "◢ ⬡ ◤", "◥ ⬡ ◢", "◣ ⬡ ◤" };
+        const spin = spinners[@as(usize, @intCast(frame_count % spinners.len))];
+
+        var hdr_buf: [80]u8 = undefined;
+        const hdr_str = std.fmt.bufPrint(&hdr_buf, "[ {s} ] REAL-TIME TELEMETRY SAMPLING ({s})", .{ spin, tracker.phase.asText() }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 2, hdr_str, theme.accent, theme.bg, true);
+
+        // Stage Flow Breadcrumbs
+        const p1 = if (tracker.progress_pct >= 25.0) "✔ Latency" else "● Latency";
+        const p2 = if (tracker.progress_pct >= 65.0) "✔ Ingress" else (if (tracker.progress_pct >= 35.0) "● Ingress" else "○ Ingress");
+        const p3 = if (tracker.progress_pct >= 90.0) "✔ Egress" else (if (tracker.progress_pct >= 70.0) "● Egress" else "○ Egress");
+        const p4 = if (tracker.progress_pct >= 100.0) "✔ Audit" else "○ Audit";
+
+        var stg_buf: [80]u8 = undefined;
+        const stg_str = std.fmt.bufPrint(&stg_buf, "[{s}] ──▶ [{s}] ──▶ [{s}] ──▶ [{s}]", .{ p1, p2, p3, p4 }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 4, stg_str, theme.secondary, theme.bg, false);
+
+        // Live Speedometer Indicators
+        var dl_buf: [64]u8 = undefined;
+        const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress Live: {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ tracker.live_download_mbps, tracker.live_download_mbps / 8.0 }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 6, dl_str, theme.success, theme.bg, true);
+        graphs.renderGaugeBar(buf, modal_x + 42, modal_y + 6, modal_w - 46, @min(100.0, tracker.live_download_mbps / 2.0), theme.success, theme.muted, theme.bg, plain);
+
+        var ul_buf: [64]u8 = undefined;
+        const ul_str = std.fmt.bufPrint(&ul_buf, "↑ Egress Live:  {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ tracker.live_upload_mbps, tracker.live_upload_mbps / 8.0 }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 8, ul_str, theme.warning, theme.bg, true);
+        graphs.renderGaugeBar(buf, modal_x + 42, modal_y + 8, modal_w - 46, @min(100.0, tracker.live_upload_mbps * 2.0), theme.warning, theme.muted, theme.bg, plain);
+
+        var lat_buf: [80]u8 = undefined;
+        const lat_str = std.fmt.bufPrint(&lat_buf, "Live Ping: {d:.1} ms | Jitter: ±{d:.1} ms | Edge: 1.1.1.1 (Anycast)", .{ tracker.live_ping_ms, tracker.live_jitter_ms }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 10, lat_str, theme.fg, theme.bg, false);
+
+        // Overall progress bar
+        graphs.renderSeparator(buf, modal_x + 2, modal_y + 12, modal_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(modal_x + 3, modal_y + 13, "TEST RUN PROGRESS:", theme.header, theme.bg, true);
+        graphs.renderGaugeBar(buf, modal_x + 22, modal_y + 13, modal_w - 26, tracker.progress_pct, theme.accent, theme.muted, theme.bg, plain);
+
+        graphs.renderSeparator(buf, modal_x + 2, modal_y + 14, modal_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(modal_x + 3, modal_y + 15, "Measuring bandwidth in non-blocking background thread... [Esc] Cancel", theme.muted, theme.bg, false);
+        return;
+    }
+
+    const r = res orelse &tracker.final_result;
+
     // Target Server & Protocol line
     buf.writeString(modal_x + 3, modal_y + 2, "Target Server: Global Anycast CDN (1.1.1.1) | Mode: Low-Latency TCP", theme.muted, theme.bg, false);
 
     // Latency & Jitter Box
     var p_buf: [80]u8 = undefined;
     const p_str = std.fmt.bufPrint(&p_buf, "RTT Ping: {d:.1} ms (Min: {d:.1}ms, Max: {d:.1}ms) | Jitter: ±{d:.1} ms | Loss: {d:.0}%", .{
-        res.ping_ms, res.min_ping_ms, res.max_ping_ms, res.jitter_ms, res.packet_loss_pct,
+        r.ping_ms, r.min_ping_ms, r.max_ping_ms, r.jitter_ms, r.packet_loss_pct,
     }) catch "";
     buf.writeString(modal_x + 3, modal_y + 4, p_str, theme.secondary, theme.bg, true);
 
     // Ingress (Download) Bar
     var dl_buf: [64]u8 = undefined;
-    const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress:  {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ res.download_mbps, res.download_mbps / 8.0 }) catch "";
+    const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress:  {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ r.download_mbps, r.download_mbps / 8.0 }) catch "";
     buf.writeString(modal_x + 3, modal_y + 6, dl_str, theme.success, theme.bg, true);
-    graphs.renderGaugeBar(buf, modal_x + 40, modal_y + 6, modal_w - 44, @min(100.0, res.download_mbps / 2.0), theme.success, theme.muted, theme.bg, plain);
+    graphs.renderGaugeBar(buf, modal_x + 40, modal_y + 6, modal_w - 44, @min(100.0, r.download_mbps / 2.0), theme.success, theme.muted, theme.bg, plain);
 
     // Egress (Upload) Bar
     var ul_buf: [64]u8 = undefined;
-    const ul_str = std.fmt.bufPrint(&ul_buf, "↑ Egress:   {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ res.upload_mbps, res.upload_mbps / 8.0 }) catch "";
+    const ul_str = std.fmt.bufPrint(&ul_buf, "↑ Egress:   {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ r.upload_mbps, r.upload_mbps / 8.0 }) catch "";
     buf.writeString(modal_x + 3, modal_y + 8, ul_str, theme.warning, theme.bg, true);
-    graphs.renderGaugeBar(buf, modal_x + 40, modal_y + 8, modal_w - 44, @min(100.0, res.upload_mbps * 2.0), theme.warning, theme.muted, theme.bg, plain);
+    graphs.renderGaugeBar(buf, modal_x + 40, modal_y + 8, modal_w - 44, @min(100.0, r.upload_mbps * 2.0), theme.warning, theme.muted, theme.bg, plain);
 
     // Application Readiness Matrix
     graphs.renderSeparator(buf, modal_x + 2, modal_y + 10, modal_w - 4, theme.border, theme.bg, plain);
     buf.writeString(modal_x + 3, modal_y + 11, "▼ APPLICATION READINESS MATRIX", theme.header, theme.bg, true);
 
-    const s4k = if (res.suitability.streaming_4k) "✓ READY" else "✕ LIMITED";
-    const sgm = if (res.suitability.gaming_low_latency) "✓ LOW LATENCY" else "▲ HIGH JITTER";
-    const svc = if (res.suitability.video_conferencing) "✓ HD CLEAR" else "▲ BUFFERING";
-    const scp = if (res.suitability.cloud_backup) "✓ FAST SYNC" else "▲ SLOW SYNC";
+    const s4k = if (r.suitability.streaming_4k) "✔ READY" else "✕ LIMITED";
+    const sgm = if (r.suitability.gaming_low_latency) "✔ LOW LATENCY" else "▲ HIGH JITTER";
+    const svc = if (r.suitability.video_conferencing) "✔ HD CLEAR" else "▲ BUFFERING";
+    const scp = if (r.suitability.cloud_backup) "✔ FAST SYNC" else "▲ SLOW SYNC";
 
     buf.writeString(modal_x + 4, modal_y + 12, "• 4K/8K Ultra-HD Stream: ", theme.muted, theme.bg, false);
-    buf.writeString(modal_x + 28, modal_y + 12, s4k, if (res.suitability.streaming_4k) theme.success else theme.warning, theme.bg, true);
+    buf.writeString(modal_x + 28, modal_y + 12, s4k, if (r.suitability.streaming_4k) theme.success else theme.warning, theme.bg, true);
 
     buf.writeString(modal_x + 42, modal_y + 12, "• Competitive Gaming: ", theme.muted, theme.bg, false);
-    buf.writeString(modal_x + 64, modal_y + 12, sgm, if (res.suitability.gaming_low_latency) theme.success else theme.warning, theme.bg, true);
+    buf.writeString(modal_x + 64, modal_y + 12, sgm, if (r.suitability.gaming_low_latency) theme.success else theme.warning, theme.bg, true);
 
     buf.writeString(modal_x + 4, modal_y + 13, "• HD Video Conference:   ", theme.muted, theme.bg, false);
-    buf.writeString(modal_x + 28, modal_y + 13, svc, if (res.suitability.video_conferencing) theme.success else theme.warning, theme.bg, true);
+    buf.writeString(modal_x + 28, modal_y + 13, svc, if (r.suitability.video_conferencing) theme.success else theme.warning, theme.bg, true);
 
     buf.writeString(modal_x + 42, modal_y + 13, "• Cloud Backup / Push:", theme.muted, theme.bg, false);
-    buf.writeString(modal_x + 64, modal_y + 13, scp, if (res.suitability.cloud_backup) theme.success else theme.warning, theme.bg, true);
+    buf.writeString(modal_x + 64, modal_y + 13, scp, if (r.suitability.cloud_backup) theme.success else theme.warning, theme.bg, true);
 
     // Interactive Action Footer
     graphs.renderSeparator(buf, modal_x + 2, modal_y + 14, modal_w - 4, theme.border, theme.bg, plain);
@@ -1269,7 +1317,9 @@ pub fn renderSpeedTestModal(
 
 pub fn renderStressTestModal(
     buf: *ScreenBuffer,
-    res: *const @import("../net/speedtest.zig").StressTestResult,
+    tracker: *const @import("../net/speedtest.zig").LiveStressTestTracker,
+    res: ?*const @import("../net/speedtest.zig").StressTestResult,
+    frame_count: u64,
     theme: *const Theme,
     plain: bool,
 ) void {
@@ -1284,34 +1334,76 @@ pub fn renderStressTestModal(
     buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
     buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ⚡ MULTI-STREAM NETWORK SATURATION & STRESS ENGINE ⚡ ", theme.warning, theme.warning, theme.bg, plain);
 
+    if (tracker.is_running) {
+        // --- LIVE ANIMATED STRESS RUNNER HUD ---
+        const spinners = [_][]const u8{ "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" };
+        const spin = spinners[@as(usize, @intCast(frame_count % spinners.len))];
+
+        var hdr_buf: [80]u8 = undefined;
+        const hdr_str = std.fmt.bufPrint(&hdr_buf, "[ {s} ] ACTIVE MULTI-STREAM SATURATION BURST ({d} STREAMS)", .{ spin, tracker.active_streams }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 2, hdr_str, theme.warning, theme.bg, true);
+
+        // Countdown Timer Box
+        const rem = tracker.target_duration_secs -| tracker.elapsed_secs;
+        var tm_buf: [64]u8 = undefined;
+        const tm_str = std.fmt.bufPrint(&tm_buf, "⏳ TIME REMAINING: {d:0>2}:{d:0>2} / {d:0>2}:{d:0>2}", .{
+            rem / 60, rem % 60, tracker.target_duration_secs / 60, tracker.target_duration_secs % 60,
+        }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 4, tm_str, theme.secondary, theme.bg, true);
+
+        // Live Throughput and Data Transfer
+        var tp_buf: [80]u8 = undefined;
+        const tp_str = std.fmt.bufPrint(&tp_buf, "• Instant Throughput: {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ tracker.live_current_mbps, tracker.live_current_mbps / 8.0 }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 6, tp_str, theme.success, theme.bg, true);
+
+        var pk_buf: [80]u8 = undefined;
+        const pk_str = std.fmt.bufPrint(&pk_buf, "• Peak Sustained:    {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ tracker.live_peak_mbps, tracker.live_peak_mbps / 8.0 }) catch "";
+        buf.writeString(modal_x + 3, modal_y + 8, pk_str, theme.warning, theme.bg, true);
+
+        var dt_buf: [80]u8 = undefined;
+        const dt_str = std.fmt.bufPrint(&dt_buf, "• Data Moved So Far: {d:>6.1} MB Transferred (Anycast Edge Sockets)", .{tracker.live_transferred_mb}) catch "";
+        buf.writeString(modal_x + 3, modal_y + 10, dt_str, theme.fg, theme.bg, false);
+
+        // Live Progress Gauge
+        graphs.renderSeparator(buf, modal_x + 2, modal_y + 12, modal_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(modal_x + 3, modal_y + 13, "SATURATION PROGRESS:", theme.header, theme.bg, true);
+        graphs.renderGaugeBar(buf, modal_x + 24, modal_y + 13, modal_w - 28, tracker.progress_pct, theme.warning, theme.muted, theme.bg, plain);
+
+        graphs.renderSeparator(buf, modal_x + 2, modal_y + 14, modal_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(modal_x + 3, modal_y + 15, "Running non-blocking socket load in background... [Esc] Stop", theme.muted, theme.bg, false);
+        return;
+    }
+
+    const r = res orelse &tracker.final_result;
+
     // Preset Duration Selector Ribbon
     buf.writeString(modal_x + 3, modal_y + 2, "Presets: [1] 10s  [2] 30s  [3] 1m  [4] 5m  [5] 15m  [6] 1h", theme.accent, theme.bg, true);
 
     var cfg_buf: [80]u8 = undefined;
-    const cfg_str = std.fmt.bufPrint(&cfg_buf, "Config: {d} Concurrent Streams | Duration: {d}s | Target: Anycast Edge", .{ res.active_streams, res.duration_secs }) catch "";
+    const cfg_str = std.fmt.bufPrint(&cfg_buf, "Config: {d} Concurrent Streams | Duration: {d}s | Target: Anycast Edge", .{ r.active_streams, r.duration_secs }) catch "";
     buf.writeString(modal_x + 3, modal_y + 4, cfg_str, theme.muted, theme.bg, false);
 
     // Transferred Data & Packets
     var d_buf: [64]u8 = undefined;
-    const d_str = std.fmt.bufPrint(&d_buf, "Total Data:     {d:.1} MB ({d} Packets Transferred)", .{ res.total_mb_transferred, res.packets_sent }) catch "";
+    const d_str = std.fmt.bufPrint(&d_buf, "Total Data:     {d:.1} MB ({d} Packets Transferred)", .{ r.total_mb_transferred, r.packets_sent }) catch "";
     buf.writeString(modal_x + 3, modal_y + 6, d_str, theme.secondary, theme.bg, true);
 
     // Peak & Average Throughput
     var pk_buf: [64]u8 = undefined;
-    const pk_str = std.fmt.bufPrint(&pk_buf, "Peak Burst:     {d:.1} Mbps", .{res.peak_throughput_mbps}) catch "";
+    const pk_str = std.fmt.bufPrint(&pk_buf, "Peak Burst:     {d:.1} Mbps", .{r.peak_throughput_mbps}) catch "";
     buf.writeString(modal_x + 3, modal_y + 8, pk_str, theme.success, theme.bg, true);
 
     var av_buf: [64]u8 = undefined;
-    const av_str = std.fmt.bufPrint(&av_buf, "Sustained Rate: {d:.1} Mbps", .{res.average_throughput_mbps}) catch "";
+    const av_str = std.fmt.bufPrint(&av_buf, "Sustained Rate: {d:.1} Mbps", .{r.average_throughput_mbps}) catch "";
     buf.writeString(modal_x + 40, modal_y + 8, av_str, theme.warning, theme.bg, true);
 
     // Latency under stress & Bufferbloat
     var lat_buf: [80]u8 = undefined;
-    const lat_str = std.fmt.bufPrint(&lat_buf, "Latency Under Load: {d:.1} ms  |  Stability Score: {d}/100 [ROCK SOLID]", .{ res.latency_under_load_ms, res.stability_score }) catch "";
+    const lat_str = std.fmt.bufPrint(&lat_buf, "Latency Under Load: {d:.1} ms  |  Stability Score: {d}/100 [ROCK SOLID]", .{ r.latency_under_load_ms, r.stability_score }) catch "";
     buf.writeString(modal_x + 3, modal_y + 10, lat_str, theme.fg, theme.bg, true);
 
     // Stability Gauge
-    graphs.renderGaugeBar(buf, modal_x + 3, modal_y + 12, modal_w - 6, @as(f32, @floatFromInt(res.stability_score)), theme.success, theme.muted, theme.bg, plain);
+    graphs.renderGaugeBar(buf, modal_x + 3, modal_y + 12, modal_w - 6, @as(f32, @floatFromInt(r.stability_score)), theme.success, theme.muted, theme.bg, plain);
 
     // Interactive Action Footer
     graphs.renderSeparator(buf, modal_x + 2, modal_y + 14, modal_w - 4, theme.border, theme.bg, plain);
