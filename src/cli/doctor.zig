@@ -85,7 +85,10 @@ pub fn runDoctor(engine: *engine_mod.SystemEngine, json_mode: bool) !void {
         snap.memory.available_bytes / (1024 * 1024 * 1024),
         snap.memory.swap_total_bytes / (1024 * 1024 * 1024),
         snap.disk.partitions.len,
-        @as(f32, @floatFromInt(snap.disk.partitions[0].total_bytes)) / (1024.0 * 1024.0 * 1024.0),
+        if (snap.disk.partitions.len > 0)
+            @as(f32, @floatFromInt(snap.disk.partitions[0].total_bytes)) / (1024.0 * 1024.0 * 1024.0)
+        else
+            @as(f32, 0.0),
         snap.network.interfaces.len,
         snap.services.len,
         if (snap.gpu.available) "✓" else "○",
