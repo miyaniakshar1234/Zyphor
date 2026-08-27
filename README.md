@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img src="assets/logo.svg" alt="ZYPHOR Logo" width="650">
+    <img src="assets/logo.svg" alt="ZYPHOR Logo" width="700">
   </picture>
 
   <p align="center">
@@ -15,7 +15,7 @@
 
   <p align="center">
     <a href="#-why-zyphor-the-manifesto">The Manifesto</a> •
-    <a href="#-visual-tour--feature-walkthrough">Visual Tour</a> •
+    <a href="#-interface-gallery--subsystems">Interface Gallery</a> •
     <a href="#-feature-matrix--comparison">Comparison</a> •
     <a href="#-core-architecture--systems-design">Architecture</a> •
     <a href="#-cli-toolchain--automation">CLI Suite</a> •
@@ -24,6 +24,13 @@
     <a href="#-about-the-developer">Author</a> •
     <a href="docs/user-manual.md">User Manual</a>
   </p>
+
+  <br>
+
+  <!-- Primary Hero Live Dashboard -->
+  <picture>
+    <img src="screenshot/01-overview.png" alt="Zyphor Overview Dashboard" width="920">
+  </picture>
 </div>
 
 ---
@@ -45,181 +52,61 @@ Built from bare metal in **Zig**, Zyphor operates on pure systems-programming pr
 
 ---
 
-## 📸 Visual Tour & Feature Walkthrough
+## 📸 Interface Gallery & Subsystems
 
-Zyphor is organized into 7 distinct observatory subsystems, supplemented by modal overlays, profiling tools, and command palettes.
+Zyphor provides 7 dedicated observatory panels alongside interactive profilers, command palettes, and custom themes.
 
----
-
-### 1. Overview Dashboard (System Matrix & Flight Recorder)
-*Hotkey: `1`*
-
-The master command center. Aggregates global compute metrics, thread-level distribution, physical vs. virtual memory allocation, live disk I/O rates, network flow, boot diagnostics, and the real-time AI anomaly stream.
-
-<div align="center">
-  <img src="screenshot/01-overview.png" alt="Zyphor Overview Dashboard" width="850">
-</div>
-
-* **Compute Core Matrix:** Radial load dial paired with granular per-core/per-thread utilization bar graphs.
-* **Memory Breakdown:** Real-time visualization of Resident RAM vs. VMM Pagefile Swap pressure.
-* **Boot & Power Diagnostics:** Kernel boot duration, system uptime counters, and battery discharge velocity.
-* **Live Incident Stream:** Rolling chronological ticker of system threshold events.
+### 1. Process Explorer & Storage Fabric
+| Process Explorer & Lineage Trees (`2`) | Storage Fabric & Disk I/O (`3`) |
+| :--- | :--- |
+| <img src="screenshot/02-processes.png" width="450" alt="Process Explorer"> | <img src="screenshot/03-storage.png" width="450" alt="Storage Analyzer"> |
+| Recursive DFS parent/child tree hierarchy (`t`), live sorting (`c`, `m`, `p`, `n`), real-time search (`/`), deep inspector (`Enter`), and process termination (`x`, `s`, `u`). | Real-time partition space distribution across all mounted drives (`NTFS`, `ext4`, `apfs`, `btrfs`), transfer throughput (MB/s), and storage IOPS. |
 
 ---
 
-### 2. Process Explorer & Deep Lineage Trees
-*Hotkey: `2`*
-
-A comprehensive process manager featuring instant search, live sorting, parent-child tree views, and deep inspection.
-
-<div align="center">
-  <img src="screenshot/02-processes.png" alt="Process Explorer and Lineage Tree" width="850">
-</div>
-
-* **Lineage Trees (`t`):** Recursive Depth-First Search (DFS) hierarchy view displaying parent/child process trees (e.g., `init` -> `systemd` -> `dockerd` -> `container-shim`).
-* **Deep Inspector Pane (`Enter`):** Split-pane inspector displaying target PID, PPID, execution state, security context, thread count, and memory allocation quotas.
-* **Live Sorting (`c`, `m`, `p`, `n`):** Instant re-sorting by CPU load, Resident Memory (RSS), Process ID, or Name.
-* **Process Interception (`x`, `s`, `u`):** Send `SIGKILL` (Terminate), `SIGSTOP` (Suspend), or `SIGCONT` (Resume) directly from the interface.
+### 2. Network Observability & AI Root-Cause Diagnostics
+| Network Observability & Active Sockets (`4`) | Autonomous Health & AI Diagnostics (`5`) |
+| :--- | :--- |
+| <img src="screenshot/04-network.png" width="450" alt="Network Dashboard"> | <img src="screenshot/05-health-diagnostics.png" width="450" alt="AI Diagnostics"> |
+| Sub-cell Unicode Braille throughput curves, NIC adapter status cards, active TCP/UDP socket process mapping, and broadband speed testing (`s`, `S`). | 5-subsystem health radar (0–100 score), deterministic anomaly detection, explainable root-cause insights, and defensive action playbooks. |
 
 ---
 
-### 3. Storage Fabrics & Disk I/O Analyzer
-*Hotkey: `3`*
-
-Granular visibility into local partitions, mounted filesystems, transfer speeds, and storage health.
-
-<div align="center">
-  <img src="screenshot/03-storage.png" alt="Storage and Disk Analyzer" width="850">
-</div>
-
-* **Partition Table:** Real-time space allocation across all mounted drives (`NTFS`, `ext4`, `apfs`, `btrfs`), showing total, used, free capacity, and mount targets.
-* **I/O Bandwidth Gauges:** Live telemetry tracking instantaneous Read and Write throughput in MB/s along with real-time IOPS.
+### 3. Background Services & Container Observatory
+| System Services & Background Daemons (`6`) | Container Observatory (Docker/OCI) (`7`) |
+| :--- | :--- |
+| <img src="screenshot/06-services.png" width="450" alt="System Services"> | <img src="screenshot/07-containers.png" width="450" alt="Containers"> |
+| Real-time OS background service monitoring (Windows Services / systemd units), status tracking, startup modes, and binary inspector cards. | Direct cgroup telemetry, container RAM usage vs hard memory quota limits, CPU utilization, image tags, and isolated network I/O. |
 
 ---
 
-### 4. Network Observability & Socket Connection Matrix
-*Hotkey: `4`*
-
-Real-time traffic flow visualization, network interface hardware cards, and active process socket maps.
-
-<div align="center">
-  <img src="screenshot/04-network.png" alt="Network Dashboard and Active Sockets" width="850">
-</div>
-
-* **Sub-Cell Braille Sparklines:** 60-second rolling ingress (download) and egress (upload) charts rendered with Unicode Braille dot patterns for sub-character precision.
-* **Adapter Status Cards:** Detailed statistics for physical and virtual network interface cards (NICs), including IPv4/IPv6 addresses, link status, and cumulative byte counters.
-* **Active Socket Map:** Real-time mapping of open TCP/UDP sockets to specific process IDs, local ports, remote endpoints, and protocol states (`ESTABLISHED`, `LISTEN`, `TIME_WAIT`).
-* **Broadband Speed & Stress Tools (`s`, `S`):** Integrated speed test runner and multi-stream network socket saturation benchmark.
+### 4. Interactive Profiler & Fast Command Launcher
+| Microsecond Process Profiler (`P`) | Quick Action Command Palette (`:` / `Ctrl+P`) |
+| :--- | :--- |
+| <img src="screenshot/09-profiler.png" width="450" alt="Process Profiler"> | <img src="screenshot/08-command-palette.png" width="450" alt="Command Palette"> |
+| 10-second high-frequency rolling telemetry trace on any selected PID. Computes Peak Jitter, Rolling Averages, and Memory Leaks. | Floating keyboard launcher for instant jumps, theme cycling, hardware benchmarks, telemetry freezing, and instant state exports. |
 
 ---
 
-### 5. Autonomous Root-Cause Diagnostics & Health Radar
-*Hotkey: `5`*
+### 5. Hand-Tuned 24-Bit TrueColor Theme Catalog
+| Anthropic (Default Warm Aesthetic) | Cyber (High-Contrast Neon Cyberpunk) |
+| :--- | :--- |
+| <img src="screenshot/10-theme-anthropic.png" width="450" alt="Anthropic Theme"> | <img src="screenshot/11-theme-cyber.png" width="450" alt="Cyber Theme"> |
+| Warm dark charcoal (`#1F1D1C`), terracotta accents (`#D97757`), sand highlights, and sage green nominal meters. | High-contrast synthwave palette featuring electric cyan (`#00F0FF`) and vibrant neon magenta (`#FF0080`). |
 
-An intelligent, explainable heuristics engine that answers the fundamental question: *"Why is my system slow?"*
-
-<div align="center">
-  <img src="screenshot/05-health-diagnostics.png" alt="Health Diagnostics and AI Remediation" width="850">
-</div>
-
-* **5-Subsystem Health Radar:** Discrete 0–100 health scoring for Compute, Memory Fabric, Storage I/O, Network Links, and Thermal Margins.
-* **Explainable Root-Cause Insights:** Deterministic anomaly detection covering thermal throttling, VMM thrashing, memory leaks, high IRQ interrupt load, and rogue background processes.
-* **Defensive Action Playbooks:** Every detected incident is accompanied by a concrete, plain-English remediation step.
-
----
-
-### 6. System Services & Background Daemons
-*Hotkey: `6`*
-
-Real-time monitoring and control of operating system background services (Windows Services / systemd units).
-
-<div align="center">
-  <img src="screenshot/06-services.png" alt="System Services and Daemons" width="850">
-</div>
-
-* **Service Inventory:** Displays service display names, internal unit identifiers, process IDs, execution states (`RUNNING`, `STOPPED`, `STARTING`), and startup types (`Automatic`, `Manual`, `Disabled`).
-* **Service Telemetry Inspector:** Dedicated side-card providing service descriptions, binary paths, and group assignments.
-
----
-
-### 7. Container Observatory (Docker / OCI Engine)
-*Hotkey: `7`*
-
-Direct observation of local container runtimes via a modular plugin architecture.
-
-<div align="center">
-  <img src="screenshot/07-containers.png" alt="Containers and Docker Telemetry" width="850">
-</div>
-
-* **Resource Quota Tracking:** Real-time comparison of container memory usage against hard cgroup limits (`memory_limit_bytes`).
-* **Container Telemetry:** Instant CPU percentage, isolated network ingress/egress, image tags, and lifecycle states (`running`, `exited`, `paused`).
-
----
-
-### 8. Microsecond Process Profiler Modal
-*Hotkey: `P`*
-
-Time-bound, high-frequency rolling performance trace of any target process.
-
-<div align="center">
-  <img src="screenshot/09-profiler.png" alt="Process Profiler Modal" width="850">
-</div>
-
-* **10-Second High-Frequency Sampling:** Intercepts a target PID and samples its CPU and memory utilization at sub-frame intervals.
-* **Telemetry Analysis:** Computes Peak Utilization Jitter, Minimum Footprint, and True Rolling Averages, graphing the trace into memory.
-
----
-
-### 9. Quick-Action Command Palette
-*Hotkey: `:` or `Ctrl+P`*
-
-Floating, keyboard-centric launcher providing instant access to all internal operations.
-
-<div align="center">
-  <img src="screenshot/08-command-palette.png" alt="Command Palette" width="850">
-</div>
-
-* **Instant Jump:** Switch between all 7 views without remembering hotkeys.
-* **Direct Actions:** Trigger hardware benchmarks, cycle themes, freeze telemetry polling, export snapshots, or initiate process termination.
-
----
-
-### 10. Hand-Tuned 24-Bit TrueColor Theme Catalog
-*Hotkey: `]` or `Shift+T`*
-
-Zyphor ships with 10 built-in, meticulously calibrated 24-bit TrueColor themes designed for prolonged terminal monitoring sessions.
-
-<div align="center">
-  <table border="0">
-    <tr>
-      <td align="center"><b>Anthropic (Default Warm Aesthetic)</b><br><img src="screenshot/10-theme-anthropic.png" width="410"></td>
-      <td align="center"><b>Cyber (High-Contrast Neon Cyberpunk)</b><br><img src="screenshot/11-theme-cyber.png" width="410"></td>
-    </tr>
-  </table>
-</div>
-
-* 🏺 **Anthropic (Default):** Warm charcoal base (`#1F1D1C`), terracotta accents (`#D97757`), sand highlights (`#E5C07B`), sage green meters (`#718E75`).
-* ⚡ **Cyber:** High-contrast palette with electric cyan (`#00F0FF`) and neon magenta (`#FF0080`).
-* 🌃 **Tokyo Night:** Deep indigo base (`#1A1B26`) with soft lavender and electric cyan.
-* 💻 **Hacker:** Classic monochrome CRT phosphor aesthetic with obsidian black and radiant green (`#20C20E`).
-* 🌌 **Midnight:** Navy slate foundation with ice-blue and emerald telemetry accents.
-* 🌿 **Aurora:** Nordic evening glow featuring seafoam greens, teal bars, and soft amethyst borders.
-* ❄️ **Nord:** Authentic arctic slate design tokens with frozen glacier blues.
-* ☀️ **Solarized Dark:** Low-glare classic palette tuned for eye comfort during long operational sessions.
-* ☕ **Gruvbox:** Retro warm-contrast palette with amber meters and terracotta highlights.
-* ⬛ **High Contrast:** Pure black/white monochrome for accessibility and minimal terminal emulators.
+*Zyphor includes 10 built-in palettes (Anthropic, Cyber, Tokyo Night, Hacker, Midnight, Aurora, Nord, Solarized Dark, Gruvbox, High Contrast). Hot-swap instantly with <kbd>]</kbd> or <kbd>Shift+T</kbd>.*
 
 ---
 
 ## 📊 Feature Matrix & Comparison
 
-| Feature / Metric | **Zyphor** | **htop** | **btop** | **Glances** | **Windows Task Mgr** |
+| Feature / Metric | **Zyphor** | **btop++** | **htop** | **Glances** | **Windows Task Mgr** |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Implementation Language** | **Zig (Native)** | C | C++ | Python | C++ / WinUI |
-| **Binary Size** | **1.1 MB** | ~3.5 MB | ~8.2 MB | ~45 MB (deps) | System Native |
-| **Memory Usage (RAM)** | **< 3 MB** | ~5 MB | ~25 MB | ~90 MB | ~60 MB |
+| **Implementation Language** | **Zig (Native)** | C++ | C | Python | C++ / WinUI |
+| **Binary Size** | **1.1 MB** | ~8.2 MB | ~3.5 MB | ~45 MB (deps) | System Native |
+| **Memory Usage (RAM)** | **< 3 MB** | ~25 MB | ~5 MB | ~90 MB | ~60 MB |
 | **Zero-Allocation Render Path** | **Yes (Dual Arena)** | No | No | No | No |
-| **Double-Buffered Diff Engine** | **Yes (Zero Flicker)** | No (Flickers) | Partial | No | N/A |
+| **Double-Buffered Diff Engine** | **Yes (Zero Flicker)** | Partial | No (Flickers) | No | N/A |
 | **Autonomous AI Diagnostics** | **Yes (Deterministic)**| No | No | Basic Alerts | No |
 | **Time-Bound Process Profiler** | **Yes (Hotkey `P`)** | No | No | No | No |
 | **Remote HTTP / TCP JSON Daemon**| **Yes (`zyphor daemon`)**| No | No | Yes (Web UI) | No |
@@ -227,7 +114,7 @@ Zyphor ships with 10 built-in, meticulously calibrated 24-bit TrueColor themes d
 | **Container Engine Telemetry** | **Yes (Docker/OCI)** | No | No | Yes | No |
 | **Parent-Child Lineage Tree** | **Yes (`t` DFS)** | Yes | Yes | No | Partial |
 | **Command Palette (`Ctrl+P`)** | **Yes** | No | No | No | No |
-| **24-Bit TrueColor Palettes** | **10 Built-in** | 16-color | Custom RGB | 16-color | OS Theme |
+| **24-Bit TrueColor Palettes** | **10 Built-in** | Custom RGB | 16-color | 16-color | OS Theme |
 
 ---
 
@@ -345,7 +232,7 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 | <kbd>s</kbd> | Suspend | Send `SIGSTOP` to pause execution of target process. |
 | <kbd>u</kbd> | Resume | Send `SIGCONT` to unpause execution of target process. |
 
-### Telemetry & Diagnostics
+### Telemetry & Diagnostics Control
 | Hotkey | Action | Description |
 | :--- | :---: | :--- |
 | <kbd>P</kbd> | Process Profiler | Launch 10-second high-frequency telemetry trace on selected PID. |
