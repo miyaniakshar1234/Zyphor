@@ -16,6 +16,15 @@ pub const graphs = @import("ui/graphs.zig");
 pub const speedtest = @import("net/speedtest.zig");
 
 pub fn main() !void {
+    if (@import("builtin").os.tag == .windows) {
+        const kernel32 = struct {
+            extern "kernel32" fn SetConsoleOutputCP(wCodePageID: u32) callconv(.winapi) i32;
+            extern "kernel32" fn SetConsoleCP(wCodePageID: u32) callconv(.winapi) i32;
+        };
+        _ = kernel32.SetConsoleOutputCP(65001);
+        _ = kernel32.SetConsoleCP(65001);
+    }
+
     const GPA = if (@hasDecl(std.heap, "GeneralPurposeAllocator"))
         std.heap.GeneralPurposeAllocator(.{})
     else
