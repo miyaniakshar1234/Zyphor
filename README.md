@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img src="screenshot/01-overview.png" alt="Zyphor Dashboard Overview" width="900">
+    <img src="screenshot/logo.png" alt="Zyphor Logo & Banner" width="900">
   </picture>
 
   # ⚡ Zyphor
