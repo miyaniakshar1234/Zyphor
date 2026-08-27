@@ -13,6 +13,7 @@ pub const process_tree = @import("process/tree.zig");
 pub const buffer = @import("ui/buffer.zig");
 pub const theme = @import("ui/theme.zig");
 pub const graphs = @import("ui/graphs.zig");
+pub const speedtest = @import("net/speedtest.zig");
 
 pub fn main() !void {
     const GPA = if (@hasDecl(std.heap, "GeneralPurposeAllocator"))
