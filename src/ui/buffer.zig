@@ -352,9 +352,17 @@ pub const ScreenBuffer = struct {
                     cur_bg = Color.rgb(0, 0, 0);
                 }
 
-                if (!cell.fg.is_plain) {
-                    const fg_changed = cur_fg.r != cell.fg.r or cur_fg.g != cell.fg.g or cur_fg.b != cell.fg.b;
-                    const bg_changed = cur_bg.r != cell.bg.r or cur_bg.g != cell.bg.g or cur_bg.b != cell.bg.b;
+                if (cell.fg.is_plain) {
+                    if (!cur_fg.is_plain or !cur_bg.is_plain or cur_bold or cur_underline) {
+                        try w.writeAll("\x1b[0m");
+                        cur_fg = Color{ .is_plain = true };
+                        cur_bg = Color{ .is_plain = true };
+                        cur_bold = false;
+                        cur_underline = false;
+                    }
+                } else {
+                    const fg_changed = cur_fg.is_plain or cur_fg.r != cell.fg.r or cur_fg.g != cell.fg.g or cur_fg.b != cell.fg.b;
+                    const bg_changed = cur_bg.is_plain or cur_bg.r != cell.bg.r or cur_bg.g != cell.bg.g or cur_bg.b != cell.bg.b;
                     const bold_changed = cur_bold != cell.bold;
                     const underline_changed = cur_underline != cell.underline;
 
