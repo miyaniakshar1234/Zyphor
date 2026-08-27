@@ -22,7 +22,7 @@ jobs:
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
-          version: master
+          version: 0.15.0
 
       - name: Run Test Suite
         run: zig build test --summary all

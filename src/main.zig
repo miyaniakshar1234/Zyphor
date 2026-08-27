@@ -14,7 +14,7 @@ pub const buffer = @import("ui/buffer.zig");
 pub const theme = @import("ui/theme.zig");
 pub const graphs = @import("ui/graphs.zig");
 
-fn mainOld() !void {
+pub fn main() !void {
     const GPA = if (@hasDecl(std.heap, "GeneralPurposeAllocator"))
         std.heap.GeneralPurposeAllocator(.{})
     else
@@ -30,6 +30,7 @@ fn mainOld() !void {
     var args_list: std.ArrayList([]const u8) = .empty;
     defer args_list.deinit(allocator);
 
+    // Cross-version compatible arg fetching: argsAlloc is available in 0.14–0.15.x
     if (comptime @hasDecl(std.process, "argsAlloc")) {
         const parsed = try std.process.argsAlloc(allocator);
         defer std.process.argsFree(allocator, parsed);
@@ -38,27 +39,10 @@ fn mainOld() !void {
         var it = try std.process.argsWithAllocator(allocator);
         defer it.deinit();
         while (it.next()) |a| try args_list.append(allocator, a);
-    } else if (comptime @hasDecl(std.process, "args")) {
-        var it = std.process.args();
-        while (it.next()) |a| try args_list.append(allocator, a);
     }
 
     try cli_mod.run(allocator, &engine, args_list.items);
 }
-
-fn mainNew(init: if (@hasDecl(std.process, "Init")) std.process.Init else void) !void {
-    _ = init;
-    if (comptime @hasDecl(std.process, "Init")) {
-        const info = @typeInfo(std.process.Init).Struct;
-        var msg: []const u8 = "Init fields: ";
-        for (info.fields) |f| {
-            msg = msg ++ f.name ++ ", ";
-        }
-        @compileError(msg);
-    }
-}
-
-pub const main = if (@hasDecl(std.process, "Init")) mainNew else mainOld;
 
 test "history ring buffer chronological ordering" {
     var ring = history.RingBuffer(f32, 5).init();
