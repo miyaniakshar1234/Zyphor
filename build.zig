@@ -19,8 +19,10 @@ pub fn build(b: *std.Build) void {
     // Run step: zig build run -- [args]
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
+    if (comptime @hasField(std.Build, "args")) {
+        if (b.args) |args| {
+            run_cmd.addArgs(args);
+        }
     }
     const run_step = b.step("run", "Run the Zyphor system observatory");
     run_step.dependOn(&run_cmd.step);
