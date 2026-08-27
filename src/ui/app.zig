@@ -512,7 +512,7 @@ pub const App = struct {
                             try self.engine.process_mgr.setSort(.name, .ascending);
                             self.setStatus("Sort: Name A-Z");
                         },
-                        'T' => self.cycleTheme(),
+                        'T', ']' => self.cycleTheme(),
                         'x', 'K' => {
                             if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
                                 self.show_kill_modal = true;
@@ -658,6 +658,7 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
+
 
 
 
