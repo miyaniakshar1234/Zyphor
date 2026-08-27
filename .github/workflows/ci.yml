@@ -7,26 +7,9 @@ on:
     branches: [ master, main ]
 
 jobs:
-  test:
-    name: Build & Test (${{ matrix.name }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            name: Linux x86_64
-            target_flag: "-Dtarget=x86_64-linux"
-            bin_path: "./zig-out/bin/zyphor"
-          - os: windows-latest
-            name: Windows x86_64
-            target_flag: "-Dtarget=x86_64-windows"
-            bin_path: "./zig-out/bin/zyphor.exe"
-          - os: macos-latest
-            name: macOS aarch64
-            target_flag: "-Dtarget=aarch64-macos"
-            bin_path: "./zig-out/bin/zyphor"
-
+  test-linux:
+    name: Linux & Cross-Compilation Matrix
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -42,19 +25,55 @@ jobs:
           path: |
             .zig-cache
             ~/.cache/zig
+          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'src/**/*.zig') }}
+          restore-keys: |
+            ${{ runner.os }}-zig-
+
+      - name: Run Unit Tests
+        run: zig build test --summary all
+
+      - name: Build Native Linux Binary
+        run: zig build -Doptimize=ReleaseFast
+
+      - name: Run Doctor (Smoke Test)
+        run: ./zig-out/bin/zyphor doctor
+
+      - name: Verify macOS (Apple Silicon aarch64) Target
+        run: zig build -Dtarget=aarch64-macos -Doptimize=ReleaseFast
+
+      - name: Verify macOS (Intel x86_64) Target
+        run: zig build -Dtarget=x86_64-macos -Doptimize=ReleaseFast
+
+      - name: Verify Linux (ARM64 aarch64) Target
+        run: zig build -Dtarget=aarch64-linux -Doptimize=ReleaseFast
+
+  test-windows:
+    name: Windows Native Suite
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Cache Zig Build Artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .zig-cache
             C:\Users\runneradmin\AppData\Local\zig
           key: ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'src/**/*.zig') }}
           restore-keys: |
             ${{ runner.os }}-zig-
 
-      - name: Build Debug Binary
-        run: zig build ${{ matrix.target_flag }}
+      - name: Run Unit Tests
+        run: zig build test --summary all
 
-      - name: Build Optimized Release Binary
-        run: zig build ${{ matrix.target_flag }} -Doptimize=ReleaseFast
-
-      - name: Run Test Suite
-        run: zig build test ${{ matrix.target_flag }} --summary all
+      - name: Build Native Windows Binary
+        run: zig build -Doptimize=ReleaseFast
 
       - name: Run Doctor (Smoke Test)
-        run: ${{ matrix.bin_path }} doctor
+        run: .\zig-out\bin\zyphor.exe doctor
