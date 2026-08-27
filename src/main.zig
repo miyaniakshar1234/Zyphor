@@ -14,7 +14,7 @@ pub const buffer = @import("ui/buffer.zig");
 pub const theme = @import("ui/theme.zig");
 pub const graphs = @import("ui/graphs.zig");
 
-pub fn main() !void {
+fn mainOld() !void {
     const GPA = if (@hasDecl(std.heap, "GeneralPurposeAllocator"))
         std.heap.GeneralPurposeAllocator(.{})
     else
@@ -27,8 +27,52 @@ pub fn main() !void {
     var engine = engine_mod.SystemEngine.init(allocator);
     defer engine.deinit();
 
-    try cli_mod.run(allocator, &engine);
+    var args_list: std.ArrayList([]const u8) = .empty;
+    defer args_list.deinit(allocator);
+
+    if (comptime @hasDecl(std.process, "argsAlloc")) {
+        const parsed = try std.process.argsAlloc(allocator);
+        defer std.process.argsFree(allocator, parsed);
+        for (parsed) |a| try args_list.append(allocator, a);
+    } else if (comptime @hasDecl(std.process, "argsWithAllocator")) {
+        var it = try std.process.argsWithAllocator(allocator);
+        defer it.deinit();
+        while (it.next()) |a| try args_list.append(allocator, a);
+    } else if (comptime @hasDecl(std.process, "args")) {
+        var it = std.process.args();
+        while (it.next()) |a| try args_list.append(allocator, a);
+    }
+
+    try cli_mod.run(allocator, &engine, args_list.items);
 }
+
+fn mainNew(init: if (@hasDecl(std.process, "Init")) std.process.Init else void) !void {
+    const GPA = if (@hasDecl(std.heap, "GeneralPurposeAllocator"))
+        std.heap.GeneralPurposeAllocator(.{})
+    else
+        std.heap.DebugAllocator(.{});
+
+    var gpa = GPA{};
+    defer _ = gpa.deinit();
+    const allocator = gpa.allocator();
+
+    var engine = engine_mod.SystemEngine.init(allocator);
+    defer engine.deinit();
+
+    var args_list: std.ArrayList([]const u8) = .empty;
+    defer args_list.deinit(allocator);
+
+    if (comptime @hasDecl(std.process, "Init")) {
+        var it = init.args;
+        while (it.next()) |arg| {
+            try args_list.append(allocator, arg);
+        }
+    }
+
+    try cli_mod.run(allocator, &engine, args_list.items);
+}
+
+pub const main = if (@hasDecl(std.process, "Init")) mainNew else mainOld;
 
 test "history ring buffer chronological ordering" {
     var ring = history.RingBuffer(f32, 5).init();
