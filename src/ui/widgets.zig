@@ -61,12 +61,12 @@ pub fn renderHeader(
     const logo = " ◈ ZYPHOR";
     buf.writeString(1, 0, logo, theme.accent, theme.header_bg, true);
 
-    const version = " v0.1.0";
+    const version = " v0.1.1";
     buf.writeString(1 + @as(u16, @intCast(logo.len)), 0, version, theme.muted, theme.header_bg, false);
 
     // Center: System tag & status
     if (w > 80) {
-        const center_str = "— Native System Observatory & Diagnostics Platform —";
+        const center_str = "— High-Precision Native System Observatory & Diagnostics —";
         const cx = (w -| @as(u16, @intCast(center_str.len))) / 2;
         buf.writeString(cx, 0, center_str, theme.muted, theme.header_bg, false);
     }
@@ -248,7 +248,30 @@ pub fn renderOverviewPanel(
     const free_gb = @as(f32, @floatFromInt(snapshot.memory.free_bytes)) / (1024.0 * 1024.0 * 1024.0);
     
     buf.writeStringMax(center_x + 2, my, std.fmt.bufPrint(&val_buf, "RAM: {d:.1} / {d:.1} GB ({d:.1}%)", .{ used_gb, total_gb, snapshot.memory.used_percent }) catch "", pane_w - 4, theme.muted, theme.bg, true);
-    my += 2;
+    my += 1;
+
+    // Segmented Stack Bar: App Memory vs Page Cache vs Free
+    if (pane_w > 12) {
+        const bar_len = pane_w - 4;
+        const app_pct = snapshot.memory.used_percent;
+        const cache_pct = if (total_gb > 0) (cached_gb / total_gb) * 100.0 else 0.0;
+        const app_chars = @as(u16, @intFromFloat(@min(@as(f32, @floatFromInt(bar_len)), @as(f32, @floatFromInt(bar_len)) * (app_pct / 100.0))));
+        const cache_chars = @as(u16, @intFromFloat(@min(@as(f32, @floatFromInt(bar_len -| app_chars)), @as(f32, @floatFromInt(bar_len)) * (cache_pct / 100.0))));
+
+        var bx: u16 = 0;
+        while (bx < app_chars) : (bx += 1) {
+            buf.setCell(center_x + 2 + bx, my, "█", theme.secondary, theme.bg, false);
+        }
+        while (bx < app_chars + cache_chars) : (bx += 1) {
+            buf.setCell(center_x + 2 + bx, my, "▓", theme.accent_dim, theme.bg, false);
+        }
+        while (bx < bar_len) : (bx += 1) {
+            buf.setCell(center_x + 2 + bx, my, "░", theme.border, theme.bg, false);
+        }
+        my += 2;
+    } else {
+        my += 1;
+    }
 
     var mem_hist: [256]f32 = undefined;
     const mem_hist_count = history.memory_history.getChronological(&mem_hist);
@@ -775,6 +798,21 @@ pub fn renderDiskPanel(
 // NETWORK PANEL (Tab 4 - Flow Graphs + Adapters + Socket Connection Explorer)
 // ─────────────────────────────────────────────────────────────────────────────
 
+fn getPortService(port: u16) []const u8 {
+    return switch (port) {
+        80 => "HTTP",
+        443 => "HTTPS",
+        22 => "SSH",
+        53 => "DNS",
+        3306 => "MySQL",
+        5432 => "PgSQL",
+        6379 => "Redis",
+        27017 => "Mongo",
+        8080, 3000, 5000, 5173, 8000 => "DEV",
+        else => "",
+    };
+}
+
 pub fn renderNetworkPanel(
     buf: *ScreenBuffer,
     net: *const types.NetworkMetrics,
@@ -858,7 +896,7 @@ pub fn renderNetworkPanel(
         buf.writeString(right_x + 1, sock_y, "▼ ACTIVE SOCKET CONNECTIONS (Process Socket Map)", theme.header, theme.bg, true);
 
         const shdr_y = sock_y + 1;
-        buf.writeString(right_x + 1, shdr_y, "PID    PROCESS       LOCAL:PORT   REMOTE:PORT       STATE", theme.muted, theme.selected, true);
+        buf.writeString(right_x + 1, shdr_y, "PID    PROCESS       LOCAL:PORT   REMOTE:PORT       SERVICE  STATE", theme.muted, theme.selected, true);
 
         var cr: usize = 0;
         const conn_start_y = shdr_y + 1;
@@ -885,8 +923,16 @@ pub fn renderNetworkPanel(
                 "*";
             buf.writeString(right_x + 35, cy, r_str[0..@min(r_str.len, 16)], theme.muted, theme.bg, false);
 
+            const svc_l = getPortService(conn.local_port);
+            const svc_str = if (svc_l.len > 0) svc_l else getPortService(conn.remote_port);
+            if (svc_str.len > 0) {
+                buf.writeString(right_x + 53, cy, svc_str, theme.accent, theme.bg, true);
+            } else {
+                buf.writeString(right_x + 53, cy, "—", theme.muted, theme.bg, false);
+            }
+
             const st_color = if (conn.state == .established) theme.success else theme.warning;
-            buf.writeString(right_x + 53, cy, conn.state.asText(), st_color, theme.bg, true);
+            buf.writeString(right_x + 62, cy, conn.state.asText(), st_color, theme.bg, true);
         }
     }
 }
