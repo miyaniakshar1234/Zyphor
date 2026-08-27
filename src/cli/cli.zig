@@ -7,10 +7,8 @@ const app_mod = @import("../ui/app.zig");
 const types = @import("../core/types.zig");
 
 pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void {
-    var args = try std.process.argsWithAllocator(allocator);
-    defer args.deinit();
-
-    _ = args.next(); // Skip executable path
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
 
     var json_mode = false;
     var plain_mode = false;
@@ -19,7 +17,9 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void
     var limit: usize = 15;
     var output_file: ?[]const u8 = null;
 
-    while (args.next()) |arg| {
+    var i: usize = 1;
+    while (i < args.len) : (i += 1) {
+        const arg = args[i];
         if (std.mem.eql(u8, arg, "--json") or std.mem.eql(u8, arg, "-j")) {
             json_mode = true;
         } else if (std.mem.eql(u8, arg, "--plain") or std.mem.eql(u8, arg, "-p")) {
@@ -31,13 +31,20 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void
             printVersion();
             return;
         } else if (std.mem.eql(u8, arg, "--sort")) {
-            if (args.next()) |s| sort_field = s;
+            if (i + 1 < args.len) {
+                i += 1;
+                sort_field = args[i];
+            }
         } else if (std.mem.eql(u8, arg, "--limit")) {
-            if (args.next()) |l| {
-                limit = std.fmt.parseInt(usize, l, 10) catch 15;
+            if (i + 1 < args.len) {
+                i += 1;
+                limit = std.fmt.parseInt(usize, args[i], 10) catch 15;
             }
         } else if (std.mem.eql(u8, arg, "--output") or std.mem.eql(u8, arg, "-o")) {
-            if (args.next()) |o| output_file = o;
+            if (i + 1 < args.len) {
+                i += 1;
+                output_file = args[i];
+            }
         } else if (subcommand == null and !std.mem.startsWith(u8, arg, "-")) {
             subcommand = arg;
         }

@@ -3,7 +3,7 @@ const types = @import("../core/types.zig");
 const PlatformCollector = @import("interface.zig").PlatformCollector;
 
 const windows = std.os.windows;
-const BOOL = windows.BOOL;
+const BOOL = i32;
 const DWORD = windows.DWORD;
 const HANDLE = windows.HANDLE;
 
