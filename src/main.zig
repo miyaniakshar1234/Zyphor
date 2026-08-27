@@ -47,6 +47,7 @@ fn mainOld() !void {
 }
 
 fn mainNew(init: if (@hasDecl(std.process, "Init")) std.process.Init else void) !void {
+    _ = init;
     if (comptime @hasDecl(std.process, "Init")) {
         const info = @typeInfo(std.process.Init).Struct;
         var msg: []const u8 = "Init fields: ";
