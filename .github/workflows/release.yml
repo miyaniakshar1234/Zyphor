@@ -7,52 +7,59 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-cross:
+    name: Build (${{ matrix.name }})
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - target: x86_64-linux
             name: zyphor-linux-x86_64
-          - os: macos-latest
+            bin: zyphor
+            is_windows: false
+          - target: aarch64-linux
+            name: zyphor-linux-aarch64
+            bin: zyphor
+            is_windows: false
+          - target: x86_64-macos
+            name: zyphor-macos-x86_64
+            bin: zyphor
+            is_windows: false
+          - target: aarch64-macos
             name: zyphor-macos-aarch64
-          - os: windows-latest
+            bin: zyphor
+            is_windows: false
+          - target: x86_64-windows
             name: zyphor-windows-x86_64
-
-    runs-on: ${{ matrix.os }}
+            bin: zyphor.exe
+            is_windows: true
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure macOS Environment & SDK
-        if: runner.os == 'macOS'
-        run: |
-          sudo xcode-select -s /Library/Developer/CommandLineTools || true
-          SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || echo "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk")
-          echo "SDKROOT=$SDK_PATH" >> $GITHUB_ENV
-          echo "DEVELOPER_DIR=/Library/Developer/CommandLineTools" >> $GITHUB_ENV
 
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
           version: 0.15.2
 
-      - name: Build
-        run: zig build -Doptimize=ReleaseFast
+      - name: Build Binary
+        run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast
 
-      - name: Prepare Artifact (Unix)
-        if: runner.os != 'Windows'
+      - name: Package Tarball (Unix)
+        if: ${{ !matrix.is_windows }}
         run: |
           mkdir -p dist
-          cp zig-out/bin/zyphor dist/
-          tar -czvf ${{ matrix.name }}.tar.gz -C dist zyphor
+          cp zig-out/bin/${{ matrix.bin }} dist/
+          tar -czvf ${{ matrix.name }}.tar.gz -C dist ${{ matrix.bin }}
 
-      - name: Prepare Artifact (Windows)
-        if: runner.os == 'Windows'
+      - name: Package Zip (Windows)
+        if: ${{ matrix.is_windows }}
         run: |
-          mkdir dist
-          cp zig-out/bin/zyphor.exe dist/
-          Compress-Archive -Path dist/zyphor.exe -DestinationPath ${{ matrix.name }}.zip
+          sudo apt-get update && sudo apt-get install -y zip
+          mkdir -p dist
+          cp zig-out/bin/${{ matrix.bin }} dist/
+          cd dist && zip -9 ../${{ matrix.name }}.zip ${{ matrix.bin }}
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -63,7 +70,7 @@ jobs:
             *.zip
 
   release:
-    needs: build
+    needs: build-cross
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     permissions:

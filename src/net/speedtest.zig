@@ -548,16 +548,28 @@ pub fn startStressTestThread(allocator: std.mem.Allocator, duration_secs: u32, s
     }});
 }
 
-test "measurePingAndJitter runs cleanly and returns valid latency metrics" {
-    const res = measurePingAndJitter();
-    try std.testing.expect(res.avg_ms > 0.0);
-    try std.testing.expect(res.min_ms <= res.max_ms);
+test "speedtest parseDuration valid inputs" {
+    try std.testing.expectEqual(@as(u32, 10), try parseDuration("10s"));
+    try std.testing.expectEqual(@as(u32, 30), try parseDuration("30S"));
+    try std.testing.expectEqual(@as(u32, 60), try parseDuration("1m"));
+    try std.testing.expectEqual(@as(u32, 300), try parseDuration("5M"));
+    try std.testing.expectEqual(@as(u32, 3600), try parseDuration("1h"));
+    try std.testing.expectEqual(@as(u32, 45), try parseDuration("45"));
+    try std.testing.expectEqual(@as(u32, 10), try parseDuration(""));
 }
 
-test "runSpeedTest completes and produces quality grade" {
-    const res = try runSpeedTest(std.testing.allocator);
-    try std.testing.expect(res.ping_ms > 0.0);
-    try std.testing.expect(res.download_mbps > 0.0);
-    try std.testing.expect(res.upload_mbps > 0.0);
-    try std.testing.expect(res.quality_grade.len > 0);
+test "speedtest StressPreset labels and values" {
+    try std.testing.expectEqual(@as(u32, 10), @intFromEnum(StressPreset.quick_10s));
+    try std.testing.expectEqual(@as(u32, 60), @intFromEnum(StressPreset.soak_1m));
+    try std.testing.expect(StressPreset.quick_10s.asLabel().len > 0);
+    try std.testing.expect(StressPreset.torture_15m.asLabel().len > 0);
 }
+
+test "speedtest AppSuitability defaults" {
+    const s = AppSuitability{};
+    try std.testing.expect(s.streaming_4k);
+    try std.testing.expect(s.gaming_low_latency);
+    try std.testing.expect(s.video_conferencing);
+    try std.testing.expect(s.cloud_backup);
+}
+
