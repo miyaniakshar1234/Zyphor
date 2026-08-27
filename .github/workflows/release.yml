@@ -9,20 +9,15 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
             name: zyphor-linux-x86_64
-            archive_cmd: tar -czvf zyphor-linux-x86_64.tar.gz -C dist zyphor
-            artifact: zyphor-linux-x86_64.tar.gz
           - os: macos-latest
             name: zyphor-macos-aarch64
-            archive_cmd: tar -czvf zyphor-macos-aarch64.tar.gz -C dist zyphor
-            artifact: zyphor-macos-aarch64.tar.gz
           - os: windows-latest
             name: zyphor-windows-x86_64
-            archive_cmd: Compress-Archive -Path dist/zyphor.exe -DestinationPath zyphor-windows-x86_64.zip
-            artifact: zyphor-windows-x86_64.zip
 
     runs-on: ${{ matrix.os }}
 
@@ -32,7 +27,7 @@ jobs:
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
-          version: 0.14.0
+          version: 0.15.2
 
       - name: Build
         run: zig build -Doptimize=ReleaseFast
@@ -42,14 +37,14 @@ jobs:
         run: |
           mkdir -p dist
           cp zig-out/bin/zyphor dist/
-          ${{ matrix.archive_cmd }}
+          tar -czvf ${{ matrix.name }}.tar.gz -C dist zyphor
 
       - name: Prepare Artifact (Windows)
         if: runner.os == 'Windows'
         run: |
           mkdir dist
           cp zig-out/bin/zyphor.exe dist/
-          ${{ matrix.archive_cmd }}
+          Compress-Archive -Path dist/zyphor.exe -DestinationPath ${{ matrix.name }}.zip
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
