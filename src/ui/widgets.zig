@@ -1401,6 +1401,8 @@ pub fn renderStressTestModal(
     frame_count: u64,
     theme: *const Theme,
     plain: bool,
+    config_duration: u32,
+    config_streams: u32,
 ) void {
     const w = buf.width;
     const h = buf.height;
@@ -1411,7 +1413,29 @@ pub fn renderStressTestModal(
     const modal_y = (h -| modal_h) / 2;
 
     buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
-    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ⚡ MULTI-STREAM NETWORK SATURATION & STRESS ENGINE ⚡ ", theme.warning, theme.warning, theme.bg, plain);
+    buf.drawCyberBox(modal_x, modal_y, modal_w, modal_h, " ⚡ MULTI-STREAM NETWORK SATURATION & STRESS ENGINE ⚡ ", theme.warning, theme.warning, theme.bg, plain);
+
+    if (!tracker.is_running and !tracker.has_result) {
+        // --- PRE-RUN CONFIGURATION HUD ---
+        buf.writeString(modal_x + 3, modal_y + 2, "◈ PRE-LAUNCH SATURATION CONFIGURATION", theme.header, theme.bg, true);
+        
+        var dur_buf: [64]u8 = undefined;
+        const dur_str = std.fmt.bufPrint(&dur_buf, "Target Duration: {d} seconds", .{config_duration}) catch "";
+        buf.writeString(modal_x + 3, modal_y + 4, dur_str, theme.warning, theme.bg, true);
+        buf.writeString(modal_x + 3, modal_y + 5, "Shortcuts: [1] 10s  [2] 30s  [3] 1m  [4] 5m  [5] 15m  [6] 1h", theme.fg, theme.bg, false);
+
+        var str_buf: [64]u8 = undefined;
+        const str_str = std.fmt.bufPrint(&str_buf, "Concurrent Socket Streams: {d}", .{config_streams}) catch "";
+        buf.writeString(modal_x + 3, modal_y + 7, str_str, theme.accent, theme.bg, true);
+        buf.writeString(modal_x + 3, modal_y + 8, "Shortcuts: [+] Increase  [-] Decrease", theme.fg, theme.bg, false);
+
+        graphs.renderSeparator(buf, modal_x + 2, modal_y + 10, modal_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(modal_x + 3, modal_y + 12, "WARNING: Prolonged stress tests will heavily saturate local", theme.critical, theme.bg, true);
+        buf.writeString(modal_x + 3, modal_y + 13, "network links and may impact other users/applications.", theme.critical, theme.bg, true);
+
+        buf.writeString(modal_x + 3, modal_y + 15, "[Enter] IGNITE STRESS ENGINE  |  [Esc] Abort & Close", theme.success, theme.bg, true);
+        return;
+    }
 
     if (tracker.is_running) {
         // --- LIVE ANIMATED STRESS RUNNER HUD ---
