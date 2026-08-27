@@ -34,15 +34,29 @@ pub fn main() !void {
     } else if (comptime @hasDecl(std.process, "argsWithAllocator")) {
         var it = try std.process.argsWithAllocator(allocator);
         defer it.deinit();
-        var args_list: std.ArrayList([]const u8) = .empty;
-        defer args_list.deinit(allocator);
-        while (it.next()) |a| try args_list.append(allocator, a);
+        var args_list = std.ArrayList([]const u8).init(allocator);
+        defer {
+            for (args_list.items) |arg| allocator.free(arg);
+            args_list.deinit();
+        }
+        while (it.next()) |a| {
+            const duped = try allocator.dupe(u8, a);
+            errdefer allocator.free(duped);
+            try args_list.append(duped);
+        }
         try cli_mod.run(allocator, &engine, args_list.items);
     } else {
         var it = std.process.args();
-        var args_list: std.ArrayList([]const u8) = .empty;
-        defer args_list.deinit(allocator);
-        while (it.next()) |a| try args_list.append(allocator, a);
+        var args_list = std.ArrayList([]const u8).init(allocator);
+        defer {
+            for (args_list.items) |arg| allocator.free(arg);
+            args_list.deinit();
+        }
+        while (it.next()) |a| {
+            const duped = try allocator.dupe(u8, a);
+            errdefer allocator.free(duped);
+            try args_list.append(duped);
+        }
         try cli_mod.run(allocator, &engine, args_list.items);
     }
 }
