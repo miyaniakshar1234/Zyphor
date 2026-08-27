@@ -245,32 +245,88 @@ pub const LinuxCollector = struct {
             .is_charging = true,
         };
     }
-
     fn getProcessList(_: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo {
-        const pids = [_]u32{ 1, 120, 480, 1024, 1500, 2048 };
-        const names = [_][]const u8{ "systemd", "sshd", "NetworkManager", "docker", "bash", "zyphor" };
+        var dir = try std.fs.cwd().openDir("/proc", .{ .iterate = true });
+        defer dir.close();
 
-        var list = try allocator.alloc(types.ProcessInfo, pids.len);
-        for (pids, 0..) |pid, idx| {
+        var procs = std.ArrayList(types.ProcessInfo).init(allocator);
+        defer procs.deinit();
+
+        var it = dir.iterate();
+        var buf: [4096]u8 = undefined;
+
+        while (try it.next()) |entry| {
+            if (entry.kind != .directory) continue;
+            const pid = std.fmt.parseInt(u32, entry.name, 10) catch continue;
+
+            var stat_path_buf: [256]u8 = undefined;
+            const stat_path = std.fmt.bufPrint(&stat_path_buf, "/proc/{d}/stat", .{pid}) catch continue;
+
+            const file = std.fs.openFileAbsolute(stat_path, .{}) catch continue;
+            defer file.close();
+
+            const len = file.readAll(&buf) catch continue;
+            const content = buf[0..len];
+
+            // Parse stat
+            const open_paren = std.mem.indexOfScalar(u8, content, '(');
+            const close_paren = std.mem.lastIndexOfScalar(u8, content, ')');
+            if (open_paren == null or close_paren == null or close_paren.? < open_paren.?) continue;
+
+            const name = content[open_paren.? + 1 .. close_paren.?];
+            const after_name = content[close_paren.? + 2 ..];
+
+            var tok_it = std.mem.splitScalar(u8, after_name, ' ');
+            const state_str = tok_it.next() orelse continue;
+            const ppid_str = tok_it.next() orelse continue;
+            
+            // Skip down to threads and rss
+            var i: usize = 4;
+            while (i < 20) : (i += 1) {
+                _ = tok_it.next();
+            }
+            const threads_str = tok_it.next() orelse "1";
+            _ = tok_it.next(); // itrealvalue
+            _ = tok_it.next(); // starttime
+            _ = tok_it.next(); // vsize
+            const rss_str = tok_it.next() orelse "0";
+
+            const ppid = std.fmt.parseInt(u32, ppid_str, 10) catch 0;
+            const threads = std.fmt.parseInt(u32, threads_str, 10) catch 1;
+            // rss is in pages, standard page size is 4KB
+            const rss = (std.fmt.parseInt(u64, rss_str, 10) catch 0) * 4096;
+            
+            const p_state: types.ProcessState = switch (state_str[0]) {
+                'R' => .running,
+                'S', 'I' => .sleeping,
+                'D' => .waiting,
+                'Z' => .zombie,
+                'T', 't' => .stopped,
+                else => .unknown,
+            };
+
             var proc = types.ProcessInfo{
                 .pid = pid,
-                .ppid = if (pid == 1) 0 else 1,
-                .cpu_percent = @as(f32, @floatFromInt(idx * 3)) + 0.5,
-                .memory_rss = (@as(u64, @intCast(idx + 1)) * 32) * 1024 * 1024,
-                .threads_count = @as(u32, @intCast(idx + 2)),
-                .state = .running,
+                .ppid = ppid,
+                .cpu_percent = 0.0, // CPU usage requires deltas, left at 0 for now
+                .memory_rss = rss,
+                .threads_count = threads,
+                .state = p_state,
             };
-            const nm = names[idx];
-            @memcpy(proc.name[0..nm.len], nm);
-            proc.name_len = nm.len;
-            list[idx] = proc;
+            
+            const n_len = @min(name.len, 64);
+            @memcpy(proc.name[0..n_len], name[0..n_len]);
+            proc.name_len = n_len;
+
+            try procs.append(proc);
         }
 
-        return list;
+        return procs.toOwnedSlice();
     }
 
     fn killProcess(_: *anyopaque, _: u32) anyerror!void {}
     fn suspendProcess(_: *anyopaque, _: u32) anyerror!void {}
     fn resumeProcess(_: *anyopaque, _: u32) anyerror!void {}
 };
+
 

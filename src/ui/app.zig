@@ -478,7 +478,6 @@ pub const App = struct {
                         },
                         '/' => {
                             self.search_input_active = true;
-                            self.active_tab = .processes;
                         },
                         't' => {
                             self.tree_mode = !self.tree_mode;
@@ -660,6 +659,7 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
+
 
 
 

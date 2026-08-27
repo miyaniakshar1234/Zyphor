@@ -2220,3 +2220,24 @@ pub fn renderProfilerModal(
     buf.writeString(modal_x + 3, modal_y + modal_h - 2, "[Esc] Close Modal", theme.muted, theme.bg, false);
 }
 
+
+fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0) return true;
+    if (needle.len > haystack.len) return false;
+    
+    var i: usize = 0;
+    while (i <= haystack.len - needle.len) : (i += 1) {
+        var match = true;
+        for (needle, 0..) |n_c, j| {
+            const h_c = haystack[i + j];
+            const h_lower = if (h_c >= 'A' and h_c <= 'Z') h_c + 32 else h_c;
+            const n_lower = if (n_c >= 'A' and n_c <= 'Z') n_c + 32 else n_c;
+            if (h_lower != n_lower) {
+                match = false;
+                break;
+            }
+        }
+        if (match) return true;
+    }
+    return false;
+}
