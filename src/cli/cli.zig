@@ -53,9 +53,15 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
         if (std.mem.eql(u8, cmd, "doctor")) {
             try doctor_mod.runDoctor(engine, json_mode);
             return;
-        } else if (std.mem.eql(u8, cmd, "snapshot")) {
+        } else if (std.mem.eql(u8, cmd, "snapshot") or std.mem.eql(u8, cmd, "export") or std.mem.eql(u8, cmd, "dump")) {
             const snap = try engine.sampleSnapshot();
-            try export_mod.saveSnapshotFile(allocator, &snap, output_file);
+            if (output_file) |_| {
+                try export_mod.saveSnapshotFile(allocator, &snap, output_file);
+            } else if (json_mode or std.mem.eql(u8, cmd, "export") or std.mem.eql(u8, cmd, "dump")) {
+                try export_mod.printJsonSnapshot(stdout, &snap);
+            } else {
+                try export_mod.saveSnapshotFile(allocator, &snap, null);
+            }
             return;
         } else if (std.mem.eql(u8, cmd, "cpu")) {
             const snap = try engine.sampleSnapshot();
