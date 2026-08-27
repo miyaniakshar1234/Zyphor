@@ -187,3 +187,4 @@ pub const MacosCollector = struct {
     fn suspendProcess(_: *anyopaque, _: u32) anyerror!void {}
     fn resumeProcess(_: *anyopaque, _: u32) anyerror!void {}
 };
+

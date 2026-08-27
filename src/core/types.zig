@@ -416,6 +416,7 @@ pub const DockerContainer = struct {
 };
 
 pub const SystemSnapshot = struct {
+    is_admin: bool = false,
     timestamp_ms: i64 = 0,
     cpu: CpuMetrics = .{},
     memory: MemoryMetrics = .{},
@@ -428,4 +429,5 @@ pub const SystemSnapshot = struct {
     services: []SystemService = &[_]SystemService{},
     top_processes: []ProcessInfo = &[_]ProcessInfo{}, containers: []DockerContainer = &[_]DockerContainer{},
 };
+
 

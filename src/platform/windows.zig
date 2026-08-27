@@ -626,3 +626,27 @@ pub const WindowsCollector = struct {
         _ = NtResumeProcess(handle);
     }
 };
+
+// Check if current process has Administrator privileges
+pub fn isUserAdmin() bool {
+    var sid: std.os.windows.SID_IDENTIFIER_AUTHORITY = .{ .Value = .{ 0, 0, 0, 0, 0, 5 } };
+    var group: std.os.windows.PSID = undefined;
+    
+    // SECURITY_BUILTIN_DOMAIN_RID = 0x00000020
+    // DOMAIN_ALIAS_RID_ADMINS = 0x00000220
+    if (std.os.windows.advapi32.AllocateAndInitializeSid(
+        &sid, 2,
+        32, // SECURITY_BUILTIN_DOMAIN_RID
+        544, // DOMAIN_ALIAS_RID_ADMINS
+        0, 0, 0, 0, 0, 0,
+        &group
+    ) != 0) {
+        defer _ = std.os.windows.advapi32.FreeSid(group);
+        var is_member: std.os.windows.BOOL = 0;
+        if (std.os.windows.advapi32.CheckTokenMembership(null, group, &is_member) != 0) {
+            return is_member != 0;
+        }
+    }
+    return false;
+}
+

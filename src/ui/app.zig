@@ -154,7 +154,7 @@ pub const App = struct {
 
             widgets.renderBackgroundGrid(&self.buffer, &self.theme);
 
-            widgets.renderHeader(&self.buffer, &self.theme, &snapshot.health, self.plain_mode);
+            widgets.renderHeader(&self.buffer, &self.theme, &snapshot, self.plain_mode);
             widgets.renderTabs(&self.buffer, self.active_tab, &self.theme, current_search);
 
             switch (self.active_tab) {
@@ -658,6 +658,7 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
+
 
 
 

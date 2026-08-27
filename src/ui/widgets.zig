@@ -52,9 +52,10 @@ pub const Tab = enum {
 pub fn renderHeader(
     buf: *ScreenBuffer,
     theme: *const Theme,
-    health: *const types.SystemHealth,
+    snapshot: *const types.SystemSnapshot,
     plain: bool,
 ) void {
+    const health = &snapshot.health;
     _ = plain;
     const w = buf.width;
 
@@ -67,6 +68,10 @@ pub fn renderHeader(
 
     const version = " v0.1.1";
     buf.writeString(1 + @as(u16, @intCast(logo.len)), 0, version, theme.muted, theme.header_bg, false);
+    
+    const privilege_str = if (snapshot.is_admin) " [ROOT] " else " [USER] ";
+    const priv_color = if (snapshot.is_admin) theme.critical else theme.muted;
+    buf.writeString(1 + @as(u16, @intCast(logo.len + version.len + 1)), 0, privilege_str, priv_color, theme.header_bg, true);
 
     // Center: System tag & status
     if (w > 80) {
@@ -2214,3 +2219,4 @@ pub fn renderProfilerModal(
     
     buf.writeString(modal_x + 3, modal_y + modal_h - 2, "[Esc] Close Modal", theme.muted, theme.bg, false);
 }
+
