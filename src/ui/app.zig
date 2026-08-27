@@ -185,7 +185,7 @@ pub const App = struct {
                     self.stress_result = self.stress_tracker.final_result;
                 }
                 const res_ptr: ?*const speedtest_mod.StressTestResult = if (self.stress_result) |*r| r else null;
-                widgets.renderStressTestModal(&self.buffer, &self.stress_tracker, res_ptr, self.frame_count, &self.theme, self.plain_mode);
+                widgets.renderStressTestModal(&self.buffer, &self.stress_tracker, res_ptr, self.frame_count, &self.theme, self.plain_mode, self.stress_duration_secs, self.stress_streams);
             } else if (self.show_help) {
                 widgets.renderHelpModal(&self.buffer, &self.theme, self.plain_mode);
             }
@@ -313,41 +313,28 @@ pub const App = struct {
 
                 if (self.show_stress_modal) {
                     switch (key) {
-                        .escape, .enter => self.show_stress_modal = false,
+                        .escape => self.show_stress_modal = false,
+                        .enter => {
+                            if (!self.stress_tracker.is_running and !self.stress_tracker.has_result) {
+                                self.triggerStressTest(self.stress_duration_secs, self.stress_streams);
+                            } else {
+                                self.show_stress_modal = false;
+                            }
+                        },
                         .char => |c| switch (c) {
-                            'r', 'R' => self.triggerStressTest(self.stress_duration_secs, self.stress_streams),
-                            '1' => {
-                                self.stress_duration_secs = 10;
-                                self.triggerStressTest(10, self.stress_streams);
+                            'r', 'R' => {
+                                if (self.stress_tracker.has_result or self.stress_tracker.is_running) {
+                                    self.triggerStressTest(self.stress_duration_secs, self.stress_streams);
+                                }
                             },
-                            '2' => {
-                                self.stress_duration_secs = 30;
-                                self.triggerStressTest(30, self.stress_streams);
-                            },
-                            '3' => {
-                                self.stress_duration_secs = 60;
-                                self.triggerStressTest(60, self.stress_streams);
-                            },
-                            '4' => {
-                                self.stress_duration_secs = 300;
-                                self.triggerStressTest(300, self.stress_streams);
-                            },
-                            '5' => {
-                                self.stress_duration_secs = 900;
-                                self.triggerStressTest(900, self.stress_streams);
-                            },
-                            '6' => {
-                                self.stress_duration_secs = 3600;
-                                self.triggerStressTest(3600, self.stress_streams);
-                            },
-                            '+', '=' => {
-                                self.stress_streams = @min(32, self.stress_streams + 2);
-                                self.setStatus("Streams increased");
-                            },
-                            '-', '_' => {
-                                self.stress_streams = @max(1, self.stress_streams - 2);
-                                self.setStatus("Streams decreased");
-                            },
+                            '1' => self.stress_duration_secs = 10,
+                            '2' => self.stress_duration_secs = 30,
+                            '3' => self.stress_duration_secs = 60,
+                            '4' => self.stress_duration_secs = 300,
+                            '5' => self.stress_duration_secs = 900,
+                            '6' => self.stress_duration_secs = 3600,
+                            '+', '=' => self.stress_streams = @min(32, self.stress_streams + 2),
+                            '-', '_' => self.stress_streams = @max(1, self.stress_streams - 2),
                             'q' => self.show_stress_modal = false,
                             else => {},
                         },

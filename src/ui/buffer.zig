@@ -204,12 +204,12 @@ pub const ScreenBuffer = struct {
         const right = x + w - 1;
         const bottom = y + h - 1;
 
-        const tl = if (plain) "+" else "╔";
-        const tr = if (plain) "+" else "╗";
-        const bl = if (plain) "+" else "╚";
-        const br = if (plain) "+" else "╝";
-        const horiz = if (plain) "-" else "═";
-        const vert = if (plain) "|" else "║";
+        const tl = if (plain) "+" else "╭";
+        const tr = if (plain) "+" else "╮";
+        const bl = if (plain) "+" else "╰";
+        const br = if (plain) "+" else "╯";
+        const horiz = if (plain) "-" else "─";
+        const vert = if (plain) "|" else "│";
 
         self.setCell(x, y, tl, border_color, bg_color, false);
         self.setCell(right, y, tr, border_color, bg_color, false);
@@ -260,17 +260,34 @@ pub const ScreenBuffer = struct {
         bg_color: Color,
         plain: bool,
     ) void {
+        self.drawCyberBox(x, y, w, h, title, border_color, title_color, bg_color, plain);
+    }
+
+    /// Next-Gen Cyberpunk Panel Frame
+    pub fn drawCyberBox(
+        self: *ScreenBuffer,
+        x: u16,
+        y: u16,
+        w: u16,
+        h: u16,
+        title: ?[]const u8,
+        border_color: Color,
+        title_color: Color,
+        bg_color: Color,
+        plain: bool,
+    ) void {
         if (w < 2 or h < 2) return;
         const right = x + w - 1;
         const bottom = y + h - 1;
 
-        const tl = if (plain) "+" else "╔";
-        const tr = if (plain) "+" else "╗";
-        const bl = if (plain) "+" else "╚";
-        const br = if (plain) "+" else "╝";
-        const horiz_top = if (plain) "=" else "═";
-        const horiz_bot = if (plain) "-" else "─";
-        const vert = if (plain) "|" else "║";
+        const tl = if (plain) "+" else "▛";
+        const tr = if (plain) "+" else "▜";
+        const bl = if (plain) "+" else "▙";
+        const br = if (plain) "+" else "▟";
+        const horiz_top = if (plain) "-" else "▀";
+        const horiz_bot = if (plain) "-" else "▄";
+        const vert = if (plain) "|" else "▌";
+        const vert_r = if (plain) "|" else "▐";
 
         self.setCell(x, y, tl, border_color, bg_color, false);
         self.setCell(right, y, tr, border_color, bg_color, false);
@@ -286,23 +303,27 @@ pub const ScreenBuffer = struct {
         var cy = y + 1;
         while (cy < bottom) : (cy += 1) {
             self.setCell(x, cy, vert, border_color, bg_color, false);
-            self.setCell(right, cy, vert, border_color, bg_color, false);
+            self.setCell(right, cy, vert_r, border_color, bg_color, false);
         }
 
         if (title) |t| {
-            if (t.len > 0 and w > 6) {
+            if (t.len > 0 and w > 10) {
                 const title_display_len = utf8DisplayLen(t);
                 const inner_w = @as(usize, w - 2);
                 const title_x = if (title_display_len + 4 < inner_w)
                     x + @as(u16, @intCast((inner_w - title_display_len - 2) / 2)) + 1
                 else
-                    x + 2;
-                self.writeString(title_x - 1, y, " ", border_color, bg_color, false);
-                self.writeString(title_x, y, t, title_color, bg_color, true);
-                self.writeString(title_x + @as(u16, @intCast(title_display_len)), y, " ", border_color, bg_color, false);
+                    x + 4;
+                
+                self.writeString(title_x - 3, y, "◥", border_color, bg_color, false);
+                self.writeString(title_x - 2, y, " ", border_color, title_color, false); // inverted background
+                self.writeString(title_x - 1, y, t, bg_color, title_color, true); // glowing text
+                self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)), y, " ", border_color, title_color, false);
+                self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)) + 1, y, "◤", border_color, bg_color, false);
             }
         }
     }
+
 
     /// Differential flush: only writes cells that changed since last frame
     pub fn flush(self: *ScreenBuffer, writer: anytype) !void {
