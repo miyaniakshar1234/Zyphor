@@ -1213,33 +1213,60 @@ pub fn renderSpeedTestModal(
     const w = buf.width;
     const h = buf.height;
 
-    const modal_w: u16 = @min(w - 4, 66);
-    const modal_h: u16 = 14;
+    const modal_w: u16 = @min(w - 4, 76);
+    const modal_h: u16 = 17;
     const modal_x = (w -| modal_w) / 2;
     const modal_y = (h -| modal_h) / 2;
 
     buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
-    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ⚡ INTERNET SPEED & BUFFERBLOAT TEST ", theme.accent, theme.accent, theme.bg, plain);
+    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ◈ BROADBAND SPEED & BUFFERBLOAT OBSERVATORY ◈ ", theme.accent, theme.accent, theme.bg, plain);
 
-    buf.writeString(modal_x + 3, modal_y + 2, "Target Server:  Global Anycast Edge CDN", theme.muted, theme.bg, false);
-    
-    var p_buf: [64]u8 = undefined;
-    const p_str = std.fmt.bufPrint(&p_buf, "RTT Latency:    {d:.1} ms (Jitter: ±{d:.1} ms | Drops: {d:.0}%)", .{ res.ping_ms, res.jitter_ms, res.packet_loss_pct }) catch "";
+    // Target Server & Protocol line
+    buf.writeString(modal_x + 3, modal_y + 2, "Target Server: Global Anycast CDN (1.1.1.1) | Mode: Low-Latency TCP", theme.muted, theme.bg, false);
+
+    // Latency & Jitter Box
+    var p_buf: [80]u8 = undefined;
+    const p_str = std.fmt.bufPrint(&p_buf, "RTT Ping: {d:.1} ms (Min: {d:.1}ms, Max: {d:.1}ms) | Jitter: ±{d:.1} ms | Loss: {d:.0}%", .{
+        res.ping_ms, res.min_ping_ms, res.max_ping_ms, res.jitter_ms, res.packet_loss_pct,
+    }) catch "";
     buf.writeString(modal_x + 3, modal_y + 4, p_str, theme.secondary, theme.bg, true);
 
+    // Ingress (Download) Bar
     var dl_buf: [64]u8 = undefined;
-    const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress:      {d:.1} Mbps ({d:.1} MB/s)", .{ res.download_mbps, res.download_mbps / 8.0 }) catch "";
+    const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress:  {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ res.download_mbps, res.download_mbps / 8.0 }) catch "";
     buf.writeString(modal_x + 3, modal_y + 6, dl_str, theme.success, theme.bg, true);
+    graphs.renderGaugeBar(buf, modal_x + 40, modal_y + 6, modal_w - 44, @min(100.0, res.download_mbps / 2.0), theme.success, theme.muted, theme.bg, plain);
 
+    // Egress (Upload) Bar
     var ul_buf: [64]u8 = undefined;
-    const ul_str = std.fmt.bufPrint(&ul_buf, "↑ Egress:       {d:.1} Mbps ({d:.1} MB/s)", .{ res.upload_mbps, res.upload_mbps / 8.0 }) catch "";
+    const ul_str = std.fmt.bufPrint(&ul_buf, "↑ Egress:   {d:>6.1} Mbps ({d:>5.1} MB/s)", .{ res.upload_mbps, res.upload_mbps / 8.0 }) catch "";
     buf.writeString(modal_x + 3, modal_y + 8, ul_str, theme.warning, theme.bg, true);
+    graphs.renderGaugeBar(buf, modal_x + 40, modal_y + 8, modal_w - 44, @min(100.0, res.upload_mbps * 2.0), theme.warning, theme.muted, theme.bg, plain);
 
-    var g_buf: [64]u8 = undefined;
-    const g_str = std.fmt.bufPrint(&g_buf, "Broadband Rank: {s}", .{res.quality_grade}) catch "";
-    buf.writeString(modal_x + 3, modal_y + 10, g_str, theme.accent, theme.bg, true);
+    // Application Readiness Matrix
+    graphs.renderSeparator(buf, modal_x + 2, modal_y + 10, modal_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(modal_x + 3, modal_y + 11, "▼ APPLICATION READINESS MATRIX", theme.header, theme.bg, true);
 
-    buf.writeString(modal_x + 3, modal_y + 12, "Press [Esc] or [Enter] to dismiss", theme.muted, theme.bg, false);
+    const s4k = if (res.suitability.streaming_4k) "✓ READY" else "✕ LIMITED";
+    const sgm = if (res.suitability.gaming_low_latency) "✓ LOW LATENCY" else "▲ HIGH JITTER";
+    const svc = if (res.suitability.video_conferencing) "✓ HD CLEAR" else "▲ BUFFERING";
+    const scp = if (res.suitability.cloud_backup) "✓ FAST SYNC" else "▲ SLOW SYNC";
+
+    buf.writeString(modal_x + 4, modal_y + 12, "• 4K/8K Ultra-HD Stream: ", theme.muted, theme.bg, false);
+    buf.writeString(modal_x + 28, modal_y + 12, s4k, if (res.suitability.streaming_4k) theme.success else theme.warning, theme.bg, true);
+
+    buf.writeString(modal_x + 42, modal_y + 12, "• Competitive Gaming: ", theme.muted, theme.bg, false);
+    buf.writeString(modal_x + 64, modal_y + 12, sgm, if (res.suitability.gaming_low_latency) theme.success else theme.warning, theme.bg, true);
+
+    buf.writeString(modal_x + 4, modal_y + 13, "• HD Video Conference:   ", theme.muted, theme.bg, false);
+    buf.writeString(modal_x + 28, modal_y + 13, svc, if (res.suitability.video_conferencing) theme.success else theme.warning, theme.bg, true);
+
+    buf.writeString(modal_x + 42, modal_y + 13, "• Cloud Backup / Push:", theme.muted, theme.bg, false);
+    buf.writeString(modal_x + 64, modal_y + 13, scp, if (res.suitability.cloud_backup) theme.success else theme.warning, theme.bg, true);
+
+    // Interactive Action Footer
+    graphs.renderSeparator(buf, modal_x + 2, modal_y + 14, modal_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(modal_x + 3, modal_y + 15, "[r] Retest Instantly  |  [S] Run Saturation Stress  |  [Esc / Enter] Close", theme.accent, theme.bg, true);
 }
 
 pub fn renderStressTestModal(
@@ -1251,35 +1278,46 @@ pub fn renderStressTestModal(
     const w = buf.width;
     const h = buf.height;
 
-    const modal_w: u16 = @min(w - 4, 68);
-    const modal_h: u16 = 14;
+    const modal_w: u16 = @min(w - 4, 76);
+    const modal_h: u16 = 17;
     const modal_x = (w -| modal_w) / 2;
     const modal_y = (h -| modal_h) / 2;
 
     buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
-    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ⚡ MULTI-STREAM NETWORK SATURATION STRESS TEST ", theme.warning, theme.warning, theme.bg, plain);
+    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ⚡ MULTI-STREAM NETWORK SATURATION & STRESS ENGINE ⚡ ", theme.warning, theme.warning, theme.bg, plain);
 
-    var p_buf: [64]u8 = undefined;
-    const p_str = std.fmt.bufPrint(&p_buf, "Test Config:    {d} Concurrent Streams / {d}s Saturation Burst", .{ res.active_streams, res.duration_secs }) catch "";
-    buf.writeString(modal_x + 3, modal_y + 2, p_str, theme.muted, theme.bg, false);
+    // Preset Duration Selector Ribbon
+    buf.writeString(modal_x + 3, modal_y + 2, "Presets: [1] 10s  [2] 30s  [3] 1m  [4] 5m  [5] 15m  [6] 1h", theme.accent, theme.bg, true);
 
+    var cfg_buf: [80]u8 = undefined;
+    const cfg_str = std.fmt.bufPrint(&cfg_buf, "Config: {d} Concurrent Streams | Duration: {d}s | Target: Anycast Edge", .{ res.active_streams, res.duration_secs }) catch "";
+    buf.writeString(modal_x + 3, modal_y + 4, cfg_str, theme.muted, theme.bg, false);
+
+    // Transferred Data & Packets
     var d_buf: [64]u8 = undefined;
-    const d_str = std.fmt.bufPrint(&d_buf, "Transferred:    {d:.1} MB ({d} Packets)", .{ res.total_mb_transferred, res.packets_sent }) catch "";
-    buf.writeString(modal_x + 3, modal_y + 4, d_str, theme.secondary, theme.bg, true);
+    const d_str = std.fmt.bufPrint(&d_buf, "Total Data:     {d:.1} MB ({d} Packets Transferred)", .{ res.total_mb_transferred, res.packets_sent }) catch "";
+    buf.writeString(modal_x + 3, modal_y + 6, d_str, theme.secondary, theme.bg, true);
 
+    // Peak & Average Throughput
     var pk_buf: [64]u8 = undefined;
     const pk_str = std.fmt.bufPrint(&pk_buf, "Peak Burst:     {d:.1} Mbps", .{res.peak_throughput_mbps}) catch "";
-    buf.writeString(modal_x + 3, modal_y + 6, pk_str, theme.success, theme.bg, true);
+    buf.writeString(modal_x + 3, modal_y + 8, pk_str, theme.success, theme.bg, true);
 
     var av_buf: [64]u8 = undefined;
-    const av_str = std.fmt.bufPrint(&av_buf, "Avg Throughput: {d:.1} Mbps  |  Latency Under Load: {d:.1} ms", .{ res.average_throughput_mbps, res.latency_under_load_ms }) catch "";
-    buf.writeString(modal_x + 3, modal_y + 8, av_str, theme.warning, theme.bg, true);
+    const av_str = std.fmt.bufPrint(&av_buf, "Sustained Rate: {d:.1} Mbps", .{res.average_throughput_mbps}) catch "";
+    buf.writeString(modal_x + 40, modal_y + 8, av_str, theme.warning, theme.bg, true);
 
-    var s_buf: [64]u8 = undefined;
-    const s_str = std.fmt.bufPrint(&s_buf, "Stability Rank: {d}/100 [ROCK SOLID SATURATION]", .{res.stability_score}) catch "";
-    buf.writeString(modal_x + 3, modal_y + 10, s_str, theme.accent, theme.bg, true);
+    // Latency under stress & Bufferbloat
+    var lat_buf: [80]u8 = undefined;
+    const lat_str = std.fmt.bufPrint(&lat_buf, "Latency Under Load: {d:.1} ms  |  Stability Score: {d}/100 [ROCK SOLID]", .{ res.latency_under_load_ms, res.stability_score }) catch "";
+    buf.writeString(modal_x + 3, modal_y + 10, lat_str, theme.fg, theme.bg, true);
 
-    buf.writeString(modal_x + 3, modal_y + 12, "Press [Esc] or [Enter] to dismiss", theme.muted, theme.bg, false);
+    // Stability Gauge
+    graphs.renderGaugeBar(buf, modal_x + 3, modal_y + 12, modal_w - 6, @as(f32, @floatFromInt(res.stability_score)), theme.success, theme.muted, theme.bg, plain);
+
+    // Interactive Action Footer
+    graphs.renderSeparator(buf, modal_x + 2, modal_y + 14, modal_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(modal_x + 3, modal_y + 15, "[r] Retest  |  [1-6] Choose Duration  |  [+] / [-] Streams  |  [Esc] Close", theme.warning, theme.bg, true);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
