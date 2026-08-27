@@ -371,9 +371,31 @@ pub const App = struct {
                             self.setStatus("Sort: Name A-Z");
                         },
                         'T' => self.cycleTheme(),
-                        'x' => {
-                            if (proc_count > 0 and self.selected_proc_idx < proc_count) {
+                        'x', 'K' => {
+                            if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
                                 self.show_kill_modal = true;
+                            }
+                        },
+                        's' => {
+                            if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
+                                const proc = &snapshot.top_processes[self.selected_proc_idx];
+                                var col = self.engine.platform.getCollector();
+                                if (col.suspendProcess(proc.pid)) |_| {
+                                    self.setStatus("Process suspended (SIGSTOP)");
+                                } else |_| {
+                                    self.setStatus("Failed to suspend process (Access Denied)");
+                                }
+                            }
+                        },
+                        'r', 'u' => {
+                            if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
+                                const proc = &snapshot.top_processes[self.selected_proc_idx];
+                                var col = self.engine.platform.getCollector();
+                                if (col.resumeProcess(proc.pid)) |_| {
+                                    self.setStatus("Process resumed (SIGCONT)");
+                                } else |_| {
+                                    self.setStatus("Failed to resume process (Access Denied)");
+                                }
                             }
                         },
                         'j' => {
