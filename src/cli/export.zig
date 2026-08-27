@@ -1,6 +1,30 @@
 const std = @import("std");
 const types = @import("../core/types.zig");
 
+pub fn writeJsonEscapedString(writer: anytype, str: []const u8) !void {
+    try writer.writeAll("\"");
+    for (str) |c| {
+        switch (c) {
+            '"' => try writer.writeAll("\\\""),
+            '\\' => try writer.writeAll("\\\\"),
+            '\n' => try writer.writeAll("\\n"),
+            '\r' => try writer.writeAll("\\r"),
+            '\t' => try writer.writeAll("\\t"),
+            else => {
+                if (c < 0x20) {
+                    var hex_buf: [6]u8 = undefined;
+                    _ = std.fmt.bufPrint(&hex_buf, "\\u{x:0>4}", .{c}) catch unreachable;
+                    try writer.writeAll(&hex_buf);
+                } else {
+                    const char_slice = [_]u8{c};
+                    try writer.writeAll(&char_slice);
+                }
+            },
+        }
+    }
+    try writer.writeAll("\"");
+}
+
 pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !void {
     try writer.print(
         \\{{
@@ -53,17 +77,20 @@ pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
     });
 
     for (snap.disk.partitions, 0..) |part, idx| {
-        try writer.print(
-            \\      {{ "mount": "{s}", "fs": "{s}", "total_bytes": {d}, "used_bytes": {d}, "used_pct": {d:.2} }}{s}
-            \\
-        , .{
-            part.getMount(),
-            part.getFs(),
+        try writer.writeAll("      { \"mount\": ");
+        try writeJsonEscapedString(writer, part.getMount());
+        try writer.writeAll(", \"fs\": ");
+        try writeJsonEscapedString(writer, part.getFs());
+        try writer.print(", \"total_bytes\": {d}, \"used_bytes\": {d}, \"used_pct\": {d:.2} ", .{
             part.total_bytes,
             part.used_bytes,
             part.used_percent,
-            if (idx + 1 < snap.disk.partitions.len) "," else "",
         });
+        if (idx + 1 < snap.disk.partitions.len) {
+            try writer.writeAll("},\n");
+        } else {
+            try writer.writeAll("}\n");
+        }
     }
 
     try writer.print(
@@ -75,7 +102,17 @@ pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
         \\  }},
         \\  "gpu": {{
         \\    "available": {s},
-        \\    "name": "{s}",
+        \\    "name": 
+    , .{
+        snap.network.total_rx_sec,
+        snap.network.total_tx_sec,
+        if (snap.gpu.available) "true" else "false",
+    });
+
+    try writeJsonEscapedString(writer, snap.gpu.getName());
+
+    try writer.print(
+        \\,
         \\    "utilization_pct": {d:.2},
         \\    "vram_total_bytes": {d},
         \\    "vram_used_bytes": {d}
@@ -83,37 +120,38 @@ pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
         \\  "health": {{
         \\    "score": {d},
         \\    "status": "{s}",
-        \\    "summary": "{s}"
-        \\  }},
-        \\  "top_processes": [
-        \\
+        \\    "summary": 
     , .{
-        snap.network.total_rx_sec,
-        snap.network.total_tx_sec,
-        if (snap.gpu.available) "true" else "false",
-        snap.gpu.getName(),
         snap.gpu.utilization_pct,
         snap.gpu.vram_total_bytes,
         snap.gpu.vram_used_bytes,
         snap.health.overall_score,
         snap.health.status.asText(),
-        snap.health.getSummary(),
     });
 
+    try writeJsonEscapedString(writer, snap.health.getSummary());
+
+    try writer.writeAll(
+        \\
+        \\  },
+        \\  "top_processes": [
+        \\
+    );
+
     for (snap.top_processes, 0..) |p, idx| {
-        try writer.print(
-            \\      {{ "pid": {d}, "ppid": {d}, "name": "{s}", "cpu_pct": {d:.2}, "rss_bytes": {d}, "threads": {d}, "state": "{s}" }}{s}
-            \\
-        , .{
-            p.pid,
-            p.ppid,
-            p.getName(),
+        try writer.print("      {{ \"pid\": {d}, \"ppid\": {d}, \"name\": ", .{ p.pid, p.ppid });
+        try writeJsonEscapedString(writer, p.getName());
+        try writer.print(", \"cpu_pct\": {d:.2}, \"rss_bytes\": {d}, \"threads\": {d}, \"state\": \"{s}\" }}", .{
             p.cpu_percent,
             p.memory_rss,
             p.threads_count,
             p.state.asText(),
-            if (idx + 1 < snap.top_processes.len) "," else "",
         });
+        if (idx + 1 < snap.top_processes.len) {
+            try writer.writeAll(",\n");
+        } else {
+            try writer.writeAll("\n");
+        }
     }
 
     try writer.print(
@@ -134,16 +172,17 @@ pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
     });
 
     for (snap.services, 0..) |srv, idx| {
-        try writer.print(
-            \\      {{ "name": "{s}", "display_name": "{s}", "status": "{s}", "startup": "{s}" }}{s}
-            \\
-        , .{
-            srv.getName(),
-            srv.getDisplayName(),
-            srv.status.asText(),
-            srv.getStartupType(),
-            if (idx + 1 < snap.services.len) "," else "",
-        });
+        try writer.writeAll("      { \"name\": ");
+        try writeJsonEscapedString(writer, srv.getName());
+        try writer.writeAll(", \"display_name\": ");
+        try writeJsonEscapedString(writer, srv.getDisplayName());
+        try writer.print(", \"status\": \"{s}\", \"startup\": ", .{srv.status.asText()});
+        try writeJsonEscapedString(writer, srv.getStartupType());
+        if (idx + 1 < snap.services.len) {
+            try writer.writeAll(" },\n");
+        } else {
+            try writer.writeAll(" }\n");
+        }
     }
 
     try writer.writeAll(
@@ -164,4 +203,14 @@ pub fn saveSnapshotFile(allocator: std.mem.Allocator, snap: *const types.SystemS
     const file_writer = types.OutWriter{ .file = file };
     try printJsonSnapshot(file_writer, snap);
     std.debug.print("✓ System snapshot saved to: {s}\n", .{path});
+}
+
+test "JSON string escaping handles quotes, backslashes, and control characters" {
+    var buf: [256]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    const writer = fbs.writer();
+
+    try writeJsonEscapedString(writer, "Hello \"World\" \\ path\n");
+    const result = fbs.getWritten();
+    try std.testing.expectEqualStrings("\"Hello \\\"World\\\" \\\\ path\\n\"", result);
 }
