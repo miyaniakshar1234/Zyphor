@@ -2148,3 +2148,69 @@ pub fn renderContainersPanel(
 
 
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROFILER MODAL
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub fn renderProfilerModal(
+    buf: *ScreenBuffer,
+    profiler: *const @import("../process/profiler.zig").ProcessProfiler,
+    theme: *const Theme,
+    plain: bool,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+
+    const modal_w: u16 = @min(w - 4, 80);
+    const modal_h: u16 = @min(h - 4, 24);
+    const modal_x = (w -| modal_w) / 2;
+    const modal_y = (h -| modal_h) / 2;
+
+    buf.drawCyberBox(modal_x, modal_y, modal_w, modal_h, " ◈ PERFORMANCE PROFILER ◈ ", theme.border, theme.header, theme.bg, plain);
+
+    var y = modal_y + 2;
+    const name = if (profiler.target_name_len > 0) profiler.target_name[0..profiler.target_name_len] else "Unknown";
+    
+    var t_buf: [128]u8 = undefined;
+    const t_str = std.fmt.bufPrint(&t_buf, "Target: {s} (PID: {d})", .{name, profiler.target_pid}) catch "";
+    buf.writeString(modal_x + 3, y, t_str, theme.accent, theme.bg, true);
+    y += 2;
+
+    if (profiler.state == .running) {
+        buf.writeString(modal_x + 3, y, "Status: RUNNING", theme.success, theme.bg, true);
+        
+        const prog_w = modal_w - 6;
+        const target_ms = profiler.duration_secs * 1000;
+        const pct = if (target_ms > 0) @as(f32, @floatFromInt(profiler.elapsed_ms)) / @as(f32, @floatFromInt(target_ms)) * 100.0 else 0.0;
+        graphs.renderGaugeBar(buf, modal_x + 3, y + 2, prog_w, pct, theme.accent, theme.muted, theme.bg, plain);
+        
+        var p_buf: [64]u8 = undefined;
+        buf.writeString(modal_x + 3, y + 4, std.fmt.bufPrint(&p_buf, "Elapsed: {d:.1}s / {d}s", .{@as(f32, @floatFromInt(profiler.elapsed_ms)) / 1000.0, profiler.duration_secs}) catch "", theme.fg, theme.bg, false);
+        
+        if (profiler.result.samples > 0) {
+            buf.writeString(modal_x + 3, y + 6, std.fmt.bufPrint(&p_buf, "Current CPU: {d:.1}%", .{profiler.result.cpu_history[profiler.result.history_len - 1]}) catch "", theme.warning, theme.bg, false);
+            buf.writeString(modal_x + 3, y + 7, std.fmt.bufPrint(&p_buf, "Current RAM: {d} MB", .{profiler.result.mem_history[profiler.result.history_len - 1] / (1024 * 1024)}) catch "", theme.secondary, theme.bg, false);
+        }
+        
+    } else if (profiler.state == .finished) {
+        buf.writeString(modal_x + 3, y, "Status: FINISHED (Telemetry Captured)", theme.muted, theme.bg, true);
+        y += 2;
+        
+        const r = &profiler.result;
+        
+        buf.drawCyberBox(modal_x + 2, y, modal_w - 4, 6, " CPU UTILIZATION ", theme.border, theme.warning, theme.bg, plain);
+        var c_buf: [128]u8 = undefined;
+        buf.writeString(modal_x + 4, y + 2, std.fmt.bufPrint(&c_buf, "Average: {d:.2}%", .{r.cpu_avg}) catch "", theme.fg, theme.bg, true);
+        buf.writeString(modal_x + 4, y + 3, std.fmt.bufPrint(&c_buf, "Peak:    {d:.2}%", .{r.cpu_max}) catch "", theme.critical, theme.bg, false);
+        buf.writeString(modal_x + 4, y + 4, std.fmt.bufPrint(&c_buf, "Minimum: {d:.2}%", .{r.cpu_min}) catch "", theme.muted, theme.bg, false);
+        
+        y += 7;
+        buf.drawCyberBox(modal_x + 2, y, modal_w - 4, 6, " MEMORY FOOTPRINT (RSS) ", theme.border, theme.secondary, theme.bg, plain);
+        buf.writeString(modal_x + 4, y + 2, std.fmt.bufPrint(&c_buf, "Average: {d} MB", .{r.mem_avg / (1024 * 1024)}) catch "", theme.fg, theme.bg, true);
+        buf.writeString(modal_x + 4, y + 3, std.fmt.bufPrint(&c_buf, "Peak:    {d} MB", .{r.mem_max / (1024 * 1024)}) catch "", theme.critical, theme.bg, false);
+        buf.writeString(modal_x + 4, y + 4, std.fmt.bufPrint(&c_buf, "Minimum: {d} MB", .{r.mem_min / (1024 * 1024)}) catch "", theme.muted, theme.bg, false);
+    }
+    
+    buf.writeString(modal_x + 3, modal_y + modal_h - 2, "[Esc] Close Modal", theme.muted, theme.bg, false);
+}

@@ -7,6 +7,7 @@ const buffer_mod = @import("buffer.zig");
 const theme_mod = @import("theme.zig");
 const widgets = @import("widgets.zig");
 const speedtest_mod = @import("../net/speedtest.zig");
+const profiler_mod = @import("../process/profiler.zig");
 
 pub const App = struct {
     allocator: std.mem.Allocator,
@@ -21,6 +22,8 @@ pub const App = struct {
     is_paused: bool = false,
     show_help: bool = false,
     show_inspect_modal: bool = false,
+    show_profiler_modal: bool = false,
+    process_profiler: profiler_mod.ProcessProfiler = .{},
     show_kill_modal: bool = false,
     show_speedtest_modal: bool = false,
     show_stress_modal: bool = false,
@@ -122,6 +125,28 @@ pub const App = struct {
             else
                 try self.engine.sampleSnapshot();
 
+            if (self.process_profiler.state == .running) {
+                var found = false;
+                for (snapshot.top_processes) |p| {
+                    if (p.pid == self.process_profiler.target_pid) {
+                        self.process_profiler.addSample(p.cpu_percent, p.memory_vsize);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    self.process_profiler.addSample(0.0, 0);
+                }
+                
+                // Add fixed 33ms or 200ms depending on modals (approximate tick time)
+                const tick_ms = if (self.show_speedtest_modal or self.show_stress_modal or self.show_profiler_modal) @as(u64, 33) else @as(u64, 200);
+                self.process_profiler.elapsed_ms += tick_ms;
+                
+                if (self.process_profiler.elapsed_ms >= self.process_profiler.duration_secs * 1000) {
+                    self.process_profiler.state = .finished;
+                }
+            }
+
             // 2. Render UI Layers
             self.buffer.clear(self.theme.bg);
 
@@ -177,6 +202,8 @@ pub const App = struct {
                     const proc = &snapshot.top_processes[self.selected_proc_idx];
                     widgets.renderKillConfirmModal(&self.buffer, proc, &self.theme, self.plain_mode);
                 }
+            } else if (self.show_profiler_modal) {
+                widgets.renderProfilerModal(&self.buffer, &self.process_profiler, &self.theme, self.plain_mode);
             } else if (self.show_speedtest_modal) {
                 if (self.speedtest_tracker.has_result and self.speedtest_result == null) {
                     self.speedtest_result = self.speedtest_tracker.final_result;
@@ -203,9 +230,9 @@ pub const App = struct {
             }
 
             // 4. Non-blocking input handling
-                        if (self.show_speedtest_modal or self.show_stress_modal) {
-                std.Thread.sleep(33 * std.time.ns_per_ms);
-            } else {
+                        if (self.show_speedtest_modal or self.show_stress_modal or self.show_profiler_modal) {
+                            std.Thread.sleep(33 * std.time.ns_per_ms);
+                        } else {
                 std.Thread.sleep(200 * std.time.ns_per_ms);
             }
             if (self.terminal.readKey()) |key| {
@@ -277,6 +304,17 @@ pub const App = struct {
                     continue;
                 }
 
+                if (self.show_profiler_modal) {
+                    switch (key) {
+                        .escape, .enter => self.show_profiler_modal = false,
+                        .char => |c| switch (c) {
+                            'q' => self.show_profiler_modal = false,
+                            else => {},
+                        },
+                        else => {},
+                    }
+                }
+                
                 if (self.show_kill_modal) {
                     switch (key) {
                         .char => |c| switch (c) {
@@ -480,6 +518,13 @@ pub const App = struct {
                                 self.show_kill_modal = true;
                             }
                         },
+                        'P' => {
+                            if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
+                                const proc = &snapshot.top_processes[self.selected_proc_idx];
+                                self.process_profiler.start(proc.pid, proc.getName(), 10);
+                                self.show_profiler_modal = true;
+                            }
+                        },
                         's' => {
                             if (self.active_tab == .network) {
                                 self.triggerSpeedTest();
@@ -577,6 +622,7 @@ pub const App = struct {
                         if (self.show_help) self.show_help = false;
                         if (self.show_inspect_modal) self.show_inspect_modal = false;
                         if (self.show_kill_modal) self.show_kill_modal = false;
+                        if (self.show_profiler_modal) self.show_profiler_modal = false;
                         if (self.search_len > 0) {
                             self.search_len = 0;
                             try self.engine.process_mgr.setFilter(null);
@@ -612,6 +658,12 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
+
+
+
+
+
+
 
 
 
