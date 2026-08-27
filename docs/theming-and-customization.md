@@ -1,95 +1,144 @@
-# Theming & Customization Guide
+# 🎨 Zyphor Theming & Visual Customization Guide
 
-Zyphor features a 24-bit TrueColor rendering pipeline supporting complete palette switching, custom theme definitions, layout geometry overrides, and plain ASCII fallbacks.
+*Author: Akshar Miyani • Version: 1.0.0 • TrueColor Palette Guide*
 
 ---
 
-## 🎨 Built-in Color Themes
+## Table of Contents
+1. [24-Bit TrueColor Rendering Pipeline](#1-24-bit-truecolor-rendering-pipeline)
+2. [Built-in Palette Catalog (10 Curated Themes)](#2-built-in-palette-catalog-10-curated-themes)
+3. [Runtime Theme Cycling (`]` or `Shift+T`)](#3-runtime-theme-cycling--or-shiftt)
+4. [Plain ASCII Fallback Mode (`--plain`)](#4-plain-ascii-fallback-mode---plain)
+5. [Semantic Color Token Architecture](#5-semantic-color-token-architecture)
 
-You can cycle through themes at runtime inside the TUI by pressing <kbd>T</kbd>.
+---
 
-### 1. Midnight (Default)
-Designed for low eye strain in modern dark developer environments:
-* **Background (`bg`):** `#0D1117` (Deep GitHub Slate)
-* **Foreground (`fg`):** `#DCE4EE` (Crisp Light Gray)
-* **Accent (`accent`):** `#58A6FF` (Electric Azure Blue)
-* **Secondary (`secondary`):** `#38BDF8` (Sky Blue)
-* **Success (`success`):** `#3FB950` (Emerald Green)
-* **Warning (`warning`):** `#D29922` (Amber)
-* **Critical (`critical`):** `#F85149` (Vibrant Coral Red)
+## 1. 24-Bit TrueColor Rendering Pipeline
 
-### 2. Cyber
-A high-contrast neon palette tuned for high-energy synthwave/cyberpunk setups:
+Zyphor renders in authentic 24-bit TrueColor (16.7 million RGB colors) using direct ANSI escape sequences (`\x1b[38;2;R;G;Bm` for foreground and `\x1b[48;2;R;G;Bm` for background). 
+
+Because the differential rendering engine caches cell attributes, color escapes are only emitted when transitioning between different foreground/background color tokens, minimizing terminal latency.
+
+---
+
+## 2. Built-in Palette Catalog (10 Curated Themes)
+
+### 1. Anthropic (Default Warm Aesthetic)
+*A sophisticated, warm dark palette inspired by modern AI research interfaces.*
+* **Background (`bg`):** `#1F1D1C` (Warm Charcoal)
+* **Foreground (`fg`):** `#E6E4E2` (Soft Ivory)
+* **Accent (`accent`):** `#D97757` (Terracotta Coral)
+* **Secondary (`secondary`):** `#E5C07B` (Sand Amber)
+* **Success (`success`):** `#718E75` (Sage Green)
+* **Warning (`warning`):** `#E59866` (Warm Tangerine)
+* **Critical (`critical`):** `#E06C75` (Muted Crimson)
+
+### 2. Cyber (High-Contrast Neon)
+*Designed for cyberpunk setups and OLED screens.*
 * **Background:** `#06060C`
-* **Accent:** `#FF0080` (Hot Pink)
-* **Secondary:** `#00F0FF` (Cyan)
-* **Success:** `#00FF88` (Neon Green)
+* **Accent:** `#00F0FF` (Electric Cyan)
+* **Secondary:** `#FF0080` (Neon Magenta)
+* **Success:** `#00FF88` (Radioactive Green)
 
-### 3. Aurora
-Inspired by northern lights:
+### 3. Tokyo Night
+*Deep indigo night palette with high legibility.*
+* **Background:** `#1A1B26` (Deep Indigo)
+* **Foreground:** `#A9B1D6` (Silver Lavender)
+* **Accent:** `#7DCFFF` (Ice Cyan)
+* **Secondary:** `#BB9AF7` (Soft Purple)
+
+### 4. Hacker (CRT Phosphor)
+*Classic retro monochrome computing aesthetic.*
+* **Background:** `#0C100C` (Obsidian)
+* **Foreground:** `#20C20E` (Phosphor Green)
+* **Accent:** `#39FF14` (Neon Green)
+
+### 5. Midnight
+*Modern dark slate foundation.*
+* **Background:** `#0D1117`
+* **Accent:** `#58A6FF` (Azure Blue)
+* **Secondary:** `#38BDF8` (Sky Blue)
+
+### 6. Aurora
+*Nordic evening glow.*
 * **Background:** `#0E1620`
 * **Accent:** `#34D399` (Seafoam Mint)
 * **Secondary:** `#A78BFA` (Soft Violet)
 
-### 4. Nord
-Based on the arctic palette:
+### 7. Nord
+*Authentic arctic design tokens.*
 * **Background:** `#2E3440` (Polar Night)
 * **Foreground:** `#ECEFF4` (Snow Storm)
 * **Accent:** `#88C0D0` (Frost Blue)
 
-### 5. Solarized Dark
-Classic low-contrast palette designed for reduced visual fatigue during extended diagnostic shifts:
+### 8. Solarized Dark
+*Classic low-contrast palette tuned for reduced visual fatigue.*
 * **Background:** `#002B36`
-* **Accent:** `#268BD2` (Blue)
-* **Secondary:** `#2AA198` (Cyan)
+* **Accent:** `#268BD2` (Solar Blue)
+* **Secondary:** `#2AA198` (Solar Cyan)
 
-### 6. Gruvbox
-Warm retro contrast palette:
+### 9. Gruvbox
+*Warm retro contrast with earthy tones.*
 * **Background:** `#1D2021` (Dark Hard)
 * **Foreground:** `#EBDBB2` (Light Cream)
-* **Accent:** `#FABD2F` (Bright Yellow/Gold)
-* **Secondary:** `#D65D0E` (Cinnamon Orange)
+* **Accent:** `#FABD2F` (Bright Gold)
 
-### 7. High Contrast (Accessibility / Monochrome)
-Pure contrast for accessibility or monochrome monitors:
+### 10. High Contrast (Monochrome)
+*Pure black/white contrast for accessibility.*
 * **Background:** `#000000`
 * **Foreground:** `#FFFFFF`
 * **Accent:** `#00FFFF`
 
 ---
 
-## ⚙️ Plain ASCII Fallback Mode (`--plain`)
+## 3. Runtime Theme Cycling (`]` or `Shift+T`)
 
-When running on vintage terminals, serial consoles over UART, or remote SSH tunnels without 24-bit TrueColor support, start Zyphor with the `--plain` flag:
+At any time during active TUI monitoring, press <kbd>]</kbd> or <kbd>Shift+T</kbd> to cycle instantly to the next theme. 
+The differential engine marks all screen cells as dirty and re-paints the entire viewport with the new color tokens on the next tick without interrupting process polling.
 
+You can also start Zyphor directly with your preferred theme:
+```bash
+zyphor --theme cyber
+zyphor --theme tokyo_night
+zyphor --theme nord
+```
+
+---
+
+## 4. Plain ASCII Fallback Mode (`--plain`)
+
+When monitoring vintage hardware, serial consoles (UART), or remote SSH tunnels lacking TrueColor support, launch with:
 ```bash
 zyphor --plain
 ```
 
-In Plain Mode:
-* All ANSI color escape sequences are suppressed.
-* Box borders switch from Unicode rounded lines (`╭─╮`) to standard ASCII (`+--+`, `|`).
-* Gauges switch from Unicode blocks (`█░`) to standard ASCII characters (`[####....]`).
-* Sparklines use ASCII height markers (`. - = # !`).
+* Suppresses all ANSI color codes.
+* Switches borders from Unicode curves (`╭─╮`) to standard ASCII (`+--+`, `|`).
+* Uses standard bracket gauges (`[####....]`) instead of Unicode blocks (`█░`).
+* Replaces Braille graphs with ASCII sparklines (`. - = # !`).
 
 ---
 
-## 🛠️ Color Token Reference
+## 5. Semantic Color Token Architecture
 
-Every theme is represented as a structured data type in `src/ui/theme.zig`:
+Themes in Zyphor conform to the `Theme` struct (`src/ui/theme.zig`):
 
 | Token | Semantic Role |
 | :--- | :--- |
-| `bg` | Main viewport background |
-| `fg` | Primary body text and values |
-| `header_bg` | Top-level full-width header bar background |
-| `tab_bg` | Tab navigation strip & status bar background |
-| `accent` | Primary focus indicators, active tab, CPU gauge highlights |
-| `accent_dim` | Thin horizontal/vertical separator lines |
-| `secondary` | Memory/Swap metrics, RAM gauge highlights |
-| `success` | Nominal health indicators, UP network interfaces |
-| `warning` | Moderately elevated metrics, warning alerts |
-| `critical` | Resource saturation, critical alerts, DOWN interfaces |
-| `border` | Box-drawing container borders |
-| `selected` | Highlighted process row background cursor |
-| `muted` | Secondary labels, timestamps, inactive tabs |
+| `bg` | Viewport canvas background color. |
+| `fg` | Standard body typography and numerical data. |
+| `header_bg` | Top full-width application header background. |
+| `tab_bg` | Navigation strip and status bar background. |
+| `accent` | Primary focal points, active tab highlights, and CPU meters. |
+| `accent_dim` | Dividers, container boundaries, and inactive elements. |
+| `secondary` | Physical Memory metrics and RAM gauge highlights. |
+| `success` | Nominal health indicators (100–90 score) and active network links. |
+| `warning` | Moderately elevated metrics (75–89 score) and caution alerts. |
+| `critical` | Resource saturation (<75 score), thermal throttling, and down links. |
+| `border` | CyberBox and AccentBox container border lines. |
+| `selected` | Highlighted process/service row background cursor. |
+| `muted` | Secondary labels, timestamps, units (`MB`, `GHz`), and inactive tabs. |
+
+---
+
+*Authored with precision by Akshar Miyani.*
