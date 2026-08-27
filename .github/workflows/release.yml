@@ -20,9 +20,9 @@ jobs:
             target: x86_64-linux
             artifact_name: zyphor-linux-x86_64.tar.gz
             binary_name: zyphor
-          - os: macos-latest
-            target: aarch64-macos
-            artifact_name: zyphor-macos-arm64.tar.gz
+          - os: macos-13
+            target: x86_64-macos
+            artifact_name: zyphor-macos-x86_64.tar.gz
             binary_name: zyphor
 
     steps:
