@@ -159,12 +159,10 @@ pub const LinuxCollector = struct {
     }
 
     fn getProcessList(_: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo {
-        var list: std.ArrayList(types.ProcessInfo) = .empty;
-        errdefer list.deinit(allocator);
-
         const pids = [_]u32{ 1, 120, 480, 1024, 1500, 2048 };
         const names = [_][]const u8{ "systemd", "sshd", "NetworkManager", "docker", "bash", "zyphor" };
 
+        var list = try allocator.alloc(types.ProcessInfo, pids.len);
         for (pids, 0..) |pid, idx| {
             var proc = types.ProcessInfo{
                 .pid = pid,
@@ -177,10 +175,10 @@ pub const LinuxCollector = struct {
             const nm = names[idx];
             @memcpy(proc.name[0..nm.len], nm);
             proc.name_len = nm.len;
-            try list.append(allocator, proc);
+            list[idx] = proc;
         }
 
-        return try list.toOwnedSlice(allocator);
+        return list;
     }
 
     fn killProcess(_: *anyopaque, _: u32) anyerror!void {}
