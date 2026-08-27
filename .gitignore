@@ -37,3 +37,9 @@ npm/bin/zyphor.exe
 
 # Logs
 *.log
+
+# Internal PRD & Planning documents
+*Product Requirements Document*.md
+*.prd.md
+*PRD*.md
+

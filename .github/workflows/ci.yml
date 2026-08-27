@@ -13,37 +13,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, windows-latest, macos-13 ]
-    env:
-      MACOSX_DEPLOYMENT_TARGET: "15.0"
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Select Xcode / macOS SDK
-        if: runner.os == 'macOS'
-        run: |
-          sudo xcode-select -s /Library/Developer/CommandLineTools || true
-          SDK_PATH=$(xcrun --show-sdk-path 2>/dev/null || echo "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk")
-          echo "SDKROOT=$SDK_PATH" >> $GITHUB_ENV
-          echo "DEVELOPER_DIR=/Library/Developer/CommandLineTools" >> $GITHUB_ENV
-
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
-          version: 0.15.0
-
-      - name: Cache Zig Build Artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            .zig-cache
-            ~/.cache/zig
-            C:\Users\runneradmin\AppData\Local\zig
-          key: ${{ runner.os }}-zig-${{ hashFiles('build.zig', 'src/**/*.zig') }}
-          restore-keys: |
-            ${{ runner.os }}-zig-
+          version: 0.14.0
 
       - name: Run Test Suite
         run: zig build test
