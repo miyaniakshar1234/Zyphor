@@ -94,26 +94,45 @@ pub const SystemEngine = struct {
         }
 
         // 6. Populate System Services & Daemons (PRD §23)
-        const sample_services = [_]struct { name: []const u8, disp: []const u8, status: types.ServiceStatus, startup: []const u8 }{
-            .{ .name = "WinDefend", .disp = "Microsoft Defender Antivirus Service", .status = .running, .startup = "Automatic" },
-            .{ .name = "wuauserv", .disp = "Windows Update Service", .status = .running, .startup = "Manual" },
-            .{ .name = "EventLog", .disp = "Windows Event Log Kernel Service", .status = .running, .startup = "Automatic" },
-            .{ .name = "Dhcp", .disp = "DHCP Client Network Service", .status = .running, .startup = "Automatic" },
-            .{ .name = "Dnscache", .disp = "DNS Client Caching Service", .status = .running, .startup = "Automatic" },
-            .{ .name = "docker", .disp = "Docker Engine Virtualization Daemon", .status = .running, .startup = "Automatic" },
-            .{ .name = "Spooler", .disp = "Print Spooler Subsystem", .status = .stopped, .startup = "Manual" },
-            .{ .name = "sshd", .disp = "OpenSSH SSH Server Daemon", .status = .running, .startup = "Automatic" },
+        const sample_services = [_]struct {
+            name: []const u8,
+            disp: []const u8,
+            desc: []const u8,
+            group: []const u8,
+            status: types.ServiceStatus,
+            startup: []const u8,
+            pid: u32,
+        }{
+            .{ .name = "WinDefend", .disp = "Microsoft Defender Antivirus Service", .desc = "Active runtime threat defense and memory integrity guardian", .group = "Security", .status = .running, .startup = "Automatic", .pid = 2840 },
+            .{ .name = "EventLog", .disp = "Windows Event Log Kernel Service", .desc = "Kernel structured telemetry and system event dispatcher", .group = "Core OS", .status = .running, .startup = "Automatic", .pid = 820 },
+            .{ .name = "Dhcp", .disp = "DHCP Client Network Service", .desc = "IPv4/IPv6 address negotiation and dynamic routing client", .group = "Network", .status = .running, .startup = "Automatic", .pid = 1140 },
+            .{ .name = "Dnscache", .disp = "DNS Client Caching Service", .desc = "Domain name resolution caching and DoH edge client", .group = "Network", .status = .running, .startup = "Automatic", .pid = 1480 },
+            .{ .name = "docker", .disp = "Docker Engine Virtualization Daemon", .desc = "OCI container runtime and virtualization orchestration engine", .group = "Containers", .status = .running, .startup = "Automatic", .pid = 4920 },
+            .{ .name = "sshd", .disp = "OpenSSH SSH Server Daemon", .desc = "Encrypted remote terminal and secure shell listener (:22)", .group = "Network", .status = .running, .startup = "Automatic", .pid = 3120 },
+            .{ .name = "wuauserv", .disp = "Windows Update Service", .desc = "Background software patch and security rollup manager", .group = "Maintenance", .status = .running, .startup = "Manual", .pid = 6200 },
+            .{ .name = "Audiosrv", .disp = "Windows Audio Core Service", .desc = "Kernel low-latency audio stream mixer and DSP pipeline", .group = "Media", .status = .running, .startup = "Automatic", .pid = 1960 },
+            .{ .name = "LanmanServer", .disp = "Server SMB File Sharing", .desc = "SMB 3.1.1 network storage protocol and named pipe provider", .group = "Network", .status = .running, .startup = "Automatic", .pid = 2150 },
+            .{ .name = "W32Time", .disp = "Windows Time Synchronization", .desc = "NTP chronometer client maintaining sub-millisecond clock sync", .group = "Core OS", .status = .running, .startup = "Automatic", .pid = 2410 },
+            .{ .name = "Spooler", .disp = "Print Spooler Subsystem", .desc = "Print queue spooler and document rasterization service", .group = "Drivers", .status = .stopped, .startup = "Manual", .pid = 0 },
+            .{ .name = "SysMain", .disp = "SuperFetch Memory Optimizer", .desc = "Physical RAM predictive page cache preloader", .group = "Performance", .status = .running, .startup = "Automatic", .pid = 1680 },
+            .{ .name = "DiagTrack", .disp = "Connected User Diagnostics", .desc = "Hardware telemetry collector and diagnostic event pipeline", .group = "Diagnostics", .status = .running, .startup = "Automatic", .pid = 3890 },
+            .{ .name = "BFE", .disp = "Base Filtering Engine", .desc = "IPsec and packet filtering policy manager for firewall", .group = "Security", .status = .running, .startup = "Automatic", .pid = 1320 },
         };
 
         var services = try scratch.alloc(types.SystemService, sample_services.len);
         for (sample_services, 0..) |ss, sidx| {
             var srv = types.SystemService{
                 .status = ss.status,
+                .pid = ss.pid,
             };
             @memcpy(srv.name[0..ss.name.len], ss.name);
             srv.name_len = ss.name.len;
             @memcpy(srv.display_name[0..ss.disp.len], ss.disp);
             srv.display_name_len = ss.disp.len;
+            @memcpy(srv.description[0..ss.desc.len], ss.desc);
+            srv.description_len = ss.desc.len;
+            @memcpy(srv.group[0..ss.group.len], ss.group);
+            srv.group_len = ss.group.len;
             @memcpy(srv.startup_type[0..ss.startup.len], ss.startup);
             srv.startup_type_len = ss.startup.len;
             services[sidx] = srv;

@@ -340,9 +340,14 @@ pub const SystemService = struct {
     name_len: usize = 0,
     display_name: [128]u8 = @splat(0),
     display_name_len: usize = 0,
+    description: [128]u8 = @splat(0),
+    description_len: usize = 0,
+    group: [32]u8 = @splat(0),
+    group_len: usize = 0,
     status: ServiceStatus = .running,
     startup_type: [32]u8 = @splat(0),
     startup_type_len: usize = 0,
+    pid: u32 = 0,
 
     pub fn getName(self: *const SystemService) []const u8 {
         return self.name[0..self.name_len];
@@ -351,6 +356,16 @@ pub const SystemService = struct {
     pub fn getDisplayName(self: *const SystemService) []const u8 {
         if (self.display_name_len == 0) return self.getName();
         return self.display_name[0..self.display_name_len];
+    }
+
+    pub fn getDescription(self: *const SystemService) []const u8 {
+        if (self.description_len == 0) return self.getDisplayName();
+        return self.description[0..self.description_len];
+    }
+
+    pub fn getGroup(self: *const SystemService) []const u8 {
+        if (self.group_len == 0) return "System";
+        return self.group[0..self.group_len];
     }
 
     pub fn getStartupType(self: *const SystemService) []const u8 {

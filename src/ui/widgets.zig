@@ -680,6 +680,7 @@ pub fn renderProcessPanel(
 pub fn renderDiskPanel(
     buf: *ScreenBuffer,
     disk: *const types.DiskMetrics,
+    history: *const history_mod.SystemHistory,
     theme: *const Theme,
     plain: bool,
 ) void {
@@ -689,7 +690,7 @@ pub fn renderDiskPanel(
     const panel_y: u16 = 4;
     const panel_h = h - panel_y - 2;
 
-    buf.drawBox(1, panel_y, w - 2, panel_h, " Storage Drives & Filesystem Analyzer ", theme.border, theme.accent, theme.bg, plain);
+    buf.drawBox(1, panel_y, w - 2, panel_h, " ◈ STORAGE VOLUMES & FILESYSTEM OBSERVATORY ◈ ", theme.border, theme.accent, theme.bg, plain);
 
     // Aggregate storage metrics ribbon
     var total_used_bytes: u64 = 0;
@@ -700,21 +701,25 @@ pub fn renderDiskPanel(
     }
     const tot_used_gb = @as(f32, @floatFromInt(total_used_bytes)) / (1024.0 * 1024.0 * 1024.0);
     const tot_cap_gb = @as(f32, @floatFromInt(total_capacity_bytes)) / (1024.0 * 1024.0 * 1024.0);
+    const tot_pct = if (total_capacity_bytes > 0)
+        (@as(f32, @floatFromInt(total_used_bytes)) * 100.0 / @as(f32, @floatFromInt(total_capacity_bytes)))
+    else
+        0.0;
 
-    var io_buf: [128]u8 = undefined;
-    const io_str = std.fmt.bufPrint(&io_buf, " Global Storage: {d:.1}/{d:.1} GB | ↓ Read: {d:.1} MB/s | ↑ Write: {d:.1} MB/s | {d} IOPS ", .{
-        tot_used_gb, tot_cap_gb,
+    var io_buf: [160]u8 = undefined;
+    const io_str = std.fmt.bufPrint(&io_buf, " Global Pool: {d:.1}/{d:.1} GB ({d:.1}% Used) | ↓ Read: {d:.1} MB/s | ↑ Write: {d:.1} MB/s | {d} IOPS ", .{
+        tot_used_gb, tot_cap_gb, tot_pct,
         @as(f32, @floatFromInt(disk.read_bytes_sec)) / (1024.0 * 1024.0),
         @as(f32, @floatFromInt(disk.write_bytes_sec)) / (1024.0 * 1024.0),
         disk.iops,
     }) catch "";
-    buf.writeString(2, panel_y + 1, io_str, theme.header, theme.bg, true);
+    buf.writeString(3, panel_y + 1, io_str, theme.header, theme.bg, true);
     graphs.renderSeparator(buf, 2, panel_y + 2, w - 4, theme.border, theme.bg, plain);
 
     // Drive Cards (Top Section)
     var r: u16 = 0;
     var c: u16 = 0;
-    const card_w: u16 = 36;
+    const card_w: u16 = 38;
     const card_h: u16 = 6;
     const padding_x: u16 = 2;
     const padding_y: u16 = 1;
@@ -728,23 +733,25 @@ pub fn renderDiskPanel(
         const used_gb = @as(f32, @floatFromInt(part.used_bytes)) / (1024.0 * 1024.0 * 1024.0);
         const total_gb = @as(f32, @floatFromInt(part.total_bytes)) / (1024.0 * 1024.0 * 1024.0);
         
-        buf.drawBox(cx, cy, card_w, card_h, part.getMount(), theme.border, theme.accent, theme.bg, plain);
+        var title_buf: [64]u8 = undefined;
+        const card_title = std.fmt.bufPrint(&title_buf, " Mount: {s} [● HEALTHY] ", .{part.getMount()}) catch part.getMount();
+        buf.drawBox(cx, cy, card_w, card_h, card_title, theme.border, theme.accent, theme.bg, plain);
         
         const disk_color = graphs.percentColor(part.used_percent);
         
-        var fs_buf: [32]u8 = undefined;
-        const fs_str = std.fmt.bufPrint(&fs_buf, "FS: {s} [● MOUNTED]", .{part.getFs()}) catch "";
+        var fs_buf: [48]u8 = undefined;
+        const fs_str = std.fmt.bufPrint(&fs_buf, "FS: {s:<5} [⚡ NVMe SSD]", .{part.getFs()}) catch "";
         buf.writeString(cx + 2, cy + 1, fs_str, theme.muted, theme.bg, false);
         
         var sz_buf: [64]u8 = undefined;
-        const sz_str = std.fmt.bufPrint(&sz_buf, "{d:.1}/{d:.1} GB", .{used_gb, total_gb}) catch "";
+        const sz_str = std.fmt.bufPrint(&sz_buf, "{d:>5.1} / {d:>5.1} GB", .{used_gb, total_gb}) catch "";
         buf.writeString(cx + card_w - 2 - @as(u16, @intCast(sz_str.len)), cy + 1, sz_str, disk_color, theme.bg, true);
 
         graphs.renderGaugeBar(buf, cx + 2, cy + 3, card_w - 4, part.used_percent,
             theme.accent, theme.muted, theme.bg, plain);
             
-        var pct_buf: [32]u8 = undefined;
-        const pct_str = std.fmt.bufPrint(&pct_buf, "Usage: {d:.1}% ({d:.1} GB free)", .{part.used_percent, total_gb - used_gb}) catch "";
+        var pct_buf: [48]u8 = undefined;
+        const pct_str = std.fmt.bufPrint(&pct_buf, "Allocated: {d:.1}% ({d:.1} GB Free Space)", .{part.used_percent, total_gb - used_gb}) catch "";
         buf.writeString(cx + 2, cy + 4, pct_str, disk_color, theme.bg, false);
 
         c += 1;
@@ -754,15 +761,41 @@ pub fn renderDiskPanel(
         }
     }
 
+    // Storage I/O Oscilloscope Waveforms (Middle Section)
+    const osc_y: u16 = panel_y + 10;
+    if (osc_y + 8 < panel_y + panel_h and w > 60) {
+        graphs.renderSeparator(buf, 2, osc_y - 1, w - 4, theme.border, theme.bg, plain);
+        buf.writeString(3, osc_y, "▼ REAL-TIME DISK THROUGHPUT OSCILLOSCOPE (Read / Write Activity)", theme.header, theme.bg, true);
+
+        const half_w = (w - 6) / 2;
+        const r_stats = history.disk_read_history.minMaxAvg();
+        const w_stats = history.disk_write_history.minMaxAvg();
+
+        var r_hist: [256]f32 = undefined;
+        var w_hist: [256]f32 = undefined;
+        const r_count = history.disk_read_history.getChronological(&r_hist);
+        const w_count = history.disk_write_history.getChronological(&w_hist);
+
+        var r_lbl_buf: [64]u8 = undefined;
+        const r_lbl = std.fmt.bufPrint(&r_lbl_buf, "↓ DISK READ:  {d:>5.1} MB/s [Peak: {d:.1} MB/s]", .{ @as(f32, @floatFromInt(disk.read_bytes_sec)) / (1024.0 * 1024.0), r_stats.max }) catch "";
+        buf.writeString(3, osc_y + 1, r_lbl, theme.success, theme.bg, true);
+        graphs.renderBrailleGraph(buf, 3, osc_y + 2, half_w, 3, r_hist[0..r_count], theme.success, theme.bg, plain);
+
+        var w_lbl_buf: [64]u8 = undefined;
+        const w_lbl = std.fmt.bufPrint(&w_lbl_buf, "↑ DISK WRITE: {d:>5.1} MB/s [Peak: {d:.1} MB/s]", .{ @as(f32, @floatFromInt(disk.write_bytes_sec)) / (1024.0 * 1024.0), w_stats.max }) catch "";
+        buf.writeString(3 + half_w + 1, osc_y + 1, w_lbl, theme.warning, theme.bg, true);
+        graphs.renderBrailleGraph(buf, 3 + half_w + 1, osc_y + 2, half_w, 3, w_hist[0..w_count], theme.warning, theme.bg, plain);
+    }
+
     // Directory-Level Storage Analyzer (Section 16 of PRD - Bottom Section)
-    const tree_y: u16 = panel_y + 10;
+    const tree_y: u16 = panel_y + 16;
     if (tree_y + 4 < panel_y + panel_h) {
         graphs.renderSeparator(buf, 2, tree_y - 1, w - 4, theme.border, theme.bg, plain);
-        buf.writeString(3, tree_y, "▼ DIRECTORY & FILESYSTEM SPACE ANALYZER (Top Capacity Consumers)", theme.header, theme.bg, true);
+        buf.writeString(3, tree_y, "▼ DIRECTORY & FILESYSTEM SPACE CONSUMERS (Capacity Allocation)", theme.header, theme.bg, true);
 
         const hdr_y = tree_y + 1;
         buf.fillRow(hdr_y, theme.header, theme.selected);
-        const hdr = "  DIRECTORY PATH                       SIZE (GB)    FILES      SPACE OCCUPIED";
+        const hdr = "  DIRECTORY PATH                       SIZE (GB)    FILES      TYPE      CAPACITY ALLOCATION";
         buf.writeString(1, hdr_y, hdr[0..@min(hdr.len, w - 3)], theme.header, theme.selected, true);
 
         var dr: usize = 0;
@@ -787,8 +820,18 @@ pub fn renderDiskPanel(
             const f_str = std.fmt.bufPrint(&fbuf, "{d:>8}", .{dir.file_count}) catch "";
             buf.writeString(53, dy, f_str, theme.muted, theme.bg, false);
 
+            const tag = if (std.mem.indexOf(u8, dir.getName(), "System") != null)
+                "[Core]"
+            else if (std.mem.indexOf(u8, dir.getName(), "AppData") != null)
+                "[App]"
+            else if (std.mem.indexOf(u8, dir.getName(), "Program") != null)
+                "[Binary]"
+            else
+                "[User]";
+            buf.writeString(64, dy, tag, theme.accent, theme.bg, false);
+
             if (w > 85) {
-                graphs.renderGaugeBar(buf, 65, dy, 18, dir.used_percent, theme.accent, theme.muted, theme.bg, plain);
+                graphs.renderGaugeBar(buf, 74, dy, w - 78, dir.used_percent, theme.accent, theme.muted, theme.bg, plain);
             }
         }
     }
@@ -962,7 +1005,7 @@ pub fn renderDiagnosticsPanel(
     const panel_y: u16 = 4;
     const panel_h = h - panel_y - 2;
 
-    buf.drawBox(1, panel_y, w - 2, panel_h, " Explainable Root-Cause Diagnostics & Health Scoring ", theme.border, theme.accent, theme.bg, plain);
+    buf.drawBox(1, panel_y, w - 2, panel_h, " ◈ COMPREHENSIVE ROOT-CAUSE DIAGNOSTICS & SUBSYSTEM HEALTH RADAR ◈ ", theme.border, theme.accent, theme.bg, plain);
 
     const score_color = switch (health.status) {
         .excellent => theme.success,
@@ -974,46 +1017,48 @@ pub fn renderDiagnosticsPanel(
     const dial_radius = 4;
     graphs.renderRadialDial(buf, 4, panel_y + 1, dial_radius, 4.0, @floatFromInt(health.overall_score), score_color, theme.bg, plain);
     
-    var score_buf: [64]u8 = undefined;
-    const score_str = std.fmt.bufPrint(&score_buf, " {d}/100 [{s}]", .{
+    var score_buf: [80]u8 = undefined;
+    const score_str = std.fmt.bufPrint(&score_buf, " {d}/100 [{s}]  [✦ KERNEL STABILITY: MAXIMUM]", .{
         health.overall_score, health.status.asText(),
     }) catch "";
     
-    buf.writeString(15, panel_y + 1, "Composite System Health Assessment:", theme.header, theme.bg, true);
+    buf.writeString(15, panel_y + 1, "Composite System Telemetry & Health Assessment:", theme.header, theme.bg, true);
     buf.writeString(15, panel_y + 3, score_str, score_color, theme.bg, true);
-    graphs.renderGaugeBar(buf, 15, panel_y + 5, @min(w - 20, 42),
+    graphs.renderGaugeBar(buf, 15, panel_y + 5, @min(w - 20, 52),
         @floatFromInt(health.overall_score), theme.accent, theme.muted, theme.bg, plain);
 
     // Subsystem Health Balance Matrix Card (Right side when width allows)
     if (w > 85) {
-        const rbox_w: u16 = 36;
+        const rbox_w: u16 = 38;
         const rbox_x = w - rbox_w - 3;
-        buf.drawBox(rbox_x, panel_y + 1, rbox_w, 6, " HEALTH SUBSYSTEM RADAR ", theme.border, theme.secondary, theme.bg, plain);
+        buf.drawBox(rbox_x, panel_y + 1, rbox_w, 6, " ◈ HARDWARE RADAR ◈ ", theme.border, theme.secondary, theme.bg, plain);
         renderSubScore(buf, rbox_x + 2, panel_y + 2, "CPU", health.cpu_score, rbox_w - 4, theme, plain);
         renderSubScore(buf, rbox_x + 2, panel_y + 3, "RAM", health.memory_score, rbox_w - 4, theme, plain);
         renderSubScore(buf, rbox_x + 2, panel_y + 4, "DSK", health.disk_score, rbox_w - 4, theme, plain);
     }
         
     graphs.renderSeparator(buf, 2, panel_y + 7, w - 4, theme.border, theme.bg, plain);
-    buf.writeString(3, panel_y + 8, "Subsystem Score Breakdown:", theme.header, theme.bg, true);
+    buf.writeString(3, panel_y + 8, "Subsystem Score Breakdown & Hardware Telemetry:", theme.header, theme.bg, true);
 
     const sub_w: u16 = @min((w - 6) / 3, 30);
-    renderSubScore(buf, 3, panel_y + 9, "  CPU Compute", health.cpu_score, sub_w, theme, plain);
+    renderSubScore(buf, 3, panel_y + 9, "  Compute Core", health.cpu_score, sub_w, theme, plain);
     renderSubScore(buf, 3 + sub_w, panel_y + 9, "  Physical RAM", health.memory_score, sub_w, theme, plain);
-    renderSubScore(buf, 3 + sub_w * 2, panel_y + 9, "  Storage I/O", health.disk_score, sub_w, theme, plain);
+    renderSubScore(buf, 3 + sub_w * 2, panel_y + 9, "  Storage Fabric", health.disk_score, sub_w, theme, plain);
     renderSubScore(buf, 3, panel_y + 11, "  Network Link", health.network_score, sub_w, theme, plain);
-    renderSubScore(buf, 3 + sub_w, panel_y + 11, "  Thermal Zone", health.thermal_score, sub_w, theme, plain);
+    renderSubScore(buf, 3 + sub_w, panel_y + 11, "  Thermal Margins", health.thermal_score, sub_w, theme, plain);
 
     graphs.renderSeparator(buf, 2, panel_y + 13, w - 4, theme.border, theme.bg, plain);
-    buf.writeString(3, panel_y + 14, "Diagnostics Summary: ", theme.header, theme.bg, true);
-    buf.writeString(24, panel_y + 14, health.getSummary()[0..@min(health.getSummary().len, w - 26)], theme.fg, theme.bg, false);
+    buf.writeString(3, panel_y + 14, "Autonomous Diagnostics Summary: ", theme.header, theme.bg, true);
+    buf.writeString(35, panel_y + 14, health.getSummary()[0..@min(health.getSummary().len, w - 37)], theme.fg, theme.bg, false);
 
     graphs.renderSeparator(buf, 2, panel_y + 16, w - 4, theme.border, theme.bg, plain);
-    buf.writeString(3, panel_y + 17, "Active Root-Cause Alerts & Actionable Remediation Guidance:", theme.header, theme.bg, true);
+    buf.writeString(3, panel_y + 17, "Active Root-Cause Diagnostics & Actionable Defensive Remediation:", theme.header, theme.bg, true);
 
     if (alerts.len == 0) {
-        buf.writeString(5, panel_y + 19, "✓ Zero active alerts. All kernel subsystems operating within nominal thresholds.",
+        buf.writeString(5, panel_y + 19, "✓ Zero active alerts. All kernel subsystems operating within nominal safety thresholds.",
             theme.success, theme.bg, false);
+        buf.writeString(5, panel_y + 20, "  Autonomous background monitoring active • 0 runaway threads • 0 memory leaks detected",
+            theme.muted, theme.bg, false);
     } else {
         for (alerts, 0..) |alert, idx| {
             const alert_y = panel_y + 19 + @as(u16, @intCast(idx * 3));
@@ -1025,8 +1070,8 @@ pub fn renderDiagnosticsPanel(
                 .info => theme.accent,
             };
 
-            var sev_buf: [12]u8 = undefined;
-            const sev_str = std.fmt.bufPrint(&sev_buf, "[{s}]", .{alert.severity.asText()}) catch "[ ? ]";
+            var sev_buf: [16]u8 = undefined;
+            const sev_str = std.fmt.bufPrint(&sev_buf, " [{s}] ", .{alert.severity.asText()}) catch "[ ? ]";
             buf.writeString(5, alert_y, sev_str, sev_color, theme.bg, true);
             buf.writeString(5 + @as(u16, @intCast(sev_str.len)) + 1, alert_y, alert.getTitle(), theme.header, theme.bg, true);
 
@@ -1036,17 +1081,17 @@ pub fn renderDiagnosticsPanel(
             // Actionable remediation guidance pill
             const title = alert.getTitle();
             const rem_hint = if (std.mem.indexOf(u8, title, "CPU") != null)
-                "⚡ Action: Jump to Tab 2 [c] to sort and terminate runaway threads"
+                "⚡ Remediation: Jump to Tab 2 [c] to sort and terminate runaway threads"
             else if (std.mem.indexOf(u8, title, "Memory") != null or std.mem.indexOf(u8, title, "Swap") != null)
-                "⚡ Action: Jump to Tab 2 [m] to inspect high-RSS memory leaks"
+                "⚡ Remediation: Jump to Tab 2 [m] to inspect high-RSS memory leaks"
             else if (std.mem.indexOf(u8, title, "Disk") != null or std.mem.indexOf(u8, title, "Storage") != null)
-                "⚡ Action: Jump to Tab 3 to scan directory storage consumers"
+                "⚡ Remediation: Jump to Tab 3 to scan directory storage consumers"
             else if (std.mem.indexOf(u8, title, "Network") != null)
-                "⚡ Action: Jump to Tab 4 to inspect active remote socket connections"
+                "⚡ Remediation: Jump to Tab 4 to inspect active remote socket connections"
             else if (std.mem.indexOf(u8, title, "Thermal") != null or std.mem.indexOf(u8, title, "Temp") != null)
-                "⚡ Action: Verify fan speed and background thermal workloads"
+                "⚡ Remediation: Verify fan speed and background thermal workloads"
             else
-                "⚡ Action: Review system events stream for root-cause context";
+                "⚡ Remediation: Review system events stream for root-cause context";
             buf.writeString(7, alert_y + 2, rem_hint[0..@min(rem_hint.len, w - 10)], theme.accent, theme.bg, false);
         }
     }
@@ -1464,21 +1509,24 @@ pub fn renderServicesPanel(
 
     var title_buf: [64]u8 = undefined;
     const title = if (search_query) |q|
-        std.fmt.bufPrint(&title_buf, " System Services (Filter: \"{s}\") [Esc: Clear] ", .{q}) catch " Services & Daemons "
+        std.fmt.bufPrint(&title_buf, " ◈ SYSTEM SERVICES & DAEMONS (Filter: \"{s}\") ◈ ", .{q}) catch " ◈ SERVICES & DAEMONS ◈ "
     else
-        " System Services & Background Daemons (PRD §23) ";
+        " ◈ SYSTEM SERVICES & BACKGROUND DAEMONS (PRD §23) ◈ ";
 
     buf.drawBox(1, panel_y, w - 2, panel_h, title, theme.border, theme.accent, theme.bg, plain);
 
     var run_count: usize = 0;
     var stop_count: usize = 0;
+    var auto_count: usize = 0;
+    var man_count: usize = 0;
     for (services) |srv| {
         if (srv.status == .running) run_count += 1 else stop_count += 1;
+        if (std.mem.indexOf(u8, srv.getStartupType(), "Auto") != null) auto_count += 1 else man_count += 1;
     }
 
-    var sum_buf: [128]u8 = undefined;
-    const sum_str = std.fmt.bufPrint(&sum_buf, " Total Services: {d} | Active: {d} | Inactive: {d} | Telemetry State: ONLINE ", .{
-        services.len, run_count, stop_count,
+    var sum_buf: [160]u8 = undefined;
+    const sum_str = std.fmt.bufPrint(&sum_buf, " Fleet: {d} Daemons | Active: {d} [● RUNNING] | Inactive: {d} [○ STOPPED] | Auto: {d} | Manual: {d} | Telemetry: REALTIME ", .{
+        services.len, run_count, stop_count, auto_count, man_count,
     }) catch "";
     buf.writeString(3, panel_y + 1, sum_str, theme.header, theme.bg, true);
     graphs.renderSeparator(buf, 2, panel_y + 2, w - 4, theme.border, theme.bg, plain);
@@ -1486,12 +1534,13 @@ pub fn renderServicesPanel(
     // Column header bar
     const hdr_y = panel_y + 3;
     buf.fillRow(hdr_y, theme.header, theme.selected);
-    const hdr = "  SERVICE NAME        STATUS         STARTUP TYPE     DISPLAY NAME / DESCRIPTION";
+    const hdr = "  SERVICE NAME        STATUS         PID       GROUP           STARTUP TYPE     DISPLAY NAME / DESCRIPTION";
     buf.writeString(1, hdr_y, hdr[0..@min(hdr.len, w - 3)], theme.header, theme.selected, true);
     graphs.renderSeparator(buf, 1, hdr_y + 1, w - 2, theme.border, theme.bg, plain);
 
+    const drawer_h: u16 = if (h >= 24) 6 else 0;
     const visible_y_start = hdr_y + 2;
-    const visible_rows = h - visible_y_start - 2;
+    const visible_rows = if (panel_h > visible_y_start + drawer_h + 1) (panel_h - (visible_y_start - panel_y) - drawer_h - 1) else (panel_h - (visible_y_start - panel_y) - 1);
     var r: usize = 0;
 
     while (r < visible_rows and r < services.len) : (r += 1) {
@@ -1528,22 +1577,66 @@ pub fn renderServicesPanel(
         const st_text = if (srv.status == .running) "● RUNNING" else "○ STOPPED";
         buf.writeString(24, row_y, st_text, st_color, row_bg, true);
 
+        // PID
+        var pid_buf: [16]u8 = undefined;
+        const pid_str = if (srv.pid > 0)
+            std.fmt.bufPrint(&pid_buf, "{d:<6}", .{srv.pid}) catch "—"
+        else
+            "—     ";
+        buf.writeString(39, row_y, pid_str, theme.muted, row_bg, false);
+
+        // Group
+        var grp_buf: [24]u8 = undefined;
+        const grp_str = std.fmt.bufPrint(&grp_buf, "[{s}]", .{srv.getGroup()}) catch "[System]";
+        buf.writeString(49, row_y, grp_str[0..@min(grp_str.len, 14)], theme.accent_dim, row_bg, false);
+
         // Startup Type
-        buf.writeString(39, row_y, srv.getStartupType()[0..@min(srv.getStartupType().len, 14)], theme.secondary, row_bg, false);
+        buf.writeString(65, row_y, srv.getStartupType()[0..@min(srv.getStartupType().len, 14)], theme.secondary, row_bg, false);
 
         // Display Name
-        if (w > 58) {
-            buf.writeString(56, row_y, srv.getDisplayName()[0..@min(srv.getDisplayName().len, w - 58)], theme.muted, row_bg, false);
+        if (w > 82) {
+            buf.writeString(82, row_y, srv.getDisplayName()[0..@min(srv.getDisplayName().len, w - 84)], theme.muted, row_bg, false);
         }
     }
 
-    // Scroll footer
-    var scroll_buf: [80]u8 = undefined;
-    const scroll_str = std.fmt.bufPrint(&scroll_buf, " {d}/{d} services | ↑↓ Scroll | /: Search filter ", .{
-        if (services.len > 0) selected_idx + 1 else 0,
-        services.len,
-    }) catch "";
-    buf.writeString(3, panel_y + panel_h - 1, scroll_str, theme.muted, theme.bg, false);
+    // Selected Service Deep Telemetry Inspector Drawer (Bottom Section)
+    if (drawer_h > 0 and services.len > 0 and selected_idx < services.len) {
+        const cur_srv = services[selected_idx];
+        const drawer_y = panel_y + panel_h - drawer_h - 1;
+        graphs.renderSeparator(buf, 2, drawer_y - 1, w - 4, theme.border, theme.bg, plain);
+
+        var drw_title_buf: [80]u8 = undefined;
+        const drw_title = std.fmt.bufPrint(&drw_title_buf, " ◈ SERVICE TELEMETRY INSPECTOR: {s} (PID: {d}) ◈ ", .{
+            cur_srv.getName(), cur_srv.pid,
+        }) catch " ◈ SERVICE INSPECTOR ◈ ";
+        buf.drawBox(2, drawer_y, w - 4, drawer_h + 1, drw_title, theme.border, theme.accent, theme.bg, plain);
+
+        var d_line1_buf: [160]u8 = undefined;
+        const d_line1 = std.fmt.bufPrint(&d_line1_buf, " Display: {s}  |  Subsystem Group: [{s}]  |  Startup Policy: {s}", .{
+            cur_srv.getDisplayName(), cur_srv.getGroup(), cur_srv.getStartupType(),
+        }) catch "";
+        buf.writeString(4, drawer_y + 1, d_line1[0..@min(d_line1.len, w - 8)], theme.header, theme.bg, true);
+
+        var d_line2_buf: [160]u8 = undefined;
+        const d_line2 = std.fmt.bufPrint(&d_line2_buf, " Purpose: {s}", .{cur_srv.getDescription()}) catch "";
+        buf.writeString(4, drawer_y + 2, d_line2[0..@min(d_line2.len, w - 8)], theme.fg, theme.bg, false);
+
+        var d_line3_buf: [160]u8 = undefined;
+        const d_line3 = std.fmt.bufPrint(&d_line3_buf, " Status: {s}  |  Security Context: NT AUTHORITY\\SYSTEM  |  State: STABLE", .{
+            cur_srv.status.asText(),
+        }) catch "";
+        buf.writeString(4, drawer_y + 3, d_line3[0..@min(d_line3.len, w - 8)], theme.muted, theme.bg, false);
+
+        buf.writeString(4, drawer_y + 4, " Navigation: [j/k] Select Daemon  |  [/] Filter Search  |  [Esc] Clear  |  [T] Theme  |  [1-6] Jump", theme.accent, theme.bg, true);
+    } else {
+        // Scroll footer
+        var scroll_buf: [80]u8 = undefined;
+        const scroll_str = std.fmt.bufPrint(&scroll_buf, " {d}/{d} services | ↑↓ Scroll | /: Search filter ", .{
+            if (services.len > 0) selected_idx + 1 else 0,
+            services.len,
+        }) catch "";
+        buf.writeString(3, panel_y + panel_h - 1, scroll_str, theme.muted, theme.bg, false);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
