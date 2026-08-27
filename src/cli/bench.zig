@@ -28,20 +28,38 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
         result.cpu_single_mops = (@as(f64, @floatFromInt(iters)) / 1_000_000.0) / elapsed_s;
     }
 
-    // 2. Multi-Core Floating Point GFLOPS
+    // 2. Multi-Core Floating Point GFLOPS (Parallel Thread Pool)
     {
+        const num_threads = if (std.Thread.getCpuCount()) |c| @max(1, @min(@as(usize, @intCast(c)), 64)) else |_| 4;
+        const iters_per_thread: u64 = 8_000_000;
+
+        const Worker = struct {
+            fn run(iters: u64, out_accum: *f64) void {
+                var f_accum: f64 = 1.0;
+                var i: u64 = 0;
+                while (i < iters) : (i += 1) {
+                    f_accum = (f_accum * 1.0000001) + @as(f64, @floatFromInt(i % 100)) * 0.001;
+                }
+                out_accum.* = f_accum;
+            }
+        };
+
+        var threads = try allocator.alloc(std.Thread, num_threads);
+        defer allocator.free(threads);
+        var accums = try allocator.alloc(f64, num_threads);
+        defer allocator.free(accums);
+
         var timer = try std.time.Timer.start();
-        var f_accum: f64 = 1.0;
-        var i: u64 = 0;
-        const iters: u64 = 20_000_000;
-        while (i < iters) : (i += 1) {
-            f_accum = (f_accum * 1.0000001) + @as(f64, @floatFromInt(i % 100)) * 0.001;
+        for (0..num_threads) |t_idx| {
+            threads[t_idx] = try std.Thread.spawn(.{}, Worker.run, .{ iters_per_thread, &accums[t_idx] });
         }
-        std.mem.doNotOptimizeAway(f_accum);
+        for (threads) |handle| {
+            handle.join();
+        }
         const elapsed_ns = timer.read();
         const elapsed_s = @as(f64, @floatFromInt(elapsed_ns)) / 1_000_000_000.0;
-        const cores = if (std.Thread.getCpuCount()) |c| @as(f64, @floatFromInt(c)) else |_| 4.0;
-        result.cpu_multi_gflops = ((@as(f64, @floatFromInt(iters * 2)) / 1_000_000_000.0) / elapsed_s) * (cores * 0.85);
+        const total_ops = @as(f64, @floatFromInt(iters_per_thread * num_threads * 2));
+        result.cpu_multi_gflops = (total_ops / 1_000_000_000.0) / elapsed_s;
     }
 
     // 3. RAM Sequential Read & Write Bandwidth
