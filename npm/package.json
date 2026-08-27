@@ -1,11 +1,16 @@
 {
   "name": "zyphor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Next-generation native terminal system observatory written in pure Zig",
   "main": "bin/zyphor.js",
   "bin": {
     "zyphor": "bin/zyphor.js"
   },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md"
+  ],
   "scripts": {
     "postinstall": "node scripts/install.js"
   },
