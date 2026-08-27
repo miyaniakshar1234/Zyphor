@@ -15,7 +15,12 @@ pub const theme = @import("ui/theme.zig");
 pub const graphs = @import("ui/graphs.zig");
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const GPA = if (@hasDecl(std.heap, "GeneralPurposeAllocator"))
+        std.heap.GeneralPurposeAllocator(.{})
+    else
+        std.heap.DebugAllocator(.{});
+
+    var gpa = GPA{};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
