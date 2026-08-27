@@ -155,7 +155,22 @@ pub const Terminal = struct {
         return .{ .width = 120, .height = 36 };
     }
 
-    pub fn readKey(_: *Terminal) ?Key {
+    pub fn readKey(self: *Terminal) ?Key {
+        if (is_windows) {
+            if (self.h_in) |hIn| {
+                const wait_res = std.os.windows.kernel32.WaitForSingleObject(hIn, 0);
+                if (wait_res != 0) return null;
+            }
+        } else {
+            var fds = [_]std.posix.pollfd{.{
+                .fd = std.posix.STDIN_FILENO,
+                .events = std.posix.POLL.IN,
+                .revents = 0,
+            }};
+            const ready = std.posix.poll(&fds, 0) catch return null;
+            if (ready == 0) return null;
+        }
+
         const file = std.fs.File.stdin();
         var byte_buf: [1]u8 = undefined;
 
