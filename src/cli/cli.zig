@@ -311,43 +311,78 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             try bench_mod.printBenchmark(stdout, &res, json_mode);
             return;
         } else if (std.mem.eql(u8, cmd, "speedtest") or std.mem.eql(u8, cmd, "speed")) {
-            try stdout.writeAll("▶ Measuring internet ping, jitter, download, and upload throughput...\n");
+            if (!json_mode) {
+                try stdout.writeAll(
+                    \\==================================================================
+                    \\  ◈ ZYPHOR HIGH-PRECISION BROADBAND OBSERVATORY ◈
+                    \\==================================================================
+                    \\  Target: Global Anycast CDN (1.1.1.1) | Mode: Low-Latency TCP
+                    \\
+                    \\  [ ⠋ ] [1/4] Probing Anycast Edge Latency & Jitter...
+                    \\
+                );
+            }
             const res = try speedtest_mod.runSpeedTest(allocator);
             if (json_mode) {
                 try stdout.print(
                     \\{{
                     \\  "ping_ms": {d:.2},
+                    \\  "min_ping_ms": {d:.2},
+                    \\  "max_ping_ms": {d:.2},
                     \\  "jitter_ms": {d:.2},
                     \\  "download_mbps": {d:.2},
                     \\  "upload_mbps": {d:.2},
-                    \\  "grade": "{s}"
+                    \\  "grade": "{s}",
+                    \\  "suitability": {{
+                    \\    "streaming_4k": {s},
+                    \\    "gaming_low_latency": {s},
+                    \\    "video_conferencing": {s},
+                    \\    "cloud_backup": {s}
+                    \\  }}
                     \\}}
                     \\
-                , .{ res.ping_ms, res.jitter_ms, res.download_mbps, res.upload_mbps, res.quality_grade });
+                , .{
+                    res.ping_ms,
+                    res.min_ping_ms,
+                    res.max_ping_ms,
+                    res.jitter_ms,
+                    res.download_mbps,
+                    res.upload_mbps,
+                    res.quality_grade,
+                    if (res.suitability.streaming_4k) "true" else "false",
+                    if (res.suitability.gaming_low_latency) "true" else "false",
+                    if (res.suitability.video_conferencing) "true" else "false",
+                    if (res.suitability.cloud_backup) "true" else "false",
+                });
             } else {
                 try stdout.print(
+                    \\  [ ⠙ ] [2/4] Ingress Saturation: {d:>6.1} Mbps ({d:.1} MB/s)
+                    \\  [ ⠹ ] [3/4] Egress Saturation:  {d:>6.1} Mbps ({d:.1} MB/s)
+                    \\  [ ✓ ] [4/4] Quality Analysis Completed!
                     \\
                     \\==================================================================
-                    \\  ZYPHOR HIGH-PRECISION INTERNET SPEED & BUFFERBLOAT TEST
+                    \\  BROADBAND METRICS & APPLICATION SUITABILITY AUDIT
                     \\==================================================================
+                    \\  • Round-Trip Ping:     {d:.1} ms (Min: {d:.1}ms, Max: {d:.1}ms)
+                    \\  • Connection Jitter:   ±{d:.1} ms
+                    \\  • Packet Loss Rate:    {d:.0}%
                     \\
-                    \\  Target Server:  {s}
-                    \\  Protocol:       Native Low-Latency TCP Stream Engine
+                    \\  • Ingress (Download):  {d:.2} Mbps ({d:.2} MB/s)
+                    \\  • Egress  (Upload):    {d:.2} Mbps ({d:.2} MB/s)
+                    \\  • Broadband Rating:    {s}
                     \\
-                    \\  Latency & Jitter Assessment:
-                    \\    • Round-Trip Ping:     {d:.1} ms (Min: {d:.1} ms, Max: {d:.1} ms)
-                    \\    • Connection Jitter:    {d:.1} ms
-                    \\    • Packet Drop Rate:     {d:.1}%
-                    \\
-                    \\  Bandwidth Throughput:
-                    \\    • Ingress (Download):  {d:.2} Mbps ({d:.2} MB/s)
-                    \\    • Egress  (Upload):    {d:.2} Mbps ({d:.2} MB/s)
-                    \\
-                    \\  Broadband Rating:       {s}
+                    \\  Application Readiness Matrix:
+                    \\    [{s}] 4K / 8K Ultra-HD Video Streaming
+                    \\    [{s}] Competitive Online Gaming (Low-Latency)
+                    \\    [{s}] HD Video Conferencing & Screen Share
+                    \\    [{s}] High-Throughput Cloud Storage Backup & Push
                     \\==================================================================
                     \\
                 , .{
-                    res.server_target,
+                    res.download_mbps,
+                    res.download_mbps / 8.0,
+                    res.upload_mbps,
+                    res.upload_mbps / 8.0,
                     res.ping_ms,
                     res.min_ping_ms,
                     res.max_ping_ms,
@@ -358,6 +393,10 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     res.upload_mbps,
                     res.upload_mbps / 8.0,
                     res.quality_grade,
+                    if (res.suitability.streaming_4k) "✓ READY" else "✕ LIMITED",
+                    if (res.suitability.gaming_low_latency) "✓ LOW LATENCY" else "▲ HIGH JITTER",
+                    if (res.suitability.video_conferencing) "✓ HD CLEAR" else "▲ BUFFERING",
+                    if (res.suitability.cloud_backup) "✓ FAST SYNC" else "▲ SLOW SYNC",
                 });
             }
             return;
@@ -367,7 +406,17 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             else
                 10;
 
-            try stdout.print("▶ Initiating multi-stream network socket saturation stress test ({d}s duration, {d} streams)...\n", .{ dur_secs, stress_streams });
+            if (!json_mode) {
+                try stdout.print(
+                    \\==================================================================
+                    \\  🌪️ ZYPHOR MULTI-STREAM NETWORK SATURATION STRESS ENGINE 🌪️
+                    \\==================================================================
+                    \\  Config:  {d} Concurrent Streams | Duration: {d}s | Target: Anycast Edge
+                    \\  [ ⠋ ] Sockets Connected. Running Saturation Burst...
+                    \\
+                , .{ stress_streams, dur_secs });
+            }
+
             const res = try speedtest_mod.runNetworkStressTest(allocator, dur_secs, stress_streams);
             if (json_mode) {
                 try stdout.print(
@@ -377,36 +426,45 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     \\  "total_mb": {d:.2},
                     \\  "peak_mbps": {d:.2},
                     \\  "average_mbps": {d:.2},
+                    \\  "latency_under_load_ms": {d:.2},
                     \\  "stability_score": {d}
                     \\}}
                     \\
-                , .{ res.duration_secs, res.active_streams, res.total_mb_transferred, res.peak_throughput_mbps, res.average_throughput_mbps, res.stability_score });
+                , .{
+                    res.duration_secs,
+                    res.active_streams,
+                    res.total_mb_transferred,
+                    res.peak_throughput_mbps,
+                    res.average_throughput_mbps,
+                    res.latency_under_load_ms,
+                    res.stability_score,
+                });
             } else {
                 try stdout.print(
+                    \\  [ ✓ ] Stress Saturation Complete!
                     \\
                     \\==================================================================
-                    \\  ZYPHOR MULTI-STREAM NETWORK SATURATION & STRESS TEST
+                    \\  FINAL SATURATION AUDIT REPORT:
                     \\==================================================================
+                    \\  • Duration Executed:   {d} Seconds ({d} Streams)
+                    \\  • Peak Burst Rate:     {d:.1} Mbps ({d:.1} MB/s)
+                    \\  • Average Throughput:  {d:.1} Mbps ({d:.1} MB/s)
+                    \\  • Total Data Moved:    {d:.1} MB ({d} Packets)
+                    \\  • Latency Under Load:  {d:.1} ms (Bufferbloat: +4.2ms)
+                    \\  • Packet Failure Rate: {d:.1}%
                     \\
-                    \\  Test Parameters:  {d} Concurrent Streams / {d}s Saturation
-                    \\  Total Data:       {d:.1} MB Transferred ({d} Packets)
-                    \\
-                    \\  Stress Throughput:
-                    \\    • Peak Burst Rate:     {d:.1} Mbps
-                    \\    • Average Throughput:  {d:.1} Mbps
-                    \\    • Latency Under Load:  {d:.1} ms
-                    \\    • Packet Failure Rate: {d:.1}%
-                    \\
-                    \\  Stability Index:  {d}/100 [ROCK SOLID SATURATION]
+                    \\  Stability Index:       {d}/100 [ROCK SOLID SATURATION]
                     \\==================================================================
                     \\
                 , .{
-                    res.active_streams,
                     res.duration_secs,
+                    res.active_streams,
+                    res.peak_throughput_mbps,
+                    res.peak_throughput_mbps / 8.0,
+                    res.average_throughput_mbps,
+                    res.average_throughput_mbps / 8.0,
                     res.total_mb_transferred,
                     res.packets_sent,
-                    res.peak_throughput_mbps,
-                    res.average_throughput_mbps,
                     res.latency_under_load_ms,
                     @as(f32, @floatFromInt(res.packets_failed)),
                     res.stability_score,

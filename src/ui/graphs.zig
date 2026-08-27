@@ -224,6 +224,13 @@ pub fn renderWaveformGraph(
     const count = @min(@as(usize, width), history.len);
     const start = if (history.len > count) history.len - count else 0;
 
+    // Find peak value in history for dynamic auto-scaling
+    var peak_val: f32 = 0.01;
+    for (history) |v| {
+        if (v > peak_val) peak_val = v;
+    }
+    const scale_max = if (color_override != null) @max(0.05, peak_val * 1.15) else 100.0;
+
     var col: usize = 0;
     while (col < count) : (col += 1) {
         const val = history[start + col];
@@ -231,7 +238,7 @@ pub fn renderWaveformGraph(
 
         // Normalize across height rows (0 to height)
         const total_steps = @as(f32, @floatFromInt(height)) * 8.0;
-        const filled_steps = (std.math.clamp(val, 0.0, 100.0) / 100.0) * total_steps;
+        const filled_steps = (std.math.clamp(val / scale_max, 0.0, 1.0)) * total_steps;
 
         var row: u16 = 0;
         while (row < height) : (row += 1) {
@@ -271,9 +278,25 @@ pub fn renderBrailleGraph(
     bg: Color,
     plain: bool,
 ) void {
-    if (width == 0 or height == 0 or history.len == 0 or plain) {
-        // Fallback to waveform graph if plain mode is active
+    if (width == 0 or height == 0) return;
+    if (plain) {
         renderWaveformGraph(buf, x, y, width, height, history, color_override, bg, plain);
+        return;
+    }
+
+    if (history.len == 0) {
+        var col: u16 = 0;
+        while (col < width) : (col += 1) {
+            var row: u16 = 0;
+            while (row < height) : (row += 1) {
+                const cell_y = y + (height - 1 - row);
+                if (row == 0) {
+                    buf.setCell(x + col, cell_y, "─", Color.rgb(40, 45, 55), bg, false);
+                } else if (col % 6 == 0 and row % 2 == 0) {
+                    buf.setCell(x + col, cell_y, "·", Color.rgb(35, 40, 48), bg, false);
+                }
+            }
+        }
         return;
     }
 
@@ -282,6 +305,13 @@ pub fn renderBrailleGraph(
 
     const max_hist = @min(history.len, @as(usize, width) * 2);
     const start_idx = if (history.len > max_hist) history.len - max_hist else 0;
+
+    // Find peak value in history for dynamic auto-scaling
+    var peak_val: f32 = 0.01;
+    for (history) |v| {
+        if (v > peak_val) peak_val = v;
+    }
+    const scale_max = if (color_override != null) @max(0.05, peak_val * 1.15) else 100.0;
 
     var col: u16 = 0;
     while (col < width) : (col += 1) {
@@ -296,8 +326,8 @@ pub fn renderBrailleGraph(
         const col_fg = color_override orelse percentColor(max_val);
 
         const total_pixels = @as(f32, @floatFromInt(height)) * 4.0;
-        const left_pixels = @as(u16, @intFromFloat(std.math.clamp(left_val / 100.0 * total_pixels, 0.0, total_pixels)));
-        const right_pixels = @as(u16, @intFromFloat(std.math.clamp(right_val / 100.0 * total_pixels, 0.0, total_pixels)));
+        const left_pixels = @as(u16, @intFromFloat(std.math.clamp(left_val / scale_max * total_pixels, 0.0, total_pixels)));
+        const right_pixels = @as(u16, @intFromFloat(std.math.clamp(right_val / scale_max * total_pixels, 0.0, total_pixels)));
 
         var row: u16 = 0;
         while (row < height) : (row += 1) {
@@ -308,14 +338,20 @@ pub fn renderBrailleGraph(
             const r_px = if (right_pixels > row_px) @min(right_pixels - row_px, 4) else 0;
 
             if (l_px == 0 and r_px == 0) {
-                // Empty cell
-                buf.setCell(x + col, cell_y, " ", bg, bg, false);
+                // Subtle oscilloscope radar grid dot
+                if (row == 0) {
+                    buf.setCell(x + col, cell_y, "─", Color.rgb(40, 45, 55), bg, false);
+                } else if (col % 6 == 0 and row % 2 == 0) {
+                    buf.setCell(x + col, cell_y, "·", Color.rgb(35, 40, 48), bg, false);
+                } else {
+                    buf.setCell(x + col, cell_y, " ", bg, bg, false);
+                }
             } else {
                 const code = 0x2800 | left_mask[l_px] | right_mask[r_px];
                 var utf8_buf: [4]u8 = undefined;
                 const len = std.unicode.utf8Encode(@as(u21, @intCast(code)), &utf8_buf) catch 0;
                 
-                const row_fg = if (row == height - 1) col_fg else col_fg.darken(@as(u8, @intCast((height - 1 - row) * 15)));
+                const row_fg = if (row == height - 1) col_fg else col_fg.darken(@as(u8, @intCast((height - 1 - row) * 12)));
                 buf.setCell(x + col, cell_y, utf8_buf[0..len], row_fg, bg, false);
             }
         }
