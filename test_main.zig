@@ -1,1 +1,0 @@
-const std = @import("std"); fn mainOld() !void { std.debug.print("old", .{}); } fn mainNew(init: std.process.Init) !void { _ = init; std.debug.print("new", .{}); } pub const main = if (@hasDecl(std.process, "Init")) mainNew else mainOld;
