@@ -16,7 +16,8 @@ pub const SortOrder = enum {
 
 pub const ProcessManager = struct {
     allocator: std.mem.Allocator,
-    processes: std.ArrayList(types.ProcessInfo) = .empty,
+    raw_processes: std.ArrayList(types.ProcessInfo) = .empty,
+    tree_processes: std.ArrayList(types.ProcessInfo) = .empty,
     filtered_indices: std.ArrayList(usize) = .empty,
     sort_field: SortField = .cpu,
     sort_order: SortOrder = .descending,
@@ -31,12 +32,26 @@ pub const ProcessManager = struct {
     }
 
     pub fn deinit(self: *ProcessManager) void {
-        self.processes.deinit(self.allocator);
+        self.raw_processes.deinit(self.allocator);
+        self.tree_processes.deinit(self.allocator);
         self.filtered_indices.deinit(self.allocator);
+    }
+
+    fn rebuildTree(self: *ProcessManager) !void {
+        const tree_mod = @import("tree.zig");
+        var tree = tree_mod.ProcessTree.init(self.allocator);
+        defer tree.deinit();
+        try tree.build(self.raw_processes.items);
+
+        self.tree_processes.clearRetainingCapacity();
+        try tree.flatten(&self.tree_processes);
     }
 
     pub fn toggleTreeMode(self: *ProcessManager) !void {
         self.tree_mode = !self.tree_mode;
+        if (self.tree_mode) {
+            try self.rebuildTree();
+        }
         try self.applyFilterAndSort();
     }
 
@@ -62,8 +77,13 @@ pub const ProcessManager = struct {
             @memcpy(self.active_filter[0..len], q[0..len]);
             self.active_filter_len = len;
         }
-        self.processes.clearRetainingCapacity();
-        try self.processes.appendSlice(self.allocator, new_procs);
+        self.raw_processes.clearRetainingCapacity();
+        try self.raw_processes.appendSlice(self.allocator, new_procs);
+
+        if (self.tree_mode) {
+            try self.rebuildTree();
+        }
+
         try self.applyFilterAndSort();
     }
 
@@ -76,23 +96,10 @@ pub const ProcessManager = struct {
     pub fn applyFilterAndSort(self: *ProcessManager) !void {
         self.filtered_indices.clearRetainingCapacity();
 
-        if (self.tree_mode) {
-            const tree_mod = @import("tree.zig");
-            var tree = tree_mod.ProcessTree.init(self.allocator);
-            defer tree.deinit();
-            try tree.build(self.processes.items);
-
-            var flattened = std.ArrayList(types.ProcessInfo).empty;
-            try tree.flatten(&flattened);
-            
-            // Re-assign processes to the flattened tree version (retaining original instances but ordered and annotated)
-            self.processes.deinit(self.allocator);
-            self.processes = flattened;
-        }
-
+        const active_list = if (self.tree_mode) self.tree_processes.items else self.raw_processes.items;
         const filter = self.getFilter();
 
-        for (self.processes.items, 0..) |proc, idx| {
+        for (active_list, 0..) |proc, idx| {
             if (filter) |query| {
                 if (query.len > 0) {
                     const name = proc.getName();
@@ -112,7 +119,6 @@ pub const ProcessManager = struct {
 
         if (self.tree_mode) return; // Skip sorting to preserve tree topology
 
-        const items = self.processes.items;
         const field = self.sort_field;
         const order = self.sort_order;
 
@@ -136,7 +142,7 @@ pub const ProcessManager = struct {
         };
 
         const ctx = Context{
-            .items = items,
+            .items = active_list,
             .field = field,
             .order = order,
         };
@@ -151,7 +157,8 @@ pub const ProcessManager = struct {
     pub fn getProcessAt(self: *const ProcessManager, filtered_idx: usize) ?types.ProcessInfo {
         if (filtered_idx >= self.filtered_indices.items.len) return null;
         const raw_idx = self.filtered_indices.items[filtered_idx];
-        return self.processes.items[raw_idx];
+        const active_list = if (self.tree_mode) self.tree_processes.items else self.raw_processes.items;
+        return active_list[raw_idx];
     }
 };
 
