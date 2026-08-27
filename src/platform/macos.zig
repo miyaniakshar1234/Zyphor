@@ -18,22 +18,24 @@ pub const MacosCollector = struct {
         };
     }
 
+    const vtable_impl: PlatformCollector.VTable = .{
+        .getCpuMetrics = getCpuMetrics,
+        .getMemoryMetrics = getMemoryMetrics,
+        .getDiskMetrics = getDiskMetrics,
+        .getNetworkMetrics = getNetworkMetrics,
+        .getGpuMetrics = getGpuMetrics,
+        .getBatteryMetrics = getBatteryMetrics,
+        .getProcessList = getProcessList,
+        .killProcess = killProcess,
+        .suspendProcess = suspendProcess,
+        .resumeProcess = resumeProcess,
+        .deinit = deinit,
+    };
+
     pub fn collector(self: *MacosCollector) PlatformCollector {
         return .{
             .ptr = self,
-            .vtable = &.{
-                .getCpuMetrics = getCpuMetrics,
-                .getMemoryMetrics = getMemoryMetrics,
-                .getDiskMetrics = getDiskMetrics,
-                .getNetworkMetrics = getNetworkMetrics,
-                .getGpuMetrics = getGpuMetrics,
-                .getBatteryMetrics = getBatteryMetrics,
-                .getProcessList = getProcessList,
-                .killProcess = killProcess,
-                .suspendProcess = suspendProcess,
-                .resumeProcess = resumeProcess,
-                .deinit = deinit,
-            },
+            .vtable = &vtable_impl,
         };
     }
 

@@ -30,7 +30,8 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            zig test src/main.zig -lc
+            SDK_PATH=$(xcrun --show-sdk-path)
+            zig test src/main.zig --sysroot "$SDK_PATH" -lSystem
           else
             zig test src/main.zig
           fi
