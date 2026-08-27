@@ -399,13 +399,17 @@ pub const App = struct {
                             }
                         },
                         'j' => {
-                            if (self.selected_proc_idx + 1 < proc_count) self.selected_proc_idx += 1;
+                            const max_items = if (self.active_tab == .services) snapshot.services.len else proc_count;
+                            if (self.selected_proc_idx + 1 < max_items) self.selected_proc_idx += 1;
                         },
                         'k' => {
                             if (self.selected_proc_idx > 0) self.selected_proc_idx -= 1;
                         },
                         'g' => self.selected_proc_idx = 0,
-                        'G' => self.selected_proc_idx = if (proc_count > 0) proc_count - 1 else 0,
+                        'G' => {
+                            const max_items = if (self.active_tab == .services) snapshot.services.len else proc_count;
+                            self.selected_proc_idx = if (max_items > 0) max_items - 1 else 0;
+                        },
                         else => {},
                     },
                     .enter => {
@@ -433,23 +437,29 @@ pub const App = struct {
                             .diagnostics => .network,
                             .services    => .diagnostics,
                         };
+                        self.selected_proc_idx = 0;
                     },
                     .down => {
-                        if (self.selected_proc_idx + 1 < proc_count) self.selected_proc_idx += 1;
+                        const max_items = if (self.active_tab == .services) snapshot.services.len else proc_count;
+                        if (self.selected_proc_idx + 1 < max_items) self.selected_proc_idx += 1;
                     },
                     .up => {
                         if (self.selected_proc_idx > 0) self.selected_proc_idx -= 1;
                     },
                     .page_down => {
+                        const max_items = if (self.active_tab == .services) snapshot.services.len else proc_count;
                         const page = @as(usize, self.buffer.height / 2);
-                        self.selected_proc_idx = @min(self.selected_proc_idx + page, if (proc_count > 0) proc_count - 1 else 0);
+                        self.selected_proc_idx = @min(self.selected_proc_idx + page, if (max_items > 0) max_items - 1 else 0);
                     },
                     .page_up => {
                         const page = @as(usize, self.buffer.height / 2);
                         self.selected_proc_idx = if (self.selected_proc_idx > page) self.selected_proc_idx - page else 0;
                     },
                     .home => self.selected_proc_idx = 0,
-                    .end  => self.selected_proc_idx = if (proc_count > 0) proc_count - 1 else 0,
+                    .end  => {
+                        const max_items = if (self.active_tab == .services) snapshot.services.len else proc_count;
+                        self.selected_proc_idx = if (max_items > 0) max_items - 1 else 0;
+                    },
                     .escape => {
                         if (self.show_help) self.show_help = false;
                         if (self.show_inspect_modal) self.show_inspect_modal = false;
