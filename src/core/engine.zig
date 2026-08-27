@@ -10,7 +10,8 @@ const alert_mod = @import("../alerts/engine.zig");
 
 pub const SystemEngine = struct {
     allocator: std.mem.Allocator,
-    scratch_arena: std.heap.ArenaAllocator,
+    arenas: [2]std.heap.ArenaAllocator,
+    active_arena_idx: usize = 0,
     platform: platform_mod.PlatformManager,
     process_mgr: process_mod.ProcessManager,
     process_tree: tree_mod.ProcessTree,
@@ -22,7 +23,11 @@ pub const SystemEngine = struct {
     pub fn init(allocator: std.mem.Allocator) SystemEngine {
         return .{
             .allocator = allocator,
-            .scratch_arena = std.heap.ArenaAllocator.init(allocator),
+            .arenas = [2]std.heap.ArenaAllocator{
+                std.heap.ArenaAllocator.init(allocator),
+                std.heap.ArenaAllocator.init(allocator),
+            },
+            .active_arena_idx = 0,
             .platform = platform_mod.PlatformManager.init(),
             .process_mgr = process_mod.ProcessManager.init(allocator),
             .process_tree = tree_mod.ProcessTree.init(allocator),
@@ -33,15 +38,18 @@ pub const SystemEngine = struct {
     }
 
     pub fn deinit(self: *SystemEngine) void {
-        self.scratch_arena.deinit();
+        self.arenas[0].deinit();
+        self.arenas[1].deinit();
         self.process_mgr.deinit();
         self.process_tree.deinit();
         self.alert_engine.deinit();
     }
 
     pub fn sampleSnapshot(self: *SystemEngine) !types.SystemSnapshot {
-        _ = self.scratch_arena.reset(.retain_capacity);
-        const scratch = self.scratch_arena.allocator();
+        // Double-buffer arena swap: advance to the next arena slot and reset only the incoming slot
+        self.active_arena_idx = (self.active_arena_idx + 1) % 2;
+        _ = self.arenas[self.active_arena_idx].reset(.retain_capacity);
+        const scratch = self.arenas[self.active_arena_idx].allocator();
 
         var collector = self.platform.getCollector();
 
