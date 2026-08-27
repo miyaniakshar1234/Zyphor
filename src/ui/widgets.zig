@@ -1911,6 +1911,7 @@ pub const PALETTE_COMMANDS = [_][2][]const u8{
     .{ "Terminate Selected Process (SIGKILL)", "Open kill confirmation" },
     .{ "Suspend Selected Process (SIGSTOP)", "Pause process execution" },
     .{ "Resume Selected Process (SIGCONT)", "Unpause process execution" },
+    .{ "Export Telemetry (E)", "Dump live system state to JSON" },
     .{ "Show Keyboard Shortcuts & Help", "Open help guide modal" },
     .{ "Quit Zyphor", "Exit application cleanly" },
 };
@@ -2241,3 +2242,4 @@ fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     }
     return false;
 }
+

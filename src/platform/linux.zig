@@ -199,28 +199,69 @@ pub const LinuxCollector = struct {
             .iops = 88,
         };
     }
-
     fn getNetworkMetrics(_: *anyopaque, allocator: std.mem.Allocator) anyerror!types.NetworkMetrics {
-        var ifaces = try allocator.alloc(types.NetworkInterface, 1);
-        ifaces[0] = .{
-            .rx_bytes_sec = 2_100_000,
-            .tx_bytes_sec = 420_000,
-            .total_rx_bytes = 8_500_000_000,
-            .total_tx_bytes = 1_200_000_000,
-            .is_up = true,
-        };
-        const name = "eth0";
-        @memcpy(ifaces[0].name[0..name.len], name);
-        ifaces[0].name_len = name.len;
+        var file = std.fs.openFileAbsolute("/proc/net/dev", .{}) catch return error.FileOpenFailed;
+        defer file.close();
 
-        const ip = "192.168.1.50";
-        @memcpy(ifaces[0].ip_address[0..ip.len], ip);
-        ifaces[0].ip_len = ip.len;
+        var buf: [4096]u8 = undefined;
+        const len = file.readAll(&buf) catch return error.FileReadFailed;
+        const text = buf[0..len];
+
+        var list = std.ArrayList(types.NetworkInterface).init(allocator);
+        defer list.deinit();
+
+        var total_rx: u64 = 0;
+        var total_tx: u64 = 0;
+
+        var lines = std.mem.splitScalar(u8, text, '\n');
+        _ = lines.next(); // Skip header 1
+        _ = lines.next(); // Skip header 2
+
+        while (lines.next()) |line| {
+            if (line.len == 0) continue;
+            
+            const colon_idx = std.mem.indexOfScalar(u8, line, ':') orelse continue;
+            const raw_name = line[0..colon_idx];
+            const name = std.mem.trim(u8, raw_name, " \t");
+            
+            // Skip loopback for cleaner dashboards (optional, but good practice)
+            if (std.mem.eql(u8, name, "lo")) continue;
+
+            const values = line[colon_idx + 1 ..];
+            var it = std.mem.tokenizeAny(u8, values, " \t");
+            
+            const rx_bytes_str = it.next() orelse continue;
+            var i: usize = 0;
+            while (i < 7) : (i += 1) {
+                _ = it.next();
+            }
+            const tx_bytes_str = it.next() orelse continue;
+
+            const rx = std.fmt.parseInt(u64, rx_bytes_str, 10) catch 0;
+            const tx = std.fmt.parseInt(u64, tx_bytes_str, 10) catch 0;
+            
+            total_rx +%= rx;
+            total_tx +%= tx;
+
+            var iface = types.NetworkInterface{
+                .rx_bytes_sec = 0, // Engine handles delta
+                .tx_bytes_sec = 0, // Engine handles delta
+                .total_rx_bytes = rx,
+                .total_tx_bytes = tx,
+                .is_up = true,
+            };
+            
+            const n_len = @min(name.len, 64);
+            @memcpy(iface.name[0..n_len], name[0..n_len]);
+            iface.name_len = n_len;
+
+            try list.append(iface);
+        }
 
         return types.NetworkMetrics{
-            .interfaces = ifaces,
-            .total_rx_sec = ifaces[0].rx_bytes_sec,
-            .total_tx_sec = ifaces[0].tx_bytes_sec,
+            .interfaces = try list.toOwnedSlice(),
+            .total_rx_sec = 0,
+            .total_tx_sec = 0,
         };
     }
 
@@ -328,5 +369,6 @@ pub const LinuxCollector = struct {
     fn suspendProcess(_: *anyopaque, _: u32) anyerror!void {}
     fn resumeProcess(_: *anyopaque, _: u32) anyerror!void {}
 };
+
 
 

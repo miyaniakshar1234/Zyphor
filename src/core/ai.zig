@@ -34,14 +34,14 @@ pub fn generateHeuristicInsights(allocator: std.mem.Allocator, snapshot: *const 
         var top_mem: ?types.ProcessInfo = null;
         var highest_mem: u64 = 0;
         for (snapshot.top_processes) |p| {
-            if (p.memory_vsize > highest_mem) {
-                highest_mem = p.memory_vsize;
+                        if (p.memory_rss > highest_mem) {
+                                highest_mem = p.memory_rss;
                 top_mem = p;
             }
         }
 
         if (top_mem) |top| {
-            const mem_mb = top.memory_vsize / (1024 * 1024);
+                        const mem_mb = top.memory_rss / (1024 * 1024);
             var action_str: []const u8 = "";
             
             if (swap_usage > 20) {
@@ -81,6 +81,7 @@ pub fn generateHeuristicInsights(allocator: std.mem.Allocator, snapshot: *const 
 
     return insights.toOwnedSlice(allocator);
 }
+
 
 
 
