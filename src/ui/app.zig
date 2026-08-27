@@ -26,6 +26,10 @@ pub const App = struct {
     show_stress_modal: bool = false,
     speedtest_result: ?speedtest_mod.SpeedTestResult = null,
     stress_result: ?speedtest_mod.StressTestResult = null,
+    speedtest_tracker: speedtest_mod.LiveSpeedTestTracker = .{},
+    stress_tracker: speedtest_mod.LiveStressTestTracker = .{},
+    speedtest_thread: ?std.Thread = null,
+    stress_thread: ?std.Thread = null,
     stress_duration_secs: u32 = 10,
     stress_streams: u32 = 8,
     search_input_active: bool = false,
@@ -67,7 +71,31 @@ pub const App = struct {
         };
     }
 
+    pub fn triggerSpeedTest(self: *App) void {
+        if (!self.speedtest_tracker.is_running) {
+            self.show_speedtest_modal = true;
+            self.speedtest_result = null;
+            self.speedtest_tracker = .{};
+            if (self.speedtest_thread) |t| t.detach();
+            self.speedtest_thread = speedtest_mod.startSpeedTestThread(self.allocator, &self.speedtest_tracker) catch null;
+            self.setStatus("⚡ Speedtest probing initiated in background...");
+        }
+    }
+
+    pub fn triggerStressTest(self: *App, dur: u32, streams: u32) void {
+        if (!self.stress_tracker.is_running) {
+            self.show_stress_modal = true;
+            self.stress_result = null;
+            self.stress_tracker = .{};
+            if (self.stress_thread) |t| t.detach();
+            self.stress_thread = speedtest_mod.startStressTestThread(self.allocator, dur, streams, &self.stress_tracker) catch null;
+            self.setStatus("🌪️ Multi-stream stress test initiated in background...");
+        }
+    }
+
     pub fn deinit(self: *App) void {
+        if (self.speedtest_thread) |t| t.detach();
+        if (self.stress_thread) |t| t.detach();
         self.terminal.exitRawMode();
         self.buffer.deinit();
     }
@@ -147,13 +175,17 @@ pub const App = struct {
                     widgets.renderKillConfirmModal(&self.buffer, proc, &self.theme, self.plain_mode);
                 }
             } else if (self.show_speedtest_modal) {
-                if (self.speedtest_result) |*res| {
-                    widgets.renderSpeedTestModal(&self.buffer, res, &self.theme, self.plain_mode);
+                if (self.speedtest_tracker.has_result and self.speedtest_result == null) {
+                    self.speedtest_result = self.speedtest_tracker.final_result;
                 }
+                const res_ptr: ?*const speedtest_mod.SpeedTestResult = if (self.speedtest_result) |*r| r else null;
+                widgets.renderSpeedTestModal(&self.buffer, &self.speedtest_tracker, res_ptr, self.frame_count, &self.theme, self.plain_mode);
             } else if (self.show_stress_modal) {
-                if (self.stress_result) |*res| {
-                    widgets.renderStressTestModal(&self.buffer, res, &self.theme, self.plain_mode);
+                if (self.stress_tracker.has_result and self.stress_result == null) {
+                    self.stress_result = self.stress_tracker.final_result;
                 }
+                const res_ptr: ?*const speedtest_mod.StressTestResult = if (self.stress_result) |*r| r else null;
+                widgets.renderStressTestModal(&self.buffer, &self.stress_tracker, res_ptr, self.frame_count, &self.theme, self.plain_mode);
             } else if (self.show_help) {
                 widgets.renderHelpModal(&self.buffer, &self.theme, self.plain_mode);
             }
@@ -266,25 +298,10 @@ pub const App = struct {
                     switch (key) {
                         .escape, .enter => self.show_speedtest_modal = false,
                         .char => |c| switch (c) {
-                            'r', 'R' => {
-                                self.setStatus("Retesting broadband speed & latency...");
-                                if (speedtest_mod.runSpeedTest(self.allocator)) |r| {
-                                    self.speedtest_result = r;
-                                    self.setStatus("Speedtest complete");
-                                } else |_| {
-                                    self.setStatus("Speedtest failed");
-                                }
-                            },
+                            'r', 'R' => self.triggerSpeedTest(),
                             'S' => {
                                 self.show_speedtest_modal = false;
-                                self.setStatus("Initiating network saturation stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, self.stress_duration_secs, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.show_stress_modal = true;
-                                    self.setStatus("Stress test complete");
-                                } else |_| {
-                                    self.setStatus("Stress test failed");
-                                }
+                                self.triggerStressTest(self.stress_duration_secs, self.stress_streams);
                             },
                             'q' => self.show_speedtest_modal = false,
                             else => {},
@@ -298,62 +315,30 @@ pub const App = struct {
                     switch (key) {
                         .escape, .enter => self.show_stress_modal = false,
                         .char => |c| switch (c) {
-                            'r', 'R' => {
-                                self.setStatus("Retesting network stress saturation...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, self.stress_duration_secs, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.setStatus("Stress test complete");
-                                } else |_| {
-                                    self.setStatus("Stress test failed");
-                                }
-                            },
+                            'r', 'R' => self.triggerStressTest(self.stress_duration_secs, self.stress_streams),
                             '1' => {
                                 self.stress_duration_secs = 10;
-                                self.setStatus("Running 10s quick burst stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, 10, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.setStatus("10s Stress test complete");
-                                } else |_| {}
+                                self.triggerStressTest(10, self.stress_streams);
                             },
                             '2' => {
                                 self.stress_duration_secs = 30;
-                                self.setStatus("Running 30s standard stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, 30, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.setStatus("30s Stress test complete");
-                                } else |_| {}
+                                self.triggerStressTest(30, self.stress_streams);
                             },
                             '3' => {
                                 self.stress_duration_secs = 60;
-                                self.setStatus("Running 1m sustained load stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, 60, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.setStatus("1m Stress test complete");
-                                } else |_| {}
+                                self.triggerStressTest(60, self.stress_streams);
                             },
                             '4' => {
                                 self.stress_duration_secs = 300;
-                                self.setStatus("Running 5m heavy soak stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, 300, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.setStatus("5m Stress test complete");
-                                } else |_| {}
+                                self.triggerStressTest(300, self.stress_streams);
                             },
                             '5' => {
                                 self.stress_duration_secs = 900;
-                                self.setStatus("Running 15m torture soak stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, 900, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.setStatus("15m Stress test complete");
-                                } else |_| {}
+                                self.triggerStressTest(900, self.stress_streams);
                             },
                             '6' => {
                                 self.stress_duration_secs = 3600;
-                                self.setStatus("Running 1h endurance run stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, 3600, self.stress_streams)) |r| {
-                                    self.stress_result = r;
-                                    self.setStatus("1h Stress test complete");
-                                } else |_| {}
+                                self.triggerStressTest(3600, self.stress_streams);
                             },
                             '+', '=' => {
                                 self.stress_streams = @min(32, self.stress_streams + 2);
@@ -502,14 +487,7 @@ pub const App = struct {
                         },
                         's' => {
                             if (self.active_tab == .network) {
-                                self.setStatus("Running network speed & latency test...");
-                                if (speedtest_mod.runSpeedTest(self.allocator)) |r| {
-                                    self.speedtest_result = r;
-                                    self.show_speedtest_modal = true;
-                                    self.setStatus("Speedtest complete");
-                                } else |_| {
-                                    self.setStatus("Speedtest failed");
-                                }
+                                self.triggerSpeedTest();
                             } else if (self.active_tab == .processes and proc_count > 0 and self.selected_proc_idx < proc_count) {
                                 const proc = &snapshot.top_processes[self.selected_proc_idx];
                                 var col = self.engine.platform.getCollector();
@@ -522,14 +500,7 @@ pub const App = struct {
                         },
                         'S' => {
                             if (self.active_tab == .network) {
-                                self.setStatus("Running multi-stream network saturation stress test...");
-                                if (speedtest_mod.runNetworkStressTest(self.allocator, 5, 8)) |r| {
-                                    self.stress_result = r;
-                                    self.show_stress_modal = true;
-                                    self.setStatus("Stress test complete");
-                                } else |_| {
-                                    self.setStatus("Stress test failed");
-                                }
+                                self.triggerStressTest(self.stress_duration_secs, self.stress_streams);
                             }
                         },
                         'r', 'u' => {

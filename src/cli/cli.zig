@@ -318,7 +318,7 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     \\==================================================================
                     \\  Target: Global Anycast CDN (1.1.1.1) | Mode: Low-Latency TCP
                     \\
-                    \\  [*] [1/4] Probing Anycast Edge Latency & Jitter...
+                    \\  [1/4] Probing Anycast Edge Latency & Jitter...
                     \\
                 );
             }
@@ -356,26 +356,23 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                 });
             } else {
                 try stdout.print(
-                    \\  [*] [2/4] Ingress Saturation: {d:>6.1} Mbps ({d:.1} MB/s)
-                    \\  [*] [3/4] Egress Saturation:  {d:>6.1} Mbps ({d:.1} MB/s)
-                    \\  [+] [4/4] Quality Analysis Completed!
+                    \\  [2/4] Ingress Saturation: {d:>6.1} Mbps ({d:.1} MB/s)
+                    \\  [3/4] Egress Saturation:  {d:>6.1} Mbps ({d:.1} MB/s)
+                    \\  [4/4] Quality Analysis Completed!
                     \\
                     \\==================================================================
                     \\  BROADBAND METRICS & APPLICATION SUITABILITY AUDIT
                     \\==================================================================
-                    \\  * Round-Trip Ping:     {d:.1} ms (Min: {d:.1}ms, Max: {d:.1}ms)
-                    \\  * Connection Jitter:   +-{d:.1} ms
-                    \\  * Packet Loss Rate:    {d:.0}%
-                    \\
-                    \\  * Ingress (Download):  {d:.2} Mbps ({d:.2} MB/s)
-                    \\  * Egress  (Upload):    {d:.2} Mbps ({d:.2} MB/s)
-                    \\  * Broadband Rating:    {s}
+                    \\  [LATENCY]    Ping: {d:.1} ms (Min: {d:.1}ms, Max: {d:.1}ms) | Jitter: +-{d:.1} ms
+                    \\  [INGRESS]    {d:.2} Mbps ({d:.2} MB/s)
+                    \\  [EGRESS]     {d:.2} Mbps ({d:.2} MB/s)
+                    \\  [RATING]     {s}
                     \\
                     \\  Application Readiness Matrix:
-                    \\    [{s}] 4K / 8K Ultra-HD Video Streaming
-                    \\    [{s}] Competitive Online Gaming (Low-Latency)
-                    \\    [{s}] HD Video Conferencing & Screen Share
-                    \\    [{s}] High-Throughput Cloud Storage Backup & Push
+                    \\    [{s:<12}] 4K / 8K Ultra-HD Video Streaming
+                    \\    [{s:<12}] Competitive Online Gaming (Low-Latency)
+                    \\    [{s:<12}] HD Video Conferencing & Screen Share
+                    \\    [{s:<12}] High-Throughput Cloud Storage Backup & Push
                     \\==================================================================
                     \\
                 , .{
@@ -387,7 +384,6 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     res.min_ping_ms,
                     res.max_ping_ms,
                     res.jitter_ms,
-                    res.packet_loss_pct,
                     res.download_mbps,
                     res.download_mbps / 8.0,
                     res.upload_mbps,
@@ -412,7 +408,7 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                     \\  ZYPHOR MULTI-STREAM NETWORK SATURATION STRESS ENGINE
                     \\==================================================================
                     \\  Config:  {d} Concurrent Streams | Duration: {d}s | Target: Anycast Edge
-                    \\  [*] Sockets Connected. Running Saturation Burst...
+                    \\  [BURST]  Sockets Connected. Running Saturation Burst...
                     \\
                 , .{ stress_streams, dur_secs });
             }
@@ -441,19 +437,18 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                 });
             } else {
                 try stdout.print(
-                    \\  [+] Stress Saturation Complete!
+                    \\  [DONE]   Stress Saturation Complete!
                     \\
                     \\==================================================================
                     \\  FINAL SATURATION AUDIT REPORT
                     \\==================================================================
-                    \\  * Duration Executed:   {d} Seconds ({d} Streams)
-                    \\  * Peak Burst Rate:     {d:.1} Mbps ({d:.1} MB/s)
-                    \\  * Average Throughput:  {d:.1} Mbps ({d:.1} MB/s)
-                    \\  * Total Data Moved:    {d:.1} MB ({d} Packets)
-                    \\  * Latency Under Load:  {d:.1} ms (Bufferbloat: +4.2ms)
-                    \\  * Packet Failure Rate: {d:.1}%
-                    \\
-                    \\  Stability Index:       {d}/100 [ROCK SOLID SATURATION]
+                    \\  [DURATION]    {d} Seconds ({d} Streams)
+                    \\  [PEAK BURST]  {d:.1} Mbps ({d:.1} MB/s)
+                    \\  [SUSTAINED]   {d:.1} Mbps ({d:.1} MB/s)
+                    \\  [TOTAL DATA]  {d:.1} MB ({d} Packets)
+                    \\  [BUFFERBLOAT] Latency Under Load: {d:.1} ms (+4.2ms)
+                    \\  [DROPS]       Packet Failure Rate: {d:.1}%
+                    \\  [STABILITY]   {d}/100 [ROCK SOLID SATURATION]
                     \\==================================================================
                     \\
                 , .{
