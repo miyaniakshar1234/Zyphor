@@ -27,24 +27,24 @@ pub fn main() !void {
     var engine = engine_mod.SystemEngine.init(allocator);
     defer engine.deinit();
 
-    var args_list: std.ArrayList([]const u8) = .empty;
-    defer args_list.deinit(allocator);
-
-    // Cross-version compatible arg fetching:
     if (comptime @hasDecl(std.process, "argsAlloc")) {
         const parsed = try std.process.argsAlloc(allocator);
         defer std.process.argsFree(allocator, parsed);
-        for (parsed) |a| try args_list.append(allocator, a);
+        try cli_mod.run(allocator, &engine, parsed);
     } else if (comptime @hasDecl(std.process, "argsWithAllocator")) {
         var it = try std.process.argsWithAllocator(allocator);
         defer it.deinit();
+        var args_list: std.ArrayList([]const u8) = .empty;
+        defer args_list.deinit(allocator);
         while (it.next()) |a| try args_list.append(allocator, a);
-    } else if (comptime @hasDecl(std.process, "args")) {
+        try cli_mod.run(allocator, &engine, args_list.items);
+    } else {
         var it = std.process.args();
+        var args_list: std.ArrayList([]const u8) = .empty;
+        defer args_list.deinit(allocator);
         while (it.next()) |a| try args_list.append(allocator, a);
+        try cli_mod.run(allocator, &engine, args_list.items);
     }
-
-    try cli_mod.run(allocator, &engine, args_list.items);
 }
 
 test "history ring buffer chronological ordering" {
