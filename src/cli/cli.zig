@@ -8,6 +8,7 @@ const types = @import("../core/types.zig");
 
 pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args: []const []const u8) !void {
     var json_mode = false;
+    var html_mode = false;
     var plain_mode = false;
     var subcommand: ?[]const u8 = null;
     var sort_field: []const u8 = "cpu";
@@ -19,6 +20,8 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
         const arg = args[i];
         if (std.mem.eql(u8, arg, "--json") or std.mem.eql(u8, arg, "-j")) {
             json_mode = true;
+        } else if (std.mem.eql(u8, arg, "--html")) {
+            html_mode = true;
         } else if (std.mem.eql(u8, arg, "--plain") or std.mem.eql(u8, arg, "-p")) {
             plain_mode = true;
         } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
@@ -52,6 +55,10 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
     if (subcommand) |cmd| {
         if (std.mem.eql(u8, cmd, "doctor")) {
             try doctor_mod.runDoctor(engine, json_mode);
+            return;
+        } else if (std.mem.eql(u8, cmd, "report") or (html_mode and (std.mem.eql(u8, cmd, "snapshot") or std.mem.eql(u8, cmd, "export")))) {
+            const snap = try engine.sampleSnapshot();
+            try export_mod.saveHtmlSnapshotFile(allocator, &snap, output_file);
             return;
         } else if (std.mem.eql(u8, cmd, "snapshot") or std.mem.eql(u8, cmd, "export") or std.mem.eql(u8, cmd, "dump")) {
             const snap = try engine.sampleSnapshot();
