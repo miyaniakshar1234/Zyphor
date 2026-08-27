@@ -23,9 +23,6 @@ pub const ProcessTreeNode = struct {
     }
 
     pub fn deinit(self: *ProcessTreeNode, allocator: std.mem.Allocator) void {
-        for (self.children.items) |child| {
-            child.deinit(allocator);
-        }
         self.children.deinit(allocator);
         allocator.destroy(self);
     }
@@ -33,36 +30,43 @@ pub const ProcessTreeNode = struct {
 
 pub const ProcessTree = struct {
     allocator: std.mem.Allocator,
+    all_nodes: std.ArrayList(*ProcessTreeNode) = .empty,
     roots: std.ArrayList(*ProcessTreeNode) = .empty,
     node_map: std.AutoHashMap(u32, *ProcessTreeNode),
 
     pub fn init(allocator: std.mem.Allocator) ProcessTree {
         return .{
             .allocator = allocator,
+            .all_nodes = .empty,
             .roots = .empty,
             .node_map = std.AutoHashMap(u32, *ProcessTreeNode).init(allocator),
         };
     }
 
-    pub fn deinit(self: *ProcessTree) void {
-        for (self.roots.items) |root| {
-            root.deinit(self.allocator);
+    fn clearTree(self: *ProcessTree) void {
+        for (self.all_nodes.items) |node| {
+            node.deinit(self.allocator);
         }
+        self.all_nodes.clearRetainingCapacity();
+        self.roots.clearRetainingCapacity();
+        self.node_map.clearRetainingCapacity();
+    }
+
+    pub fn deinit(self: *ProcessTree) void {
+        self.clearTree();
+        self.all_nodes.deinit(self.allocator);
         self.roots.deinit(self.allocator);
         self.node_map.deinit();
     }
 
     pub fn build(self: *ProcessTree, processes: []const types.ProcessInfo) !void {
-        // Clear previous tree
-        for (self.roots.items) |root| {
-            root.deinit(self.allocator);
-        }
-        self.roots.clearRetainingCapacity();
-        self.node_map.clearRetainingCapacity();
+        self.clearTree();
 
         // 1. Create nodes for each process
         for (processes) |proc| {
+            if (self.node_map.contains(proc.pid)) continue;
             const node = try ProcessTreeNode.init(self.allocator, proc);
+            try self.all_nodes.append(self.allocator, node);
             try self.node_map.put(proc.pid, node);
         }
 
@@ -73,7 +77,9 @@ pub const ProcessTree = struct {
             if (proc.ppid == 0 or proc.ppid == proc.pid) {
                 try self.roots.append(self.allocator, current_node);
             } else if (self.node_map.get(proc.ppid)) |parent_node| {
-                current_node.depth = parent_node.depth + 1;
+                if (current_node.depth < 64) {
+                    current_node.depth = parent_node.depth + 1;
+                }
                 try parent_node.children.append(self.allocator, current_node);
             } else {
                 try self.roots.append(self.allocator, current_node);
@@ -82,17 +88,17 @@ pub const ProcessTree = struct {
 
         // 3. Compute aggregate resource metrics
         for (self.roots.items) |root| {
-            calculateAggregates(root);
+            calculateAggregates(root, 0);
         }
     }
 
-    fn calculateAggregates(node: *ProcessTreeNode) void {
+    fn calculateAggregates(node: *ProcessTreeNode, current_depth: usize) void {
+        if (current_depth > 64) return;
         var total_cpu = node.process.cpu_percent;
         var total_rss = node.process.memory_rss;
 
         for (node.children.items) |child| {
-            child.depth = node.depth + 1;
-            calculateAggregates(child);
+            calculateAggregates(child, current_depth + 1);
             total_cpu += child.aggregate_cpu;
             total_rss += child.aggregate_rss;
         }
@@ -103,21 +109,22 @@ pub const ProcessTree = struct {
 
     pub fn flatten(self: *ProcessTree, out_list: *std.ArrayList(types.ProcessInfo)) !void {
         for (self.roots.items, 0..) |root, i| {
-            const is_last = (i == self.roots.items.len - 1);
-            try self.flattenNode(root, out_list, is_last);
+            const is_last = (i + 1 == self.roots.items.len);
+            try self.flattenNode(root, out_list, is_last, 0);
         }
     }
 
-    fn flattenNode(self: *ProcessTree, node: *ProcessTreeNode, out_list: *std.ArrayList(types.ProcessInfo), is_last: bool) !void {
+    fn flattenNode(self: *ProcessTree, node: *ProcessTreeNode, out_list: *std.ArrayList(types.ProcessInfo), is_last: bool, depth: usize) !void {
+        if (depth > 64) return;
         var info = node.process;
-        info.tree_depth = @as(u16, @intCast(node.depth));
+        info.tree_depth = @as(u16, @intCast(@min(node.depth, std.math.maxInt(u16))));
         info.is_last_child = is_last;
         try out_list.append(self.allocator, info);
 
         if (node.is_expanded) {
             for (node.children.items, 0..) |child, i| {
-                const child_last = (i == node.children.items.len - 1);
-                try self.flattenNode(child, out_list, child_last);
+                const child_last = (i + 1 == node.children.items.len);
+                try self.flattenNode(child, out_list, child_last, depth + 1);
             }
         }
     }

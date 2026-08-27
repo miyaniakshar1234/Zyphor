@@ -15,7 +15,13 @@ pub const OutWriter = struct {
 };
 
 pub fn getStdout() OutWriter {
-    return .{ .file = std.fs.File.stdout() };
+    const builtin = @import("builtin");
+    if (builtin.os.tag == .windows) {
+        const h = std.os.windows.kernel32.GetStdHandle(std.os.windows.STD_OUTPUT_HANDLE);
+        return .{ .file = std.fs.File{ .handle = h orelse @as(std.os.windows.HANDLE, @ptrFromInt(1)) } };
+    } else {
+        return .{ .file = std.fs.File{ .handle = std.posix.STDOUT_FILENO } };
+    }
 }
 
 pub const ProcessState = enum {

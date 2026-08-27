@@ -27,7 +27,7 @@ jobs:
           version: 0.15.0
 
       - name: Run Test Suite
-        run: zig build test --summary all
+        run: zig test src/main.zig --summary all
 
       - name: Build Debug Binary
         run: zig build
