@@ -35,14 +35,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-zig-
 
-      - name: Run Test Suite
-        run: zig build test
-
       - name: Build Debug Binary
         run: zig build
 
       - name: Build Optimized Release Binary
         run: zig build -Doptimize=ReleaseFast
+
+      - name: Run Test Suite
+        run: zig build test --summary all
 
       - name: Run Doctor (Smoke Test)
         shell: bash
