@@ -1,0 +1,28 @@
+{
+  "version": "0.1.0",
+  "description": "Next-generation native terminal system observatory written in pure Zig",
+  "homepage": "https://github.com/miyaniakshar1234/Zyphor",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/miyaniakshar1234/Zyphor/releases/download/v0.1.0/zyphor-windows-x86_64.zip",
+      "bin": "zyphor.exe"
+    },
+    "arm64": {
+      "url": "https://github.com/miyaniakshar1234/Zyphor/releases/download/v0.1.0/zyphor-windows-aarch64.zip",
+      "bin": "zyphor.exe"
+    }
+  },
+  "checkver": "github",
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/miyaniakshar1234/Zyphor/releases/download/v$version/zyphor-windows-x86_64.zip"
+      },
+      "arm64": {
+        "url": "https://github.com/miyaniakshar1234/Zyphor/releases/download/v$version/zyphor-windows-aarch64.zip"
+      }
+    }
+  }
+}
+

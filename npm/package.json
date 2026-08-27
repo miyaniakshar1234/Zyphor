@@ -1,0 +1,36 @@
+{
+  "name": "zyphor",
+  "version": "0.1.0",
+  "description": "Next-generation native terminal system observatory written in pure Zig",
+  "main": "bin/zyphor.js",
+  "bin": {
+    "zyphor": "bin/zyphor.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "keywords": [
+    "system-monitor",
+    "htop",
+    "btop",
+    "observability",
+    "tui",
+    "zig",
+    "telemetry",
+    "diagnostics",
+    "cli"
+  ],
+  "author": "Akshar Miyani <miyaniakshar1234@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/miyaniakshar1234/Zyphor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/miyaniakshar1234/Zyphor/issues"
+  },
+  "homepage": "https://github.com/miyaniakshar1234/Zyphor#readme",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

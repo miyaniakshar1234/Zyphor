@@ -60,7 +60,33 @@ irm https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/install.ps1
 
 ---
 
-### 2. Package Managers
+### 2. JavaScript & Web Toolchains (NPM, Bun, PNPM, Yarn)
+
+Execute immediately without installing or install globally:
+
+```bash
+# Run immediately via npx, bunx, or pnpm dlx
+npx zyphor
+bunx zyphor
+pnpm dlx zyphor
+
+# Or install globally
+npm install -g zyphor
+bun install -g zyphor
+pnpm add -g zyphor
+```
+
+---
+
+### 3. Rust Ecosystem (Cargo / Crates.io)
+
+```bash
+cargo install zyphor
+```
+
+---
+
+### 4. Native OS Package Managers
 
 #### Homebrew (macOS & Linux):
 ```bash
@@ -88,7 +114,16 @@ paru -S zyphor-bin
 
 ---
 
-### 3. Pre-built Standalone Binaries
+### 5. Docker / Podman Container (GHCR)
+
+Run with host PID access for complete host telemetry:
+```bash
+docker run -it --rm --pid=host ghcr.io/miyaniakshar1234/zyphor
+```
+
+---
+
+### 6. Pre-built Standalone Binaries
 Download the compiled single-file binary directly from [GitHub Releases](https://github.com/miyaniakshar1234/Zyphor/releases):
 - `zyphor-linux-x86_64.tar.gz`
 - `zyphor-linux-aarch64.tar.gz`
@@ -98,7 +133,7 @@ Download the compiled single-file binary directly from [GitHub Releases](https:/
 
 ---
 
-### 4. Build from Source
+### 7. Build from Source
 Building Zyphor requires [Zig 0.15+](https://ziglang.org/download/):
 
 ```bash

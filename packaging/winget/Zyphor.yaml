@@ -1,0 +1,25 @@
+PackageIdentifier: miyaniakshar1234.Zyphor
+PackageVersion: 0.1.0
+PackageName: Zyphor
+Publisher: Akshar Miyani
+License: MIT
+ShortDescription: Next-generation native terminal system observatory written in pure Zig.
+PackageUrl: https://github.com/miyaniakshar1234/Zyphor
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/miyaniakshar1234/Zyphor/releases/download/v0.1.0/zyphor-windows-x86_64.zip
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: zyphor.exe
+        PortableCommandAlias: zyphor
+  - Architecture: arm64
+    InstallerType: zip
+    InstallerUrl: https://github.com/miyaniakshar1234/Zyphor/releases/download/v0.1.0/zyphor-windows-aarch64.zip
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: zyphor.exe
+        PortableCommandAlias: zyphor
+ManifestType: singleton
+ManifestVersion: 1.6.0
+

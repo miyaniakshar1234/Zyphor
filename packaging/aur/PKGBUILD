@@ -1,0 +1,21 @@
+# Maintainer: Akshar Miyani <miyaniakshar1234@gmail.com>
+pkgname=zyphor-bin
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Next-generation native terminal system observatory written in pure Zig"
+arch=("x86_64" "aarch64")
+url="https://github.com/miyaniakshar1234/Zyphor"
+license=("MIT")
+provides=("zyphor")
+conflicts=("zyphor")
+
+source_x86_64=("https://github.com/miyaniakshar1234/Zyphor/releases/download/v${pkgver}/zyphor-linux-x86_64.tar.gz")
+source_aarch64=("https://github.com/miyaniakshar1234/Zyphor/releases/download/v${pkgver}/zyphor-linux-aarch64.tar.gz")
+sha256sums_x86_64=("SKIP")
+sha256sums_aarch64=("SKIP")
+
+package() {
+    install -Dm755 "${srcdir}/zyphor" "${pkgdir}/usr/bin/zyphor"
+    install -Dm644 "${srcdir}/LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+

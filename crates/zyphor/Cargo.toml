@@ -1,0 +1,19 @@
+[package]
+name = "zyphor"
+version = "0.1.0"
+edition = "2021"
+authors = ["Akshar Miyani <miyaniakshar1234@gmail.com>"]
+description = "Next-generation native terminal system observatory written in pure Zig"
+readme = "../../README.md"
+homepage = "https://github.com/miyaniakshar1234/Zyphor"
+repository = "https://github.com/miyaniakshar1234/Zyphor"
+license = "MIT"
+keywords = ["system-monitor", "htop", "btop", "tui", "observability"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "zyphor"
+path = "src/main.rs"
+
+[dependencies]
+
