@@ -1,4 +1,6 @@
 const std = @import("std");
+const plugin_mod = @import("plugin.zig");
+const docker_plugin = @import("../plugins/docker.zig");
 const types = @import("types.zig");
 const config_mod = @import("config.zig");
 const history_mod = @import("history.zig");
@@ -9,6 +11,8 @@ const health_mod = @import("../alerts/health.zig");
 const alert_mod = @import("../alerts/engine.zig");
 
 pub const SystemEngine = struct {
+    plugins: plugin_mod.PluginManager = .{},
+    docker_plug: docker_plugin.DockerPlugin = .{},
     allocator: std.mem.Allocator,
     arenas: [2]std.heap.ArenaAllocator,
     active_arena_idx: usize = 0,
@@ -199,4 +203,5 @@ pub const SystemEngine = struct {
         return self.cached;
     }
 };
+
 

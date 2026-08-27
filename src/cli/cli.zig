@@ -5,6 +5,7 @@ const export_mod = @import("export.zig");
 const bench_mod = @import("bench.zig");
 const speedtest_mod = @import("../net/speedtest.zig");
 const app_mod = @import("../ui/app.zig");
+const server_mod = @import("../net/server.zig");
 const types = @import("../core/types.zig");
 
 pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args: []const []const u8) !void {
@@ -350,6 +351,9 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
         } else if (std.mem.eql(u8, cmd, "overhead")) {
             try runOverheadBenchmark(stdout, engine, json_mode);
             return;
+        } else if (std.mem.eql(u8, cmd, "daemon") or std.mem.eql(u8, cmd, "server")) {
+            try server_mod.runDaemon(allocator, engine, 7777);
+            return;
         } else if (std.mem.eql(u8, cmd, "speedtest") or std.mem.eql(u8, cmd, "speed")) {
             var tracker = speedtest_mod.LiveSpeedTestTracker{};
             var test_thread = try std.Thread.spawn(.{}, speedtest_mod.speedTestWorker, .{ allocator, &tracker });
@@ -686,6 +690,7 @@ fn runOverheadBenchmark(stdout: anytype, engine: *@import("../core/engine.zig").
         , .{ ITERS, avg_ms, min_ms, max_ms, self_ram_mb });
     }
 }
+
 
 
 

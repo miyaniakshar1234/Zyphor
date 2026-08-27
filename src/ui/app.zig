@@ -647,8 +647,10 @@ pub const App = struct {
             .dirty = true,
         };
         @memset(self.buffer.prev_cells, sentinel);
-        self.setStatus(std.fmt.bufPrint(&self.status_msg, "Theme: {s}", .{self.theme.name}) catch "Theme changed");
-        self.status_len = std.mem.indexOfScalar(u8, &self.status_msg, 0) orelse self.status_msg.len;
+        
+        var temp_buf: [128]u8 = undefined;
+        const msg = std.fmt.bufPrint(&temp_buf, "Theme: {s}", .{self.theme.name}) catch "Theme changed";
+        self.setStatus(msg);
     }
 
     fn setStatus(self: *App, msg: []const u8) void {
@@ -658,6 +660,7 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
+
 
 
 
