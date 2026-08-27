@@ -300,20 +300,41 @@ pub fn renderOverviewPanel(
     const rx_mb = @as(f32, @floatFromInt(snapshot.network.total_rx_sec)) / (1024.0 * 1024.0);
     const tx_mb = @as(f32, @floatFromInt(snapshot.network.total_tx_sec)) / (1024.0 * 1024.0);
     
-    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "↓ RX: {d:>6.2} MB/s", .{rx_mb}) catch "", theme.success, theme.bg, true);
-    buf.writeString(right_x + 20, ry, std.fmt.bufPrint(&val_buf, "↑ TX: {d:>6.2} MB/s", .{tx_mb}) catch "", theme.warning, theme.bg, true);
-    ry += 2;
+    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "↓ RX: {d:>5.2} MB/s", .{rx_mb}) catch "", theme.success, theme.bg, true);
+    buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "↑ TX: {d:>5.2} MB/s", .{tx_mb}) catch "", theme.warning, theme.bg, true);
+    ry += 1;
+
+    // Rolling Braille Network Waveform
+    var net_rx_hist: [256]f32 = undefined;
+    const net_hist_count = history.net_rx_history.getChronological(&net_rx_hist);
+    if (net_hist_count > 0 and spark_w > 4 and ry + 3 < content_y + content_h) {
+        graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, net_rx_hist[0..net_hist_count], theme.success, theme.bg, plain);
+        ry += 3;
+    } else {
+        ry += 1;
+    }
 
     // Disk I/O Block
-    buf.writeString(right_x + 2, ry, "▼ STORAGE I/O BANDWIDTH", theme.muted, theme.bg, true);
-    ry += 1;
-    const disk_r = @as(f32, @floatFromInt(snapshot.disk.read_bytes_sec)) / (1024.0 * 1024.0);
-    const disk_w = @as(f32, @floatFromInt(snapshot.disk.write_bytes_sec)) / (1024.0 * 1024.0);
-    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "RD: {d:>6.2} MB/s", .{disk_r}) catch "", theme.secondary, theme.bg, true);
-    buf.writeString(right_x + 20, ry, std.fmt.bufPrint(&val_buf, "WR: {d:>6.2} MB/s", .{disk_w}) catch "", theme.accent, theme.bg, true);
-    ry += 1;
-    buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "Aggregate: {d} IOPS", .{snapshot.disk.iops}) catch "", theme.muted, theme.bg, false);
-    ry += 2;
+    if (ry + 3 < content_y + content_h) {
+        buf.writeString(right_x + 2, ry, "▼ STORAGE I/O BANDWIDTH", theme.muted, theme.bg, true);
+        ry += 1;
+        const disk_r = @as(f32, @floatFromInt(snapshot.disk.read_bytes_sec)) / (1024.0 * 1024.0);
+        const disk_w = @as(f32, @floatFromInt(snapshot.disk.write_bytes_sec)) / (1024.0 * 1024.0);
+        buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "RD: {d:>5.1} MB/s", .{disk_r}) catch "", theme.secondary, theme.bg, true);
+        buf.writeString(right_x + 18, ry, std.fmt.bufPrint(&val_buf, "WR: {d:>5.1} MB/s", .{disk_w}) catch "", theme.accent, theme.bg, true);
+        ry += 1;
+
+        // Rolling Braille Disk Sparkline
+        var disk_r_hist: [256]f32 = undefined;
+        const disk_hist_count = history.disk_read_history.getChronological(&disk_r_hist);
+        if (disk_hist_count > 0 and spark_w > 4 and ry + 3 < content_y + content_h) {
+            graphs.renderBrailleGraph(buf, right_x + 2, ry, spark_w, 2, disk_r_hist[0..disk_hist_count], theme.accent, theme.bg, plain);
+            ry += 3;
+        } else {
+            buf.writeString(right_x + 2, ry, std.fmt.bufPrint(&val_buf, "Aggregate: {d} IOPS", .{snapshot.disk.iops}) catch "", theme.muted, theme.bg, false);
+            ry += 2;
+        }
+    }
 
     // Storage Mount Preview
     if (snapshot.disk.partitions.len > 0 and ry + 2 < content_y + content_h) {
@@ -415,11 +436,11 @@ fn renderCoreGrid(
     avail_w: u16,
     plain: bool,
 ) void {
-    const core_count = @min(snapshot.cpu.core_usage.len, 32);
+    const core_count = @min(snapshot.cpu.core_usage.len, 64);
     if (core_count == 0) return;
 
-    const bar_w: u16 = 5;
-    const cell_w: u16 = bar_w + 5;
+    const bar_w: u16 = 6;
+    const cell_w: u16 = bar_w + 9; // "C00 99% ▓▓▓▓▓▓"
     const cols_fit = @max(1, avail_w / cell_w);
 
     var i: usize = 0;
@@ -429,16 +450,18 @@ fn renderCoreGrid(
         if (col >= cols_fit) {
             col = 0;
             row += 1;
-            if (row > 2) break; // max 3 rows of cores in overview
+            if (row > 3) break; // max 4 rows of cores in overview
         }
         const cx = x + col * cell_w;
         const cy = y + row;
 
-        var core_label: [8]u8 = undefined;
-        const lbl = std.fmt.bufPrint(&core_label, "C{d:0>2}", .{i}) catch "C? ";
+        var core_label: [16]u8 = undefined;
         const load = snapshot.cpu.core_usage[i];
-        buf.writeString(cx, cy, lbl, theme.muted, theme.bg, false);
-        graphs.renderMiniBar(buf, cx + 4, cy, bar_w, load, theme.bg, plain);
+        const lbl = std.fmt.bufPrint(&core_label, "C{d:0>2} {d:>2.0}%", .{ i, load }) catch "C? ?%";
+        const color = graphs.percentColor(load);
+
+        buf.writeString(cx, cy, lbl, color, theme.bg, false);
+        graphs.renderMiniBar(buf, cx + 8, cy, bar_w, load, theme.bg, plain);
         col += 1;
     }
 }
