@@ -138,6 +138,44 @@ pub const SystemEngine = struct {
             services[sidx] = srv;
         }
 
+        // 7. Populate Docker Containers (PRD §43)
+        const sample_containers = [_]struct {
+            id: []const u8,
+            name: []const u8,
+            image: []const u8,
+            state: types.ContainerState,
+            cpu: f32,
+            mem: u64,
+            mem_limit: u64,
+            rx: u64,
+            tx: u64,
+        }{
+            .{ .id = "a1b2c3d4e5f6", .name = "zyphor-postgres-1", .image = "postgres:15-alpine", .state = .running, .cpu = 2.4, .mem = 420 * 1024 * 1024, .mem_limit = 2 * 1024 * 1024 * 1024, .rx = 1250000, .tx = 850000 },
+            .{ .id = "f6e5d4c3b2a1", .name = "zyphor-redis-1", .image = "redis:7-alpine", .state = .running, .cpu = 0.4, .mem = 80 * 1024 * 1024, .mem_limit = 512 * 1024 * 1024, .rx = 250000, .tx = 250000 },
+            .{ .id = "9a8b7c6d5e4f", .name = "zyphor-api-prod", .image = "zyphor/api:latest", .state = .running, .cpu = 8.2, .mem = 310 * 1024 * 1024, .mem_limit = 1024 * 1024 * 1024, .rx = 4100000, .tx = 4500000 },
+            .{ .id = "3c4d5e6f7a8b", .name = "zyphor-worker", .image = "zyphor/worker:latest", .state = .running, .cpu = 15.6, .mem = 850 * 1024 * 1024, .mem_limit = 2 * 1024 * 1024 * 1024, .rx = 150000, .tx = 950000 },
+            .{ .id = "7f8e9d0c1b2a", .name = "legacy-cron-job", .image = "ubuntu:20.04", .state = .exited, .cpu = 0.0, .mem = 0, .mem_limit = 512 * 1024 * 1024, .rx = 0, .tx = 0 },
+        };
+
+        var containers = try scratch.alloc(types.DockerContainer, sample_containers.len);
+        for (sample_containers, 0..) |sc, cidx| {
+            var c = types.DockerContainer{
+                .state = sc.state,
+                .cpu_percent = sc.cpu,
+                .memory_used_bytes = sc.mem,
+                .memory_limit_bytes = sc.mem_limit,
+                .net_rx_bytes = sc.rx,
+                .net_tx_bytes = sc.tx,
+            };
+            @memcpy(c.id[0..sc.id.len], sc.id);
+            c.id_len = sc.id.len;
+            @memcpy(c.name[0..sc.name.len], sc.name);
+            c.name_len = sc.name.len;
+            @memcpy(c.image[0..sc.image.len], sc.image);
+            c.image_len = sc.image.len;
+            containers[cidx] = c;
+        }
+
         const snap = types.SystemSnapshot{
             .timestamp_ms = std.time.milliTimestamp(),
             .cpu = cpu,
@@ -150,6 +188,7 @@ pub const SystemEngine = struct {
             .boot = .{},
             .services = services,
             .top_processes = top_procs,
+            .containers = containers,
         };
         self.cached = snap;
         return snap;
@@ -160,3 +199,4 @@ pub const SystemEngine = struct {
         return self.cached;
     }
 };
+

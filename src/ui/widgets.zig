@@ -17,6 +17,7 @@ pub const Tab = enum {
     network,
     diagnostics,
     services,
+    containers,
 
     pub fn label(self: Tab) []const u8 {
         return switch (self) {
@@ -25,7 +26,8 @@ pub const Tab = enum {
             .disks => "Storage",
             .network => "Network",
             .diagnostics => "Health & Alerts",
-            .services => "Services",
+                        .services => "Services",
+            .containers => "Containers",
         };
     }
 
@@ -36,7 +38,8 @@ pub const Tab = enum {
             .disks => "⬢ ",
             .network => "◉ ",
             .diagnostics => "❤ ",
-            .services => "⛯ ",
+                        .services => "⛯ ",
+            .containers => "⬖ ",
         };
     }
 };
@@ -107,7 +110,7 @@ pub fn renderTabs(
     const w = buf.width;
     buf.fillRow(2, theme.muted, theme.tab_bg);
 
-    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics, .services };
+    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics, .services, .containers };
     var cx: u16 = 1;
 
     for (tabs, 0..) |tab, idx| {
@@ -310,6 +313,13 @@ pub fn renderOverviewPanel(
             buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Platform: {s}-{s}", .{@tagName(@import("builtin").os.tag), @tagName(@import("builtin").cpu.arch)}) catch "", theme.accent, theme.bg, false);
             my += 1;
             buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Runtime:  Zig {s} [ReleaseFast]", .{@import("builtin").zig_version_string}) catch "", theme.muted, theme.bg, false);
+            my += 2;
+            
+            buf.writeString(center_x + 2, my, "▼ STARTUP & BOOT ANALYSIS", theme.muted, theme.bg, true);
+            my += 1;
+            buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Total Boot: {d:.2}s (Kernel: {d:.2}s)", .{snapshot.boot.total_boot_s, snapshot.boot.kernel_time_s}) catch "", theme.fg, theme.bg, false);
+            my += 1;
+            buf.writeString(center_x + 4, my, std.fmt.bufPrint(&val_buf, "Services:   {d:.2}s | Session: {d:.2}s", .{snapshot.boot.services_time_s, snapshot.boot.user_session_s}) catch "", theme.muted, theme.bg, false);
         }
     }
 
@@ -1855,7 +1865,8 @@ pub const PALETTE_COMMANDS = [_][2][]const u8{
     .{ "3. Storage & Directory Analyzer", "Jump to Tab 3" },
     .{ "4. Network & Active Socket Map", "Jump to Tab 4" },
     .{ "5. Root-Cause Health & Diagnostics", "Jump to Tab 5" },
-    .{ "6. System Services & Daemons", "Jump to Tab 6" },
+        .{ "6. System Services & Daemons", "Jump to Tab 6" },
+    .{ "7. Containers & Docker Engine", "Jump to Tab 7" },
     .{ "Cycle Theme (Claude, Tokyo Night, Cyber...)", "Switch 24-bit TrueColor palette" },
     .{ "Sort Processes by CPU% Load", "Order highest to lowest CPU" },
     .{ "Sort Processes by Resident Memory (RSS)", "Order highest to lowest RAM" },
@@ -1927,6 +1938,177 @@ pub fn renderBackgroundGrid(buf: *ScreenBuffer, theme: *const Theme) void {
         while (x < buf.width) : (x += 4) {
             buf.writeString(x, y, "·", dot_color, theme.bg, false);
         }
+    }
+}
+
+
+
+
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTAINERS PANEL
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub fn renderContainersPanel(
+    buf: *ScreenBuffer,
+    containers: []const types.DockerContainer,
+    selected_idx: usize,
+    theme: *const Theme,
+    plain: bool,
+    search_query: ?[]const u8,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+    
+    const panel_y: u16 = 4;
+    const panel_h = h - panel_y - 2;
+    
+    buf.drawCyberBox(1, panel_y, w - 2, panel_h, " ◈ DOCKER ENGINE & OCI CONTAINER ORCHESTRATION OBSERVATORY ◈ ", theme.border, theme.accent, theme.bg, plain);
+
+    const is_wide = w >= 95;
+    const left_w: u16 = if (is_wide) ((w - 6) * 60 / 100) else (w - 4);
+    const right_w: u16 = w - 4 - left_w - 1;
+    const right_x = 2 + left_w + 1;
+
+    // --- LEFT PANE (Container List) ---
+    const hdr_y = panel_y + 1;
+    
+    buf.writeString(3, hdr_y, "ID         NAME                  STATE     CPU%   RAM        RX / TX", theme.muted, theme.selected, true);
+    graphs.renderSeparator(buf, 2, hdr_y + 1, left_w, theme.border, theme.bg, plain);
+
+    const list_y = hdr_y + 2;
+    const max_rows = panel_h - 4;
+    
+    var visible_count: u32 = 0;
+    var list_idx: usize = 0;
+    var rendered_rows: u16 = 0;
+    var actual_selected: ?*const types.DockerContainer = null;
+
+    for (containers) |*c| {
+        if (search_query) |sq| {
+            if (std.ascii.indexOfIgnoreCase(c.getName(), sq) == null and
+                std.ascii.indexOfIgnoreCase(c.getImage(), sq) == null) continue;
+        }
+
+        if (list_idx == selected_idx) {
+            actual_selected = c;
+        }
+
+        if (rendered_rows < max_rows) {
+            const cy = list_y + rendered_rows;
+            const is_sel = (list_idx == selected_idx);
+
+            const row_bg = if (is_sel) theme.selected else theme.bg;
+            if (is_sel) {
+                buf.fillRect(2, cy, left_w, 1, row_bg);
+                buf.writeString(2, cy, "▶", theme.accent, row_bg, true);
+            }
+
+            // ID
+            buf.writeString(4, cy, c.getId(), if (is_sel) theme.fg else theme.muted, row_bg, false);
+            
+            // Name
+            const n_len = @min(c.getName().len, 20);
+            buf.writeString(15, cy, c.getName()[0..n_len], if (is_sel) theme.accent else theme.fg, row_bg, is_sel);
+            
+            // State
+            const st_str = @tagName(c.state);
+            const st_color = switch(c.state) {
+                .running => theme.success,
+                .exited => theme.muted,
+                .dead, .restarting => theme.critical,
+                .paused => theme.warning,
+            };
+            buf.writeString(37, cy, st_str, st_color, row_bg, true);
+            
+            // CPU
+            var c_buf: [16]u8 = undefined;
+            const c_str = std.fmt.bufPrint(&c_buf, "{d:>5.1}%", .{c.cpu_percent}) catch "";
+            buf.writeString(47, cy, c_str, if(c.cpu_percent > 80.0) theme.critical else theme.fg, row_bg, false);
+            
+            // RAM
+            const mem_mb = c.memory_used_bytes / (1024 * 1024);
+            var m_buf: [16]u8 = undefined;
+            const m_str = std.fmt.bufPrint(&m_buf, "{d:>6} MB", .{mem_mb}) catch "";
+            buf.writeString(54, cy, m_str, theme.secondary, row_bg, false);
+            
+            // NET
+            const rx_mb = @as(f32, @floatFromInt(c.net_rx_bytes)) / (1024.0 * 1024.0);
+            const tx_mb = @as(f32, @floatFromInt(c.net_tx_bytes)) / (1024.0 * 1024.0);
+            var n_buf: [32]u8 = undefined;
+            const n_str = std.fmt.bufPrint(&n_buf, "{d:>4.1}/{d:>4.1} MB", .{rx_mb, tx_mb}) catch "";
+            buf.writeString(65, cy, n_str, theme.muted, row_bg, false);
+
+            rendered_rows += 1;
+        }
+
+        visible_count += 1;
+        list_idx += 1;
+    }
+
+    if (visible_count == 0) {
+        buf.writeString(4, list_y, "No active containers found.", theme.muted, theme.bg, false);
+    }
+
+    if (!is_wide) return;
+
+    // --- RIGHT PANE (Container Details) ---
+    graphs.renderSeparatorVertical(buf, left_w + 2, panel_y + 1, panel_h - 2, theme.border, theme.bg, plain);
+
+    if (actual_selected) |c| {
+        buf.writeString(right_x + 2, panel_y + 1, "▼ CONTAINER TELEMETRY", theme.accent, theme.bg, true);
+        
+        var cur_y = panel_y + 3;
+        
+        var n_buf: [128]u8 = undefined;
+        const n_str = std.fmt.bufPrint(&n_buf, "Name:  {s}", .{c.getName()}) catch "";
+        buf.writeStringMax(right_x + 2, cur_y, n_str, right_w - 4, theme.fg, theme.bg, true);
+        cur_y += 1;
+        
+        const i_str = std.fmt.bufPrint(&n_buf, "Image: {s}", .{c.getImage()}) catch "";
+        buf.writeStringMax(right_x + 2, cur_y, i_str, right_w - 4, theme.muted, theme.bg, false);
+        cur_y += 2;
+
+        buf.drawCyberBox(right_x + 1, cur_y, right_w - 2, 8, " RESOURCE QUOTAS ", theme.border, theme.secondary, theme.bg, plain);
+        
+        const mem_mb = c.memory_used_bytes / (1024 * 1024);
+        const lim_mb = if (c.memory_limit_bytes > 0) c.memory_limit_bytes / (1024 * 1024) else 0;
+        
+        const pct = if (c.memory_limit_bytes > 0) (@as(f32, @floatFromInt(c.memory_used_bytes)) / @as(f32, @floatFromInt(c.memory_limit_bytes))) * 100.0 else 0.0;
+        
+        var mem_s_buf: [64]u8 = undefined;
+        const mem_s_str = std.fmt.bufPrint(&mem_s_buf, "MEM: {d} / {d} MB ({d:.1}%)", .{mem_mb, lim_mb, pct}) catch "";
+        
+        buf.writeString(right_x + 3, cur_y + 2, mem_s_str, theme.fg, theme.bg, false);
+        graphs.renderGaugeBar(buf, right_x + 3, cur_y + 3, right_w - 6, pct, theme.secondary, theme.muted, theme.bg, plain);
+        
+        var cpu_s_buf: [64]u8 = undefined;
+        const cpu_s_str = std.fmt.bufPrint(&cpu_s_buf, "CPU: {d:.1}%", .{c.cpu_percent}) catch "";
+        buf.writeString(right_x + 3, cur_y + 5, cpu_s_str, theme.fg, theme.bg, false);
+        graphs.renderGaugeBar(buf, right_x + 3, cur_y + 6, right_w - 6, c.cpu_percent, theme.warning, theme.muted, theme.bg, plain);
+        
+        cur_y += 10;
+        
+        buf.drawCyberBox(right_x + 1, cur_y, right_w - 2, 7, " NETWORK ISOLATION ", theme.border, theme.success, theme.bg, plain);
+        
+        const rx_mb = @as(f32, @floatFromInt(c.net_rx_bytes)) / (1024.0 * 1024.0);
+        const tx_mb = @as(f32, @floatFromInt(c.net_tx_bytes)) / (1024.0 * 1024.0);
+        
+        var rx_s_buf: [64]u8 = undefined;
+        const rx_s_str = std.fmt.bufPrint(&rx_s_buf, "↓ RX Ingress: {d:.2} MB", .{rx_mb}) catch "";
+        buf.writeString(right_x + 3, cur_y + 2, rx_s_str, theme.success, theme.bg, true);
+        
+        var tx_s_buf: [64]u8 = undefined;
+        const tx_s_str = std.fmt.bufPrint(&tx_s_buf, "↑ TX Egress:  {d:.2} MB", .{tx_mb}) catch "";
+        buf.writeString(right_x + 3, cur_y + 4, tx_s_str, theme.warning, theme.bg, true);
+        
+
+
+    } else {
+        buf.writeString(right_x + 2, panel_y + 2, "No container selected", theme.muted, theme.bg, false);
     }
 }
 

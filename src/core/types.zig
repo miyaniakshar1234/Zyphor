@@ -382,6 +382,39 @@ pub const BootAnalysis = struct {
     startup_apps_count: u32 = 14,
 };
 
+pub const ContainerState = enum {
+    running,
+    paused,
+    exited,
+    restarting,
+    dead,
+};
+
+pub const DockerContainer = struct {
+    id: [12]u8 = @splat(0),
+    id_len: usize = 0,
+    name: [64]u8 = @splat(0),
+    name_len: usize = 0,
+    image: [64]u8 = @splat(0),
+    image_len: usize = 0,
+    state: ContainerState = .running,
+    cpu_percent: f32 = 0.0,
+    memory_used_bytes: u64 = 0,
+    memory_limit_bytes: u64 = 0,
+    net_rx_bytes: u64 = 0,
+    net_tx_bytes: u64 = 0,
+
+    pub fn getId(self: *const DockerContainer) []const u8 {
+        return self.id[0..self.id_len];
+    }
+    pub fn getName(self: *const DockerContainer) []const u8 {
+        return self.name[0..self.name_len];
+    }
+    pub fn getImage(self: *const DockerContainer) []const u8 {
+        return self.image[0..self.image_len];
+    }
+};
+
 pub const SystemSnapshot = struct {
     timestamp_ms: i64 = 0,
     cpu: CpuMetrics = .{},
@@ -393,5 +426,6 @@ pub const SystemSnapshot = struct {
     health: SystemHealth = .{},
     boot: BootAnalysis = .{},
     services: []SystemService = &[_]SystemService{},
-    top_processes: []ProcessInfo = &[_]ProcessInfo{},
+    top_processes: []ProcessInfo = &[_]ProcessInfo{}, containers: []DockerContainer = &[_]DockerContainer{},
 };
+
