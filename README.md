@@ -1,11 +1,11 @@
 <div align="center">
   <picture>
-    <img src="screenshot/logo.png" alt="Zyphor Logo & Banner" width="900">
+    <img src="assets/logo.svg" alt="ZYPHOR Logo" width="650">
   </picture>
 
-  # ⚡ Zyphor
-
-  **A mercilessly optimized, zero-allocation native systems observatory, real-time diagnostic engine, and process profiler.**
+  <p align="center">
+    <strong>A mercilessly optimized, zero-allocation native systems observatory, real-time diagnostic engine, and process profiler.</strong>
+  </p>
 
   [![Build Status](https://img.shields.io/github/actions/workflow/status/miyaniakshar1234/Zyphor/release.yml?branch=master&style=for-the-badge&logo=github)](https://github.com/miyaniakshar1234/Zyphor/actions)
   [![Zig Version](https://img.shields.io/badge/Zig-0.15.2+-F7A41D?style=for-the-badge&logo=zig)](https://ziglang.org)
