@@ -7,8 +7,22 @@ const app_mod = @import("../ui/app.zig");
 const types = @import("../core/types.zig");
 
 pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine) !void {
-    const args = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, args);
+    var args_list: std.ArrayList([]const u8) = .empty;
+    defer args_list.deinit(allocator);
+
+    if (@hasDecl(std.process, "argsAlloc")) {
+        const parsed = try std.process.argsAlloc(allocator);
+        defer std.process.argsFree(allocator, parsed);
+        for (parsed) |a| try args_list.append(allocator, a);
+    } else if (@hasDecl(std.process, "argsWithAllocator")) {
+        var it = try std.process.argsWithAllocator(allocator);
+        defer it.deinit();
+        while (it.next()) |a| try args_list.append(allocator, a);
+    } else {
+        var it = std.process.args();
+        while (it.next()) |a| try args_list.append(allocator, a);
+    }
+    const args = args_list.items;
 
     var json_mode = false;
     var plain_mode = false;
