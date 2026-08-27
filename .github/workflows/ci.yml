@@ -19,6 +19,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Configure macOS Environment & SDK
+        if: runner.os == 'macOS'
+        run: |
+          sudo xcode-select -s /Library/Developer/CommandLineTools || true
+          SDK_PATH=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || echo "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk")
+          echo "SDKROOT=$SDK_PATH" >> $GITHUB_ENV
+          echo "DEVELOPER_DIR=/Library/Developer/CommandLineTools" >> $GITHUB_ENV
+
       - name: Setup Zig
         uses: mlugg/setup-zig@v2
         with:
