@@ -88,9 +88,27 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
         const read_s = @as(f64, @floatFromInt(read_ns)) / 1_000_000_000.0;
         result.ram_seq_read_gb_s = gb / read_s;
 
-        // Latency test
-        result.ram_latency_ns = 54.2;
+        // Latency test via pointer-chasing cache-line stride (PRD §25)
+        const stride_nodes = 262_144; // 256K nodes (16MB span to overflow L1/L2)
+        const Node = struct { next: usize };
+        const node_buf = try allocator.alloc(Node, stride_nodes);
+        defer allocator.free(node_buf);
+        var idx: usize = 0;
+        while (idx < stride_nodes) : (idx += 1) {
+            node_buf[idx].next = (idx *% 1664525 +% 1013904223) % stride_nodes;
+        }
+        var p_curr: usize = 0;
+        var lat_timer = try std.time.Timer.start();
+        var step: usize = 0;
+        const lat_iters: usize = 2_000_000;
+        while (step < lat_iters) : (step += 1) {
+            p_curr = node_buf[p_curr].next;
+        }
+        std.mem.doNotOptimizeAway(p_curr);
+        const lat_ns = lat_timer.read();
+        result.ram_latency_ns = @as(f64, @floatFromInt(lat_ns)) / @as(f64, @floatFromInt(lat_iters));
     }
+
 
     // 4. Compute Composite Benchmark Score
     const cpu_score = result.cpu_single_mops * 1.5 + result.cpu_multi_gflops * 250.0;
