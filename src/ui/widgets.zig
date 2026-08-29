@@ -66,12 +66,16 @@ pub fn renderHeader(
     const logo = " ◈ ZYPHOR";
     buf.writeString(1, 0, logo, theme.accent, theme.header_bg, true);
 
-    const version = " v0.1.1";
+    const version = " v1.0.4";
     buf.writeString(1 + @as(u16, @intCast(logo.len)), 0, version, theme.muted, theme.header_bg, false);
+    
+    const dev_credit = " | Dev: Akshar Miyani";
+    buf.writeString(1 + @as(u16, @intCast(logo.len + version.len)), 0, dev_credit, theme.secondary, theme.header_bg, true);
     
     const privilege_str = if (snapshot.is_admin) " [ROOT] " else " [USER] ";
     const priv_color = if (snapshot.is_admin) theme.critical else theme.muted;
-    buf.writeString(1 + @as(u16, @intCast(logo.len + version.len + 1)), 0, privilege_str, priv_color, theme.header_bg, true);
+    buf.writeString(1 + @as(u16, @intCast(logo.len + version.len + dev_credit.len + 1)), 0, privilege_str, priv_color, theme.header_bg, true);
+
 
     // Center: System tag & status
     if (w > 80) {
@@ -1855,9 +1859,9 @@ pub fn renderHelpModal(
     buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " Keyboard Shortcuts & Navigation ", theme.accent, theme.accent, theme.bg, plain);
 
     const bindings = [_][2][]const u8{
-        .{ "Tab / Shift+Tab", "Cycle forward / backward across 6 observatory tabs" },
-        .{ "1 / 2 / 3 / 4 / 5 / 6", "Jump to Overview / Process / Disk / Net / Health / Services" },
-        .{ ": / Ctrl+P", "Open quick action command palette (PRD §33)" },
+        .{ "Tab / Shift+Tab", "Cycle forward / backward across 7 observatory tabs" },
+        .{ "1 / 2 / 3 / 4 / 5 / 6 / 7", "Jump to Overview / Process / Storage / Net / Health / Services / Containers" },
+        .{ ": / Ctrl+P", "Open quick action command palette" },
         .{ "↑ ↓ / j k", "Navigate highlighted row in process/service list" },
         .{ "Enter", "Open deep process inspector modal with metrics" },
         .{ "/", "Open live interactive search filter" },
@@ -1867,9 +1871,6 @@ pub fn renderHelpModal(
         .{ "s / u", "Suspend (SIGSTOP) / Resume (SIGCONT) process" },
         .{ "Space", "Freeze / unfreeze live telemetry sampling" },
         .{ "T", "Cycle 10 built-in 24-bit TrueColor themes" },
-        .{ "PgUp / PgDn", "Scroll table list by half page" },
-        .{ "Home / End / g / G", "Jump directly to top / bottom of list" },
-        .{ "?", "Toggle this shortcuts guide" },
         .{ "q / Ctrl+C", "Restore console and exit cleanly" },
     };
 
@@ -1886,8 +1887,17 @@ pub fn renderHelpModal(
         buf.writeString(val_col, row_y, binding[1], theme.fg, theme.bg, false);
     }
 
+    // Developer Information & Credits
+    const dev_y = modal_y + 16;
+    graphs.renderSeparator(buf, modal_x + 1, dev_y, modal_w - 2, theme.accent_dim, theme.bg, plain);
+    buf.writeString(modal_x + 3, dev_y + 1, "DEVELOPER & ARCHITECT CREDIT:", theme.header, theme.bg, true);
+    buf.writeString(modal_x + 3, dev_y + 2, "Developed by Akshar Miyani (@miyaniakshar1234)", theme.secondary, theme.bg, true);
+    buf.writeString(modal_x + 3, dev_y + 3, "GitHub: https://github.com/miyaniakshar1234/Zyphor", theme.muted, theme.bg, false);
+    buf.writeString(modal_x + 3, dev_y + 4, "Contact: miyaniakshar1234@gmail.com | License: MIT", theme.muted, theme.bg, false);
+
     graphs.renderSeparator(buf, modal_x + 1, modal_y + modal_h - 2, modal_w - 2, theme.border, theme.bg, plain);
     buf.writeString(modal_x + 3, modal_y + modal_h - 1, "  Press [Esc] or any key to close help  ", theme.muted, theme.bg, false);
+
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
