@@ -1383,20 +1383,36 @@ pub fn renderKillConfirmModal(
     const w = buf.width;
     const h = buf.height;
 
-    const modal_w: u16 = @min(w - 4, 58);
-    const modal_h: u16 = 8;
+    const modal_w: u16 = @min(w - 4, 68);
+    const modal_h: u16 = 14;
     const modal_x = (w -| modal_w) / 2;
     const modal_y = (h -| modal_h) / 2;
 
     buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
-    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " Confirm Process Termination ", theme.critical, theme.critical, theme.bg, plain);
+    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ◈ PROCESS TERMINATION & SIGNAL DISPATCH ◈ ", theme.critical, theme.critical, theme.bg, plain);
 
-    var prompt_buf: [80]u8 = undefined;
-    const prompt = std.fmt.bufPrint(&prompt_buf, "Terminate \"{s}\" (PID {d})?", .{ proc.getName(), proc.pid }) catch "Terminate process?";
-    buf.writeString(modal_x + 4, modal_y + 2, prompt, theme.fg, theme.bg, true);
+    var target_buf: [128]u8 = undefined;
+    const ram_mb = proc.memory_rss / (1024 * 1024);
+    const target_str = std.fmt.bufPrint(&target_buf, "Target: {s} [PID: {d} | RAM: {d} MB | CPU: {d:.1}% | Threads: {d}]", .{
+        proc.getName(),
+        proc.pid,
+        ram_mb,
+        proc.cpu_percent,
+        proc.threads_count,
+    }) catch "Target process details";
+    buf.writeString(modal_x + 3, modal_y + 2, target_str, theme.accent, theme.bg, true);
 
-    buf.writeString(modal_x + 4, modal_y + 4, "Press [y] to terminate  |  Press [n] / [Esc] to cancel", theme.warning, theme.bg, true);
+    graphs.renderSeparator(buf, modal_x + 2, modal_y + 4, modal_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(modal_x + 3, modal_y + 5, "SELECT SIGNAL ACTION TO DISPATCH:", theme.header, theme.bg, true);
+
+    buf.writeString(modal_x + 3, modal_y + 7, "[1] / [y]  SIGKILL (Force Kill - Signal 9)", theme.critical, theme.bg, true);
+    buf.writeString(modal_x + 3, modal_y + 8, "[2]        SIGTERM (Graceful Request - Signal 15)", theme.warning, theme.bg, false);
+    buf.writeString(modal_x + 3, modal_y + 9, "[3]        SIGSTOP (Suspend Process - Signal 19)", theme.secondary, theme.bg, false);
+
+    graphs.renderSeparator(buf, modal_x + 2, modal_y + 11, modal_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(modal_x + 3, modal_y + 12, "[1-3 / y] Dispatch Signal   |   [n / Esc] Cancel", theme.muted, theme.bg, false);
 }
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SPEEDTEST & STRESS TEST MODALS (s / S on Network Tab)
@@ -1855,32 +1871,36 @@ pub fn renderHelpModal(
     const w = buf.width;
     const h = buf.height;
 
-    const modal_w: u16 = @min(w - 4, 68);
-    const modal_h: u16 = 22;
+    const modal_w: u16 = @min(w - 4, 76);
+    const modal_h: u16 = 25;
     const modal_x = (w -| modal_w) / 2;
     const modal_y = (h -| modal_h) / 2;
 
     buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
-    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " Keyboard Shortcuts & Navigation ", theme.accent, theme.accent, theme.bg, plain);
+    buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ◈ KEYBOARD SHORTCUTS & SYSTEM NAVIGATION ◈ ", theme.accent, theme.accent, theme.bg, plain);
 
     const bindings = [_][2][]const u8{
-        .{ "Tab / Shift+Tab", "Cycle forward / backward across 7 observatory tabs" },
-        .{ "1 / 2 / 3 / 4 / 5 / 6 / 7", "Jump to Overview / Process / Storage / Net / Health / Services / Containers" },
+        .{ "Tab / Shift+Tab", "Cycle forward / backward across all 8 observatory tabs" },
+        .{ "1 / 2 / 3 / 4 / 5 / 6 / 7 / 8", "Jump to Overview / Procs / Storage / Net / Health / Srv / Containers / GPU" },
+        .{ "F", "Open Defensive Self-Healing & Automated Remediation Modal" },
+        .{ "R", "Toggle Telemetry Flight Blackbox Recorder & Replay Mode" },
+        .{ "< / >", "Scrub historical telemetry frames (-1s to -60s in replay mode)" },
         .{ ": / Ctrl+P", "Open quick action command palette" },
-        .{ "↑ ↓ / j k", "Navigate highlighted row in process/service list" },
-        .{ "Enter", "Open deep process inspector modal with metrics" },
-        .{ "/", "Open live interactive search filter" },
+        .{ "↑ ↓ / j k", "Navigate highlighted row in process/service/container table" },
+        .{ "Enter", "Open deep process inspector / telemetry drilldown" },
+        .{ "/", "Open live interactive search filter across rows" },
         .{ "t", "Toggle hierarchical process lineage tree mode" },
-        .{ "c / m / p / n", "Sort processes by CPU / Memory RSS / PID / Name" },
-        .{ "x", "Terminate / kill selected process (with confirmation)" },
-        .{ "s / u", "Suspend (SIGSTOP) / Resume (SIGCONT) process" },
-        .{ "Space", "Freeze / unfreeze live telemetry sampling" },
+        .{ "c / m / p / n", "Sort processes by CPU% / Memory RSS / PID / Name" },
+        .{ "P", "Run high-precision performance profiler on selected process" },
+        .{ "s / S", "Trigger Broadband latency test / Socket saturation stress test" },
+        .{ "x / K", "Terminate / kill selected process (with confirmation)" },
+        .{ "Space", "Freeze / unfreeze live telemetry sampling (or exit replay)" },
         .{ "T", "Cycle 10 built-in 24-bit TrueColor themes" },
         .{ "q / Ctrl+C", "Restore console and exit cleanly" },
     };
 
     const key_col = modal_x + 3;
-    const val_col = modal_x + 24;
+    const val_col = modal_x + 23;
 
     buf.writeString(key_col, modal_y + 1, "KEYBINDING", theme.header, theme.bg, true);
     buf.writeString(val_col, modal_y + 1, "ACTION", theme.header, theme.bg, true);
@@ -1893,15 +1913,15 @@ pub fn renderHelpModal(
     }
 
     // Developer Information & Credits
-    const dev_y = modal_y + 16;
+    const dev_y = modal_y + 20;
     graphs.renderSeparator(buf, modal_x + 1, dev_y, modal_w - 2, theme.accent_dim, theme.bg, plain);
     buf.writeString(modal_x + 3, dev_y + 1, "DEVELOPER & ARCHITECT CREDIT:", theme.header, theme.bg, true);
     buf.writeString(modal_x + 3, dev_y + 2, "Developed by Akshar Miyani (@miyaniakshar1234)", theme.secondary, theme.bg, true);
     buf.writeString(modal_x + 3, dev_y + 3, "GitHub: https://github.com/miyaniakshar1234/Zyphor", theme.muted, theme.bg, false);
-    buf.writeString(modal_x + 3, dev_y + 4, "Contact: miyaniakshar1234@gmail.com | License: MIT", theme.muted, theme.bg, false);
 
     graphs.renderSeparator(buf, modal_x + 1, modal_y + modal_h - 2, modal_w - 2, theme.border, theme.bg, plain);
-    buf.writeString(modal_x + 3, modal_y + modal_h - 1, "  Press [Esc] or any key to close help  ", theme.muted, theme.bg, false);
+    buf.writeString(modal_x + 3, modal_y + modal_h - 1, "  Press [Esc] or any key to close help modal  ", theme.muted, theme.bg, false);
+
 
 }
 

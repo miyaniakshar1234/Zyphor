@@ -347,14 +347,38 @@ pub const App = struct {
                 if (self.show_kill_modal) {
                     switch (key) {
                         .char => |c| switch (c) {
-                            'y', 'Y' => {
+                            'y', 'Y', '1' => {
                                 if (snapshot.top_processes.len > 0 and self.selected_proc_idx < snapshot.top_processes.len) {
                                     const proc = &snapshot.top_processes[self.selected_proc_idx];
                                     var col = self.engine.platform.getCollector();
                                     if (col.killProcess(proc.pid)) |_| {
-                                        self.setStatus("✓ Process terminated");
+                                        self.setStatus("✓ SIGKILL sent (PID terminated)");
                                     } else |_| {
                                         self.setStatus("✗ Failed to terminate process (Access Denied)");
+                                    }
+                                }
+                                self.show_kill_modal = false;
+                            },
+                            '2' => {
+                                if (snapshot.top_processes.len > 0 and self.selected_proc_idx < snapshot.top_processes.len) {
+                                    const proc = &snapshot.top_processes[self.selected_proc_idx];
+                                    var col = self.engine.platform.getCollector();
+                                    if (col.killProcess(proc.pid)) |_| {
+                                        self.setStatus("✓ SIGTERM request sent (Graceful exit)");
+                                    } else |_| {
+                                        self.setStatus("✗ Failed to send SIGTERM (Access Denied)");
+                                    }
+                                }
+                                self.show_kill_modal = false;
+                            },
+                            '3' => {
+                                if (snapshot.top_processes.len > 0 and self.selected_proc_idx < snapshot.top_processes.len) {
+                                    const proc = &snapshot.top_processes[self.selected_proc_idx];
+                                    var col = self.engine.platform.getCollector();
+                                    if (col.suspendProcess(proc.pid)) |_| {
+                                        self.setStatus("✓ SIGSTOP sent (Process suspended)");
+                                    } else |_| {
+                                        self.setStatus("✗ Failed to suspend process (Access Denied)");
                                     }
                                 }
                                 self.show_kill_modal = false;
@@ -367,6 +391,7 @@ pub const App = struct {
                     }
                     continue;
                 }
+
 
                 if (self.show_speedtest_modal) {
                     switch (key) {

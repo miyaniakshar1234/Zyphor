@@ -208,23 +208,32 @@ zyphor --theme cyber
 # 3. Plain ASCII mode for minimal or legacy terminals
 zyphor --plain
 
-# 4. Run an automated environment audit (Kernel probes, permissions, sensors)
-zyphor doctor
+# 4. Display GPU engine utilization, VRAM allocation, clock, wattage, and PCIe I/O
+zyphor gpu
 
-# 5. Run native CPU compute (Integer MOP/s) and RAM bandwidth (GB/s) benchmarks
+# 5. Hardware sensors, per-core CPU heatmap, thermals, and battery health
+zyphor sensors
+
+# 6. Active network sockets, connection states, and remote host mappings
+zyphor netstat
+
+# 7. Live streaming terminal process monitor (top mode)
+zyphor top
+
+# 8. Export an interactive standalone dark-mode HTML observatory report
+zyphor report
+
+# 9. Run native hardware compute and RAM bandwidth benchmark
 zyphor bench
 
-# 6. Prove Zyphor's lightweight nature (Measures telemetry sampling latency & RAM footprint)
-zyphor overhead
+# 10. Run an automated environment audit (Kernel probes, permissions, sensors)
+zyphor doctor
 
-# 7. Start the headless TCP daemon streaming live JSON telemetry on port 7777
+# 11. Start the headless TCP daemon streaming live JSON telemetry on port 7777
 zyphor daemon
 
-# 8. Export an instantaneous, comprehensive system telemetry snapshot to JSON
+# 12. Export an instantaneous system snapshot to JSON
 zyphor snapshot -o system-state.json
-
-# 9. Query top processes from the CLI without launching the TUI
-zyphor process --sort cpu --limit 10
 ```
 
 ---
@@ -236,10 +245,13 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 ### Viewport Navigation
 | Hotkey | Action | Description |
 | :--- | :---: | :--- |
-| <kbd>1</kbd> .. <kbd>7</kbd> | Direct Jump | Switch to Overview, Processes, Disks, Network, Health, Services, or Containers. |
-| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Next / Prev Tab | Advance viewport sequentially across panels. |
+| <kbd>1</kbd> .. <kbd>8</kbd> | Direct Jump | Switch to Overview, Processes, Disks, Network, Health, Services, Containers, or Hardware/GPU. |
+| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Next / Prev Tab | Advance viewport sequentially across all 8 panels. |
+| <kbd>F</kbd> | Defensive Remediation | Open automated self-healing executor (purge standby RAM, flush DNS/sockets, kill rogues). |
+| <kbd>R</kbd> | Flight Blackbox Replay | Toggle 60-frame historical flight recorder replay mode. |
+| <kbd><</kbd> / <kbd>></kbd> | Time Scrubber | Step backward and forward across recorded historical frames (-1s to -60s). |
 | <kbd>:</kbd> or <kbd>Ctrl+P</kbd> | Command Palette | Open floating quick-action command launcher. |
-| <kbd>?</kbd> | Help Overlay | Display full modal cheatsheet of all keyboard shortcuts. |
+| <kbd>?</kbd> | Help Overlay | Display full modal cheatsheet of all keyboard shortcuts and developer info. |
 | <kbd>q</kbd> or <kbd>Ctrl+C</kbd> | Clean Exit | Restore terminal cursor state and exit cleanly. |
 
 ### Process & List Manipulation
@@ -253,7 +265,7 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 | <kbd>Enter</kbd> | Deep Inspector | Toggle side-pane telemetry inspector for selected item. |
 | <kbd>t</kbd> | Lineage Tree | Toggle hierarchical DFS process parent/child tree mode. |
 | <kbd>c</kbd> / <kbd>m</kbd> / <kbd>p</kbd> / <kbd>n</kbd> | Sort Modes | Instantly sort by CPU%, Memory (RSS), PID, or Name. |
-| <kbd>x</kbd> | Terminate (Kill) | Send `SIGKILL` / `TerminateProcess` to highlighted process. |
+| <kbd>x</kbd> / <kbd>K</kbd> | Signal Dispatch | Open multi-signal modal to dispatch `SIGKILL (9)`, `SIGTERM (15)`, or `SIGSTOP (19)`. |
 | <kbd>s</kbd> | Suspend | Send `SIGSTOP` to pause execution of target process. |
 | <kbd>u</kbd> | Resume | Send `SIGCONT` to unpause execution of target process. |
 
@@ -262,8 +274,9 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 | :--- | :---: | :--- |
 | <kbd>P</kbd> | Process Profiler | Launch 10-second high-frequency telemetry trace on selected PID. |
 | <kbd>E</kbd> | Export Snapshot | Dump instantaneous machine state to `zyphor-export-[timestamp].json`. |
-| <kbd>Space</kbd> | Freeze Telemetry | Pause live sampling loop to freeze screen metrics for inspection. |
+| <kbd>Space</kbd> | Freeze / Resume | Pause live sampling loop to freeze screen metrics or exit replay mode. |
 | <kbd>]</kbd> or <kbd>Shift+T</kbd> | Cycle Theme | Hot-swap between all 10 built-in 24-bit TrueColor palettes. |
+
 
 ---
 

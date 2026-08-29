@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/assets/logo.svg" alt="ZYPHOR Logo" width="700">
+    <img src="assets/logo.svg" alt="ZYPHOR Logo" width="700">
   </picture>
 
   <p align="center">
@@ -10,8 +10,8 @@
   [![Build Status](https://img.shields.io/github/actions/workflow/status/miyaniakshar1234/Zyphor/release.yml?branch=master&style=for-the-badge&logo=github)](https://github.com/miyaniakshar1234/Zyphor/actions)
   [![Zig Version](https://img.shields.io/badge/Zig-0.15.2+-F7A41D?style=for-the-badge&logo=zig)](https://ziglang.org)
   [![Binary Size](https://img.shields.io/badge/Binary_Size-1.1_MB-00f0ff?style=for-the-badge)](https://github.com/miyaniakshar1234/Zyphor/releases)
-  [![Memory Footprint](https://img.shields.io/badge/RAM_Footprint-<3_MB-00ff66?style=for-the-badge)](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/architecture.md)
-  [![License](https://img.shields.io/badge/License-MIT-purple.svg?style=for-the-badge)](https://github.com/miyaniakshar1234/Zyphor/blob/master/LICENSE)
+  [![Memory Footprint](https://img.shields.io/badge/RAM_Footprint-<3_MB-00ff66?style=for-the-badge)](docs/architecture.md)
+  [![License](https://img.shields.io/badge/License-MIT-purple.svg?style=for-the-badge)](LICENSE)
 
   <p align="center">
     <a href="#-why-zyphor-the-manifesto">The Manifesto</a> •
@@ -22,14 +22,14 @@
     <a href="#-keyboard-controls--navigation">Keybinds</a> •
     <a href="#-installation--getting-started">Installation</a> •
     <a href="#-about-the-developer">Author</a> •
-    <a href="https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/user-manual.md">User Manual</a>
+    <a href="docs/user-manual.md">User Manual</a>
   </p>
 
   <br>
 
   <!-- Primary Hero Live Dashboard -->
   <picture>
-    <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/01-overview.png" alt="Zyphor Overview Dashboard" width="920">
+    <img src="screenshot/01-overview.png" alt="Zyphor Overview Dashboard" width="920">
   </picture>
 </div>
 
@@ -59,7 +59,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 ### 1. Process Explorer & Storage Fabric
 | Process Explorer & Lineage Trees (`2`) | Storage Fabric & Disk I/O (`3`) |
 | :--- | :--- |
-| <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/02-processes.png" width="450" alt="Process Explorer"> | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/03-storage.png" width="450" alt="Storage Analyzer"> |
+| <img src="screenshot/02-processes.png" width="450" alt="Process Explorer"> | <img src="screenshot/03-storage.png" width="450" alt="Storage Analyzer"> |
 | Recursive DFS parent/child tree hierarchy (`t`), live sorting (`c`, `m`, `p`, `n`), real-time search (`/`), deep inspector (`Enter`), and process termination (`x`, `s`, `u`). | Real-time partition space distribution across all mounted drives (`NTFS`, `ext4`, `apfs`, `btrfs`), transfer throughput (MB/s), and storage IOPS. |
 
 ---
@@ -67,7 +67,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 ### 2. Network Observability & AI Root-Cause Diagnostics
 | Network Observability & Active Sockets (`4`) | Autonomous Health & AI Diagnostics (`5`) |
 | :--- | :--- |
-| <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/04-network.png" width="450" alt="Network Dashboard"> | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/05-health-diagnostics.png" width="450" alt="AI Diagnostics"> |
+| <img src="screenshot/04-network.png" width="450" alt="Network Dashboard"> | <img src="screenshot/05-health-diagnostics.png" width="450" alt="AI Diagnostics"> |
 | Sub-cell Unicode Braille throughput curves, NIC adapter status cards, active TCP/UDP socket process mapping, and broadband speed testing (`s`, `S`). | 5-subsystem health radar (0–100 score), deterministic anomaly detection, explainable root-cause insights, and defensive action playbooks. |
 
 ---
@@ -75,7 +75,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 ### 3. Background Services & Container Observatory
 | System Services & Background Daemons (`6`) | Container Observatory (Docker/OCI) (`7`) |
 | :--- | :--- |
-| <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/06-services.png" width="450" alt="System Services"> | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/07-containers.png" width="450" alt="Containers"> |
+| <img src="screenshot/06-services.png" width="450" alt="System Services"> | <img src="screenshot/07-containers.png" width="450" alt="Containers"> |
 | Real-time OS background service monitoring (Windows Services / systemd units), status tracking, startup modes, and binary inspector cards. | Direct cgroup telemetry, container RAM usage vs hard memory quota limits, CPU utilization, image tags, and isolated network I/O. |
 
 ---
@@ -83,7 +83,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 ### 4. Interactive Profiler & Fast Command Launcher
 | Microsecond Process Profiler (`P`) | Quick Action Command Palette (`:` / `Ctrl+P`) |
 | :--- | :--- |
-| <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/09-profiler.png" width="450" alt="Process Profiler"> | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/08-command-palette.png" width="450" alt="Command Palette"> |
+| <img src="screenshot/09-profiler.png" width="450" alt="Process Profiler"> | <img src="screenshot/08-command-palette.png" width="450" alt="Command Palette"> |
 | 10-second high-frequency rolling telemetry trace on any selected PID. Computes Peak Jitter, Rolling Averages, and Memory Leaks. | Floating keyboard launcher for instant jumps, theme cycling, hardware benchmarks, telemetry freezing, and instant state exports. |
 
 ---
@@ -91,7 +91,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 ### 5. Hand-Tuned 24-Bit TrueColor Theme Catalog
 | Anthropic (Default Warm Aesthetic) | Cyber (High-Contrast Neon Cyberpunk) |
 | :--- | :--- |
-| <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/10-theme-anthropic.png" width="450" alt="Anthropic Theme"> | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/11-theme-cyber.png" width="450" alt="Cyber Theme"> |
+| <img src="screenshot/10-theme-anthropic.png" width="450" alt="Anthropic Theme"> | <img src="screenshot/11-theme-cyber.png" width="450" alt="Cyber Theme"> |
 | Warm dark charcoal (`#1F1D1C`), terracotta accents (`#D97757`), sand highlights, and sage green nominal meters. | High-contrast synthwave palette featuring electric cyan (`#00F0FF`) and vibrant neon magenta (`#FF0080`). |
 
 *Zyphor includes 10 built-in palettes (Anthropic, Cyber, Tokyo Night, Hacker, Midnight, Aurora, Nord, Solarized Dark, Gruvbox, High Contrast). Hot-swap instantly with <kbd>]</kbd> or <kbd>Shift+T</kbd>.*
@@ -105,7 +105,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 <div align="center">
   | Resource Allocation & Startup Latency | Sampling Overhead & Render Scaling |
   | :--- | :--- |
-  | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/benchmark_ram_latency.png" width="450" alt="RAM Usage & Startup Latency Chart"> | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/benchmark_cpu_overhead.png" width="450" alt="CPU Overhead Chart"> |
+  | <img src="screenshot/benchmark_ram_latency.png" width="450" alt="RAM Usage & Startup Latency Chart"> | <img src="screenshot/benchmark_cpu_overhead.png" width="450" alt="CPU Overhead Chart"> |
 </div>
 
 ### Measured Performance Benchmarks
@@ -141,6 +141,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 | **24-Bit TrueColor Palettes** | **10 Built-in** | Custom RGB | 16-color | 16-color | OS Theme |
 
 ---
+
 
 ## 🧠 Core Architecture & Systems Design
 
@@ -207,23 +208,32 @@ zyphor --theme cyber
 # 3. Plain ASCII mode for minimal or legacy terminals
 zyphor --plain
 
-# 4. Run an automated environment audit (Kernel probes, permissions, sensors)
-zyphor doctor
+# 4. Display GPU engine utilization, VRAM allocation, clock, wattage, and PCIe I/O
+zyphor gpu
 
-# 5. Run native CPU compute (Integer MOP/s) and RAM bandwidth (GB/s) benchmarks
+# 5. Hardware sensors, per-core CPU heatmap, thermals, and battery health
+zyphor sensors
+
+# 6. Active network sockets, connection states, and remote host mappings
+zyphor netstat
+
+# 7. Live streaming terminal process monitor (top mode)
+zyphor top
+
+# 8. Export an interactive standalone dark-mode HTML observatory report
+zyphor report
+
+# 9. Run native hardware compute and RAM bandwidth benchmark
 zyphor bench
 
-# 6. Prove Zyphor's lightweight nature (Measures telemetry sampling latency & RAM footprint)
-zyphor overhead
+# 10. Run an automated environment audit (Kernel probes, permissions, sensors)
+zyphor doctor
 
-# 7. Start the headless TCP daemon streaming live JSON telemetry on port 7777
+# 11. Start the headless TCP daemon streaming live JSON telemetry on port 7777
 zyphor daemon
 
-# 8. Export an instantaneous, comprehensive system telemetry snapshot to JSON
+# 12. Export an instantaneous system snapshot to JSON
 zyphor snapshot -o system-state.json
-
-# 9. Query top processes from the CLI without launching the TUI
-zyphor process --sort cpu --limit 10
 ```
 
 ---
@@ -235,10 +245,13 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 ### Viewport Navigation
 | Hotkey | Action | Description |
 | :--- | :---: | :--- |
-| <kbd>1</kbd> .. <kbd>7</kbd> | Direct Jump | Switch to Overview, Processes, Disks, Network, Health, Services, or Containers. |
-| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Next / Prev Tab | Advance viewport sequentially across panels. |
+| <kbd>1</kbd> .. <kbd>8</kbd> | Direct Jump | Switch to Overview, Processes, Disks, Network, Health, Services, Containers, or Hardware/GPU. |
+| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Next / Prev Tab | Advance viewport sequentially across all 8 panels. |
+| <kbd>F</kbd> | Defensive Remediation | Open automated self-healing executor (purge standby RAM, flush DNS/sockets, kill rogues). |
+| <kbd>R</kbd> | Flight Blackbox Replay | Toggle 60-frame historical flight recorder replay mode. |
+| <kbd><</kbd> / <kbd>></kbd> | Time Scrubber | Step backward and forward across recorded historical frames (-1s to -60s). |
 | <kbd>:</kbd> or <kbd>Ctrl+P</kbd> | Command Palette | Open floating quick-action command launcher. |
-| <kbd>?</kbd> | Help Overlay | Display full modal cheatsheet of all keyboard shortcuts. |
+| <kbd>?</kbd> | Help Overlay | Display full modal cheatsheet of all keyboard shortcuts and developer info. |
 | <kbd>q</kbd> or <kbd>Ctrl+C</kbd> | Clean Exit | Restore terminal cursor state and exit cleanly. |
 
 ### Process & List Manipulation
@@ -252,7 +265,7 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 | <kbd>Enter</kbd> | Deep Inspector | Toggle side-pane telemetry inspector for selected item. |
 | <kbd>t</kbd> | Lineage Tree | Toggle hierarchical DFS process parent/child tree mode. |
 | <kbd>c</kbd> / <kbd>m</kbd> / <kbd>p</kbd> / <kbd>n</kbd> | Sort Modes | Instantly sort by CPU%, Memory (RSS), PID, or Name. |
-| <kbd>x</kbd> | Terminate (Kill) | Send `SIGKILL` / `TerminateProcess` to highlighted process. |
+| <kbd>x</kbd> / <kbd>K</kbd> | Signal Dispatch | Open multi-signal modal to dispatch `SIGKILL (9)`, `SIGTERM (15)`, or `SIGSTOP (19)`. |
 | <kbd>s</kbd> | Suspend | Send `SIGSTOP` to pause execution of target process. |
 | <kbd>u</kbd> | Resume | Send `SIGCONT` to unpause execution of target process. |
 
@@ -261,8 +274,9 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 | :--- | :---: | :--- |
 | <kbd>P</kbd> | Process Profiler | Launch 10-second high-frequency telemetry trace on selected PID. |
 | <kbd>E</kbd> | Export Snapshot | Dump instantaneous machine state to `zyphor-export-[timestamp].json`. |
-| <kbd>Space</kbd> | Freeze Telemetry | Pause live sampling loop to freeze screen metrics for inspection. |
+| <kbd>Space</kbd> | Freeze / Resume | Pause live sampling loop to freeze screen metrics or exit replay mode. |
 | <kbd>]</kbd> or <kbd>Shift+T</kbd> | Cycle Theme | Hot-swap between all 10 built-in 24-bit TrueColor palettes. |
+
 
 ---
 
@@ -284,29 +298,7 @@ irm https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/install.ps1
 
 ---
 
-### 2. JavaScript & Web Toolchains (NPM, Bun, PNPM)
-
-```bash
-# Execute immediately via npx
-npx zyphor
-
-# Or install globally
-npm install -g zyphor
-bun install -g zyphor
-pnpm add -g zyphor
-```
-
----
-
-### 3. Rust Ecosystem (Cargo / Crates.io)
-
-```bash
-cargo install zyphor
-```
-
----
-
-### 4. Native Package Managers
+### 2. Native Package Managers
 
 #### macOS & Linux (Homebrew):
 ```bash
@@ -334,7 +326,7 @@ paru -S zyphor-bin
 
 ---
 
-### 5. Build from Source
+### 3. Build from Source
 
 Building Zyphor requires [Zig 0.15.2+](https://ziglang.org/download/):
 
@@ -358,14 +350,14 @@ For in-depth operational and engineering guides, explore the dedicated documenta
 
 | Document | Focus Area |
 | :--- | :--- |
-| 📖 [**Observatory User Manual**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/user-manual.md) | Complete guide to all 7 panels, process trees, inspector cards, profiling workflows, and metrics. |
-| 🧠 [**Internal Systems Architecture**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/architecture.md) | Low-level design, memory models, double arenas, differential rendering, and zero-allocation invariants. |
-| 🚨 [**Alerts & Diagnostics Engine**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/alerts-and-diagnostics.md) | Heuristic algorithms, 0–100 health scoring formulas, anomaly detection, and remediation playbooks. |
-| 🧬 [**Platform Internals & Probes**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/platform-internals.md) | Kernel telemetry implementations: Windows NT direct syscalls, Linux `/proc` zero-copy, and macOS Mach probes. |
-| 🤖 [**CLI & Automation Reference**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/cli-reference.md) | Comprehensive subcommand reference, JSON export schemas, Prometheus exporter integration, and scripting recipes. |
-| 🎨 [**Theming & Customization**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/theming-and-customization.md) | 24-bit TrueColor tokens, custom palette configuration, and visual overrides. |
-| 🔧 [**Troubleshooting & FAQ**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/troubleshooting.md) | Terminal compatibility, Windows console modes, Linux capability permissions (`CAP_SYS_PTRACE`), and FAQ. |
-| 🤝 [**Contributing Guide**](https://github.com/miyaniakshar1234/Zyphor/blob/master/docs/contributing.md) | Coding standards, memory safety invariants, testing harness, benchmarking requirements, and PR workflows. |
+| 📖 [**Observatory User Manual**](docs/user-manual.md) | Complete guide to all 7 panels, process trees, inspector cards, profiling workflows, and metrics. |
+| 🧠 [**Internal Systems Architecture**](docs/architecture.md) | Low-level design, memory models, double arenas, differential rendering, and zero-allocation invariants. |
+| 🚨 [**Alerts & Diagnostics Engine**](docs/alerts-and-diagnostics.md) | Heuristic algorithms, 0–100 health scoring formulas, anomaly detection, and remediation playbooks. |
+| 🧬 [**Platform Internals & Probes**](docs/platform-internals.md) | Kernel telemetry implementations: Windows NT direct syscalls, Linux `/proc` zero-copy, and macOS Mach probes. |
+| 🤖 [**CLI & Automation Reference**](docs/cli-reference.md) | Comprehensive subcommand reference, JSON export schemas, Prometheus exporter integration, and scripting recipes. |
+| 🎨 [**Theming & Customization**](docs/theming-and-customization.md) | 24-bit TrueColor tokens, custom palette configuration, and visual overrides. |
+| 🔧 [**Troubleshooting & FAQ**](docs/troubleshooting.md) | Terminal compatibility, Windows console modes, Linux capability permissions (`CAP_SYS_PTRACE`), and FAQ. |
+| 🤝 [**Contributing Guide**](docs/contributing.md) | Coding standards, memory safety invariants, testing harness, benchmarking requirements, and PR workflows. |
 
 ---
 
@@ -382,7 +374,7 @@ Zyphor was architected, designed, and built by **Akshar Miyani**.
 
 ## 📄 License
 
-Zyphor is open-source software licensed under the **MIT License**. See the [LICENSE](https://github.com/miyaniakshar1234/Zyphor/blob/master/LICENSE) file for details.
+Zyphor is open-source software licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
 <div align="center">
   <sub>Engineered with precision for the global systems community by <b>Akshar Miyani</b>.</sub>
