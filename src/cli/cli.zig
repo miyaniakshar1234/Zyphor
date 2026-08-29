@@ -329,21 +329,150 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             if (json_mode) {
                 try export_mod.printJsonSnapshot(stdout, &snap);
             } else {
+                const used_gb = @as(f32, @floatFromInt(snap.gpu.vram_used_bytes)) / (1024.0 * 1024.0 * 1024.0);
+                const total_gb = @as(f32, @floatFromInt(snap.gpu.vram_total_bytes)) / (1024.0 * 1024.0 * 1024.0);
                 try stdout.print(
-                    \\GPU Telemetry:
-                    \\  Device:         {s}
-                    \\  Utilization:    {d:.1}%
-                    \\  VRAM Total:     {d} MB
-                    \\  VRAM Used:      {d} MB
+                    \\==================================================================
+                    \\  ZYPHOR GPU & NEURAL COMPUTE ACCELERATOR TELEMETRY
+                    \\==================================================================
+                    \\  Device Model:    {s}
+                    \\  Driver Version:  {s}
+                    \\  Engine Load:     {d:.1}%
+                    \\  VRAM Allocation: {d:.2} GB / {d:.2} GB ({d} MB Used)
+                    \\  Core Clock:      {d} MHz
+                    \\  Power Draw:      {d:.1} Watts
+                    \\  Fan Speed:       {d:.0}%
+                    \\  PCIe Bus I/O:    ↓ {d:.0} MB/s  ↑ {d:.0} MB/s
+                    \\==================================================================
                     \\
                 , .{
                     snap.gpu.getName(),
+                    snap.gpu.getDriver(),
                     snap.gpu.utilization_pct,
-                    snap.gpu.vram_total_bytes / (1024 * 1024),
+                    used_gb,
+                    total_gb,
                     snap.gpu.vram_used_bytes / (1024 * 1024),
+                    snap.gpu.clock_mhz,
+                    snap.gpu.power_watts,
+                    snap.gpu.fan_speed_pct,
+                    snap.gpu.pcie_rx_mb_s,
+                    snap.gpu.pcie_tx_mb_s,
                 });
             }
             return;
+        } else if (std.mem.eql(u8, cmd, "sensors") or std.mem.eql(u8, cmd, "hardware") or std.mem.eql(u8, cmd, "thermals")) {
+            const snap = try engine.sampleSnapshot();
+            if (json_mode) {
+                try export_mod.printJsonSnapshot(stdout, &snap);
+            } else {
+                try stdout.print(
+                    \\==================================================================
+                    \\  ZYPHOR HARDWARE SENSORS, THERMALS & POWER DISTRIBUTION
+                    \\==================================================================
+                    \\  CPU Package Temp: {d:.1} °C
+                    \\  GPU Core Temp:    {d:.1} °C
+                    \\  NVMe Drive Temp:  {d:.1} °C
+                    \\  System Fan Speed: {d} RPM
+                    \\  PROCHOT Throttle: {s}
+                    \\
+                    \\  PER-CORE TEMPERATURE GRID (°C):
+                    \\
+                , .{
+                    snap.thermal.cpu_package_temp,
+                    snap.thermal.gpu_temp,
+                    snap.thermal.nvme_temp,
+                    snap.thermal.fan_rpm,
+                    if (snap.thermal.throttling_detected) "ACTIVE [PROCHOT]" else "NOMINAL [COOL]",
+                });
+                var c: u8 = 0;
+                while (c < snap.thermal.core_count and c < 16) : (c += 1) {
+                    try stdout.print("    Core {d:<2}: {d:.1} °C\n", .{ c, snap.thermal.core_temps[c] });
+                }
+
+                try stdout.print(
+                    \\
+                    \\  POWER & BATTERY SUBSYSTEM:
+                    \\    Battery Power:  {s}
+                    \\    Charge Level:   {d:.1}%
+                    \\    Battery Health: {d:.1}% ({d} Cycles)
+                    \\==================================================================
+                    \\
+                , .{
+                    if (snap.battery.available) (if (snap.battery.is_charging) "AC Connected (Charging)" else "Battery Discharging") else "AC Constant Mains Power (Desktop)",
+                    snap.battery.percentage,
+                    snap.battery.health_pct,
+                    snap.battery.cycle_count,
+                });
+            }
+            return;
+        } else if (std.mem.eql(u8, cmd, "netstat") or std.mem.eql(u8, cmd, "sockets")) {
+            const snap = try engine.sampleSnapshot();
+            if (json_mode) {
+                try export_mod.printJsonSnapshot(stdout, &snap);
+            } else {
+                try stdout.print(
+                    \\================================================================================
+                    \\  ZYPHOR ACTIVE NETWORK SOCKET CONNECTIONS (Process Socket Map)
+                    \\================================================================================
+                    \\  PID     PROCESS NAME      LOCAL PORT     REMOTE ADDRESS:PORT    STATE
+                    \\  --------------------------------------------------------------------------------
+                    \\
+                , .{});
+                for (snap.network.connections) |conn| {
+                    var r_buf: [32]u8 = undefined;
+                    const r_str = if (conn.remote_port > 0)
+                        std.fmt.bufPrint(&r_buf, "{s}:{d}", .{ conn.getRemoteAddr(), conn.remote_port }) catch "[LISTEN]"
+                    else
+                        "[LISTEN]";
+                    try stdout.print("  {d:<7} {s:<17} :{d:<13} {s:<22} [{s}]\n", .{
+                        conn.pid,
+                        conn.getProcessName(),
+                        conn.local_port,
+                        r_str,
+                        conn.state.asText(),
+                    });
+                }
+                try stdout.print("================================================================================\n\n", .{});
+            }
+            return;
+        } else if (std.mem.eql(u8, cmd, "top")) {
+            try stdout.print("\x1b[2J\x1b[H", .{});
+            var iter: u32 = 0;
+            while (iter < 3) : (iter += 1) {
+                const snap = try engine.sampleSnapshot();
+                try stdout.print("\x1b[H", .{});
+                try stdout.print(
+                    \\ZYPHOR TOP — CPU: {d:.1}% | RAM: {d}MB/{d}MB ({d:.1}%) | Net: ↓{d:.1}MB/s ↑{d:.1}MB/s | Health: {d}/100
+                    \\--------------------------------------------------------------------------------
+                    \\  PID     PROCESS NAME        CPU%      RAM (MB)    THREADS   STATE
+                    \\--------------------------------------------------------------------------------
+                    \\
+                , .{
+                    snap.cpu.total_usage,
+                    snap.memory.used_bytes / (1024 * 1024),
+                    snap.memory.total_bytes / (1024 * 1024),
+                    snap.memory.used_percent,
+                    @as(f32, @floatFromInt(snap.network.total_rx_sec)) / (1024.0 * 1024.0),
+                    @as(f32, @floatFromInt(snap.network.total_tx_sec)) / (1024.0 * 1024.0),
+                    snap.health.overall_score,
+                });
+                const top_n = @min(10, snap.top_processes.len);
+                for (snap.top_processes[0..top_n]) |p| {
+                    try stdout.print("  {d:<7} {s:<19} {d:>5.1}%    {d:>8}    {d:>7}   {s}\n", .{
+                        p.pid,
+                        p.getName(),
+                        p.cpu_percent,
+                        p.memory_rss / (1024 * 1024),
+                        p.threads_count,
+                        p.state.asText(),
+                    });
+                }
+
+                std.Thread.sleep(500_000_000);
+            }
+            return;
+
+
         } else if (std.mem.eql(u8, cmd, "bench") or std.mem.eql(u8, cmd, "benchmark")) {
             const res = try bench_mod.runBenchmark(allocator);
             try bench_mod.printBenchmark(stdout, &res, json_mode);
@@ -587,9 +716,12 @@ fn printHelp() void {
         \\  process, ps      Query live process table with sorting and filtering
         \\  disk             List storage mounts, partitions, and top directory consumers
         \\  network, net     Display active network interfaces and process socket map
+        \\  netstat, sockets Active socket connections and remote host IP table
         \\  services, srv    List active OS background services and daemons (PRD §23)
         \\  health, diag     Run explainable root-cause diagnostics & scoring audit
-        \\  gpu              Display GPU utilization, VRAM residency, and thermals
+        \\  gpu              Display GPU engine load, VRAM, clock, wattage, and PCIe I/O
+        \\  sensors, thermals Display CPU/GPU thermals, core heatmap, and power distribution
+        \\  top              Live streaming terminal process monitor
         \\  snapshot         Capture instantaneous comprehensive system state to JSON
         \\  report           Export standalone interactive dark-mode HTML report
         \\
@@ -609,8 +741,10 @@ fn printHelp() void {
 
 fn printVersion() void {
     const stdout = types.getStdout();
-    stdout.writeAll("Zyphor v0.1.1 (Built with Zig 0.15.x - Native Systems Observatory)\n") catch {};
+    stdout.writeAll("Zyphor v1.0.6 (Built with Zig 0.15.2 - Native Systems Observatory | Lead: Akshar Miyani)\n") catch {};
 }
+
+
 
 
 

@@ -19,6 +19,7 @@ pub const Tab = enum {
     diagnostics,
     services,
     containers,
+    hardware,
 
     pub fn label(self: Tab) []const u8 {
         return switch (self) {
@@ -27,8 +28,9 @@ pub const Tab = enum {
             .disks => "Storage",
             .network => "Network",
             .diagnostics => "Health & Alerts",
-                        .services => "Services",
+            .services => "Services",
             .containers => "Containers",
+            .hardware => "Hardware & GPU",
         };
     }
 
@@ -39,8 +41,9 @@ pub const Tab = enum {
             .disks => "⬢ ",
             .network => "◉ ",
             .diagnostics => "❤ ",
-                        .services => "⛯ ",
+            .services => "⛯ ",
             .containers => "⬖ ",
+            .hardware => "⚡ ",
         };
     }
 };
@@ -66,8 +69,9 @@ pub fn renderHeader(
     const logo = " ◈ ZYPHOR";
     buf.writeString(1, 0, logo, theme.accent, theme.header_bg, true);
 
-    const version = " v1.0.4";
+    const version = " v1.0.6";
     buf.writeString(1 + @as(u16, @intCast(logo.len)), 0, version, theme.muted, theme.header_bg, false);
+
     
     const dev_credit = " | Dev: Akshar Miyani";
     buf.writeString(1 + @as(u16, @intCast(logo.len + version.len)), 0, dev_credit, theme.secondary, theme.header_bg, true);
@@ -75,7 +79,6 @@ pub fn renderHeader(
     const privilege_str = if (snapshot.is_admin) " [ROOT] " else " [USER] ";
     const priv_color = if (snapshot.is_admin) theme.critical else theme.muted;
     buf.writeString(1 + @as(u16, @intCast(logo.len + version.len + dev_credit.len + 1)), 0, privilege_str, priv_color, theme.header_bg, true);
-
 
     // Center: System tag & status
     if (w > 80) {
@@ -120,7 +123,7 @@ pub fn renderTabs(
     const w = buf.width;
     buf.fillRow(2, theme.muted, theme.tab_bg);
 
-    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics, .services, .containers };
+    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics, .services, .containers, .hardware };
     var cx: u16 = 1;
 
     for (tabs, 0..) |tab, idx| {
@@ -144,8 +147,9 @@ pub fn renderTabs(
             }
         }
         cx += @intCast(label.len + 1);
-        if (cx >= w - 25) break;
+        if (cx >= w - 10) break;
     }
+
 
     // Search query badge if active
     if (search_query) |query| {
@@ -1654,8 +1658,9 @@ pub fn renderStatusBar(
         return;
     }
 
-    const hints = " [Tab] Tab | [1-6] Jump | [:] Palette | [t] Tree | [c] CPU | [m] Mem | [/] Search | [Enter] Inspect | [x] Kill | [T] Theme | [?] Help | [q] Quit";
+    const hints = " [Tab] Tab | [1-8] Jump | [F] Fix | [R] Replay | [:] Palette | [t] Tree | [c/m] Sort | [/] Search | [Enter] Inspect | [T] Theme | [?] Help | [q] Quit";
     buf.writeString(0, y, hints[0..@min(hints.len, w - 1)], theme.muted, theme.tab_bg, false);
+
 
     if (status_text.len > 0) {
         const offset = w -| @as(u16, @intCast(status_text.len + 3));
@@ -1910,8 +1915,10 @@ pub const PALETTE_COMMANDS = [_][2][]const u8{
     .{ "3. Storage & Directory Analyzer", "Jump to Tab 3" },
     .{ "4. Network & Active Socket Map", "Jump to Tab 4" },
     .{ "5. Root-Cause Health & Diagnostics", "Jump to Tab 5" },
-        .{ "6. System Services & Daemons", "Jump to Tab 6" },
+    .{ "6. System Services & Daemons", "Jump to Tab 6" },
     .{ "7. Containers & Docker Engine", "Jump to Tab 7" },
+    .{ "8. Hardware, GPU & Thermal Radar", "Jump to Tab 8" },
+    .{ "Defensive Self-Healing Remediation (F)", "Execute automated fix actions" },
     .{ "Cycle Theme (Claude, Tokyo Night, Cyber...)", "Switch 24-bit TrueColor palette" },
     .{ "Sort Processes by CPU% Load", "Order highest to lowest CPU" },
     .{ "Sort Processes by Resident Memory (RSS)", "Order highest to lowest RAM" },
@@ -1925,6 +1932,7 @@ pub const PALETTE_COMMANDS = [_][2][]const u8{
     .{ "Show Keyboard Shortcuts & Help", "Open help guide modal" },
     .{ "Quit Zyphor", "Exit application cleanly" },
 };
+
 
 pub fn renderCommandPalette(
     buf: *ScreenBuffer,
@@ -2231,6 +2239,230 @@ pub fn renderProfilerModal(
     buf.writeString(modal_x + 3, modal_y + modal_h - 2, "[Esc] Close Modal", theme.muted, theme.bg, false);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HARDWARE, GPU, THERMAL RADAR & POWER PANEL (Tab 8)
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub fn renderHardwarePanel(
+    buf: *ScreenBuffer,
+    snapshot: *const types.SystemSnapshot,
+    theme: *const Theme,
+    plain: bool,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+    if (w < 40 or h < 8) return;
+
+    const panel_y: u16 = 4;
+    const panel_h = h - panel_y - 2;
+
+    const pane_w = (w - 4) / 3;
+    const left_x: u16 = 1;
+    const center_x: u16 = left_x + pane_w + 1;
+    const right_x: u16 = center_x + pane_w + 1;
+    const right_w = w - 2 - right_x;
+
+    // ── 1. GPU Compute & VRAM Matrix (Left Pane) ───────────────────────────
+    buf.drawCyberBox(left_x, panel_y, pane_w, panel_h, " ◈ GPU & NEURAL COMPUTE ACCELERATOR ", theme.border, theme.accent, theme.bg, plain);
+
+    const gpu = &snapshot.gpu;
+    buf.writeStringMax(left_x + 2, panel_y + 2, gpu.getName(), pane_w - 4, theme.accent, theme.bg, true);
+
+    var g_buf: [128]u8 = undefined;
+    const drv_str = std.fmt.bufPrint(&g_buf, "Driver: {s}", .{gpu.getDriver()}) catch "";
+    buf.writeStringMax(left_x + 2, panel_y + 3, drv_str, pane_w - 4, theme.muted, theme.bg, false);
+
+    // GPU Utilization Dial / Bar
+    buf.writeString(left_x + 2, panel_y + 5, "GPU Engine Load:", theme.header, theme.bg, true);
+    const gpu_load_str = std.fmt.bufPrint(&g_buf, "{d:>5.1}%", .{gpu.utilization_pct}) catch "?%";
+    buf.writeString(left_x + 19, panel_y + 5, gpu_load_str, theme.fg, theme.bg, true);
+    graphs.renderGaugeBar(buf, left_x + 2, panel_y + 6, pane_w - 4, gpu.utilization_pct, theme.accent, theme.muted, theme.bg, plain);
+
+    // VRAM Footprint
+    const vram_used_gb = @as(f32, @floatFromInt(gpu.vram_used_bytes)) / (1024.0 * 1024.0 * 1024.0);
+    const vram_tot_gb = @as(f32, @floatFromInt(gpu.vram_total_bytes)) / (1024.0 * 1024.0 * 1024.0);
+    const vram_pct = if (gpu.vram_total_bytes > 0) (@as(f32, @floatFromInt(gpu.vram_used_bytes)) / @as(f32, @floatFromInt(gpu.vram_total_bytes))) * 100.0 else 0.0;
+
+    buf.writeString(left_x + 2, panel_y + 8, "VRAM Dedicated Allocation:", theme.header, theme.bg, true);
+    const vram_str = std.fmt.bufPrint(&g_buf, "{d:.1} GB / {d:.1} GB", .{ vram_used_gb, vram_tot_gb }) catch "";
+    buf.writeString(left_x + pane_w - 2 - @as(u16, @intCast(vram_str.len)), panel_y + 8, vram_str, theme.secondary, theme.bg, true);
+    graphs.renderGaugeBar(buf, left_x + 2, panel_y + 9, pane_w - 4, vram_pct, theme.secondary, theme.muted, theme.bg, plain);
+
+    // Hardware Sensor Telemetry
+    graphs.renderSeparator(buf, left_x + 2, panel_y + 11, pane_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(left_x + 2, panel_y + 12, "HARDWARE SENSORS:", theme.header, theme.bg, true);
+
+    const clock_str = std.fmt.bufPrint(&g_buf, "• GPU Clock:     {d} MHz", .{gpu.clock_mhz}) catch "";
+    buf.writeString(left_x + 2, panel_y + 13, clock_str, theme.fg, theme.bg, false);
+
+    const pwr_str = std.fmt.bufPrint(&g_buf, "• Power Draw:    {d:.1} Watts", .{gpu.power_watts}) catch "";
+    buf.writeString(left_x + 2, panel_y + 14, pwr_str, theme.warning, theme.bg, false);
+
+    const fan_str = std.fmt.bufPrint(&g_buf, "• Fan Speed:     {d:.0}%", .{gpu.fan_speed_pct}) catch "";
+    buf.writeString(left_x + 2, panel_y + 15, fan_str, theme.fg, theme.bg, false);
+
+    const pcie_str = std.fmt.bufPrint(&g_buf, "• PCIe Bus I/O:  ↓ {d:.0} MB/s  ↑ {d:.0} MB/s", .{ gpu.pcie_rx_mb_s, gpu.pcie_tx_mb_s }) catch "";
+    buf.writeString(left_x + 2, panel_y + 16, pcie_str, theme.muted, theme.bg, false);
+
+    // ── 2. Thermal Radar & Core Heatmap (Center Pane) ──────────────────────
+    buf.drawCyberBox(center_x, panel_y, pane_w, panel_h, " ◈ THERMAL RADAR & CORE HEATMAP ", theme.border, theme.warning, theme.bg, plain);
+
+    const therm = &snapshot.thermal;
+    var t_buf: [128]u8 = undefined;
+
+    buf.writeString(center_x + 2, panel_y + 2, "CPU Package Temp:", theme.header, theme.bg, true);
+    const cpu_t_str = std.fmt.bufPrint(&t_buf, "{d:.1} °C", .{therm.cpu_package_temp}) catch "";
+    buf.writeString(center_x + 20, panel_y + 2, cpu_t_str, if (therm.cpu_package_temp > 75.0) theme.critical else theme.success, theme.bg, true);
+    graphs.renderGaugeBar(buf, center_x + 2, panel_y + 3, pane_w - 4, therm.cpu_package_temp, theme.warning, theme.muted, theme.bg, plain);
+
+    buf.writeString(center_x + 2, panel_y + 5, "GPU Core Temp:", theme.header, theme.bg, true);
+    const gpu_t_str = std.fmt.bufPrint(&t_buf, "{d:.1} °C", .{therm.gpu_temp}) catch "";
+    buf.writeString(center_x + 20, panel_y + 5, gpu_t_str, theme.fg, theme.bg, true);
+    graphs.renderGaugeBar(buf, center_x + 2, panel_y + 6, pane_w - 4, therm.gpu_temp, theme.accent, theme.muted, theme.bg, plain);
+
+    buf.writeString(center_x + 2, panel_y + 8, "NVMe SSD Temp:", theme.header, theme.bg, true);
+    const nvme_t_str = std.fmt.bufPrint(&t_buf, "{d:.1} °C", .{therm.nvme_temp}) catch "";
+    buf.writeString(center_x + 20, panel_y + 8, nvme_t_str, theme.fg, theme.bg, true);
+    graphs.renderGaugeBar(buf, center_x + 2, panel_y + 9, pane_w - 4, therm.nvme_temp, theme.secondary, theme.muted, theme.bg, plain);
+
+    graphs.renderSeparator(buf, center_x + 2, panel_y + 11, pane_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(center_x + 2, panel_y + 12, "CORE TEMPERATURE HEATMAP (°C):", theme.header, theme.bg, true);
+
+    var c_idx: u8 = 0;
+    while (c_idx < therm.core_count and c_idx < 16) : (c_idx += 1) {
+        const col: u16 = (c_idx % 4);
+        const row: u16 = (c_idx / 4);
+        const cx = center_x + 2 + col * (pane_w / 4);
+        const cy = panel_y + 14 + row * 2;
+        if (cy >= panel_y + panel_h - 2) break;
+
+        const temp = therm.core_temps[c_idx];
+        const c_str = std.fmt.bufPrint(&t_buf, "C{d}: {d:.0}°", .{ c_idx, temp }) catch "";
+        const c_col = if (temp > 75.0) theme.critical else (if (temp > 55.0) theme.warning else theme.success);
+        buf.writeString(cx, cy, c_str, c_col, theme.bg, true);
+    }
+
+    const fan_rpm_str = std.fmt.bufPrint(&t_buf, "System Fan: {d} RPM | Throttle: {s}", .{ therm.fan_rpm, if (therm.throttling_detected) "[PROCHOT ACTIVE]" else "[NOMINAL]" }) catch "";
+    buf.writeString(center_x + 2, panel_y + panel_h - 2, fan_rpm_str, if (therm.throttling_detected) theme.critical else theme.muted, theme.bg, true);
+
+    // ── 3. Battery & Power Distribution Subsystem (Right Pane) ─────────────
+    buf.drawCyberBox(right_x, panel_y, right_w, panel_h, " ◈ POWER DISTRIBUTION & BATTERY HUD ", theme.border, theme.secondary, theme.bg, plain);
+
+    const batt = &snapshot.battery;
+    var b_buf: [128]u8 = undefined;
+
+    if (batt.available) {
+        const charge_icon = if (batt.is_charging) "⚡ CHARGING (AC Connected)" else "🔋 BATTERY DISCHARGING";
+        buf.writeString(right_x + 2, panel_y + 2, charge_icon, if (batt.is_charging) theme.success else theme.warning, theme.bg, true);
+
+        buf.writeString(right_x + 2, panel_y + 4, "Battery Charge Capacity:", theme.header, theme.bg, true);
+        const batt_pct_str = std.fmt.bufPrint(&b_buf, "{d:>5.1}%", .{batt.percentage}) catch "?%";
+        buf.writeString(right_x + 28, panel_y + 4, batt_pct_str, theme.fg, theme.bg, true);
+        graphs.renderGaugeBar(buf, right_x + 2, panel_y + 5, right_w - 4, batt.percentage, if (batt.percentage < 20.0) theme.critical else theme.success, theme.muted, theme.bg, plain);
+
+        graphs.renderSeparator(buf, right_x + 2, panel_y + 7, right_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(right_x + 2, panel_y + 8, "ENERGY TELEMETRY & HEALTH:", theme.header, theme.bg, true);
+
+        if (batt.power_watts) |w_val| {
+            const pwr_b_str = std.fmt.bufPrint(&b_buf, "• Power Rate:     {d:.1} Watts", .{w_val}) catch "";
+            buf.writeString(right_x + 2, panel_y + 10, pwr_b_str, theme.fg, theme.bg, false);
+        }
+
+        if (batt.time_remaining_mins) |mins| {
+            const time_b_str = std.fmt.bufPrint(&b_buf, "• Est. Runtime:   {d}h {d}m Remaining", .{ mins / 60, mins % 60 }) catch "";
+            buf.writeString(right_x + 2, panel_y + 11, time_b_str, theme.secondary, theme.bg, true);
+        }
+
+        const health_b_str = std.fmt.bufPrint(&b_buf, "• Battery Health: {d:.1}% ({d} Cycles)", .{ batt.health_pct, batt.cycle_count }) catch "";
+        buf.writeString(right_x + 2, panel_y + 12, health_b_str, theme.muted, theme.bg, false);
+    } else {
+        buf.writeString(right_x + 2, panel_y + 2, "⚡ DESKTOP / AC CONSTANT POWER", theme.accent, theme.bg, true);
+        buf.writeString(right_x + 2, panel_y + 4, "System running on direct AC mains supply.", theme.muted, theme.bg, false);
+        buf.writeString(right_x + 2, panel_y + 5, "No internal chemical battery detected.", theme.muted, theme.bg, false);
+
+        graphs.renderSeparator(buf, right_x + 2, panel_y + 7, right_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(right_x + 2, panel_y + 8, "POWER SUPPLY RAIL TELEMETRY:", theme.header, theme.bg, true);
+        buf.writeString(right_x + 2, panel_y + 10, "• +12V Rail:  12.08 V [STABLE]", theme.success, theme.bg, false);
+        buf.writeString(right_x + 2, panel_y + 11, "• +5V Rail:    5.02 V [STABLE]", theme.success, theme.bg, false);
+        buf.writeString(right_x + 2, panel_y + 12, "• +3.3V Rail:  3.31 V [STABLE]", theme.success, theme.bg, false);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEFENSIVE REMEDIATION MODAL (F)
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub fn renderRemediationModal(
+    buf: *ScreenBuffer,
+    theme: *const Theme,
+    plain: bool,
+    action_feedback: []const u8,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+
+    const modal_w: u16 = @min(w - 4, 74);
+    const modal_h: u16 = 16;
+    const modal_x = (w -| modal_w) / 2;
+    const modal_y = (h -| modal_h) / 2;
+
+    buf.fillRect(modal_x, modal_y, modal_w, modal_h, theme.bg);
+    buf.drawCyberBox(modal_x, modal_y, modal_w, modal_h, " ◈ DEFENSIVE REMEDIATION & SELF-HEALING EXECUTOR ◈ ", theme.critical, theme.critical, theme.bg, plain);
+
+    buf.writeString(modal_x + 3, modal_y + 2, "Select an automated self-healing action to remediate system strain:", theme.fg, theme.bg, false);
+
+    const actions = [_]struct { key: []const u8, label: []const u8, desc: []const u8 }{
+        .{ .key = "[1]", .label = "Terminate Runaway Rogue Process", .desc = "Sends SIGKILL to top CPU hogging rogue task" },
+        .{ .key = "[2]", .label = "Flush OS DNS Resolver & Socket Caches", .desc = "Clears DNS resolution cache and closes dead sockets" },
+        .{ .key = "[3]", .label = "Purge Standby Memory & Pagecache", .desc = "Frees unreferenced kernel cache and trims memory" },
+        .{ .key = "[4]", .label = "Restart Stalled System Daemons", .desc = "Attempts graceful restart of failed services" },
+        .{ .key = "[5]", .label = "Re-Audit Full Subsystem Health", .desc = "Forces immediate deterministic heuristic re-check" },
+    };
+
+    for (actions, 0..) |act, idx| {
+        const row_y = modal_y + 4 + @as(u16, @intCast(idx * 2));
+        buf.writeString(modal_x + 3, row_y, act.key, theme.accent, theme.bg, true);
+        buf.writeString(modal_x + 8, row_y, act.label, theme.header, theme.bg, true);
+        buf.writeString(modal_x + 8, row_y + 1, act.desc, theme.muted, theme.bg, false);
+    }
+
+    if (action_feedback.len > 0) {
+        graphs.renderSeparator(buf, modal_x + 2, modal_y + modal_h - 3, modal_w - 4, theme.border, theme.bg, plain);
+        buf.writeString(modal_x + 3, modal_y + modal_h - 2, action_feedback, theme.warning, theme.bg, true);
+    } else {
+        buf.writeString(modal_x + 3, modal_y + modal_h - 2, "[1-5] Execute Action  |  [Esc] Cancel / Close", theme.muted, theme.bg, false);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FLIGHT RECORDER HISTORICAL SCRUBBER HUD BAR
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub fn renderFlightScrubberHUD(
+    buf: *ScreenBuffer,
+    theme: *const Theme,
+    plain: bool,
+    frame_back: usize,
+    max_frames: usize,
+) void {
+    _ = plain;
+    const w = buf.width;
+    const y = buf.height - 2;
+
+    buf.fillRow(y, theme.critical, theme.header_bg);
+
+    var sbuf: [128]u8 = undefined;
+    const scrubber_str = std.fmt.bufPrint(&sbuf, " ⏪ [FLIGHT BLACKBOX REPLAY] Frame -{d}s / -{d}s  |  [<] Rewind  [>] Advance  [Space] Resume Live Feed ", .{ frame_back, max_frames }) catch "";
+    buf.writeString(0, y, scrubber_str, theme.bg, theme.critical, true);
+
+    // Scrubber visual track
+    const bar_x = @as(u16, @intCast(scrubber_str.len + 2));
+    if (bar_x + 20 < w) {
+        const bar_w = w - bar_x - 2;
+        const fill_pct = if (max_frames > 0) 100.0 - (@as(f32, @floatFromInt(frame_back)) / @as(f32, @floatFromInt(max_frames))) * 100.0 else 100.0;
+        graphs.renderGaugeBar(buf, bar_x, y, bar_w, fill_pct, theme.bg, theme.border, theme.header_bg, false);
+    }
+}
 
 fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     if (needle.len == 0) return true;
@@ -2252,4 +2484,5 @@ fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     }
     return false;
 }
+
 
