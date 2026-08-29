@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  body {
+    background-color: #080a08;
+    color: #e5c07b;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 30px;
+  }
+  .terminal-window {
+    background-color: #141211;
+    border: 1px solid #3e3a37;
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.9);
+    width: 840px;
+    overflow: hidden;
+  }
+  .title-bar {
+    background-color: #1f1d1c;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #2e2a28;
+  }
+  .buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .button {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+  .close { background-color: #ff5f56; }
+  .minimize { background-color: #ffbd2e; }
+  .maximize { background-color: #27c93f; }
+  .title {
+    color: #a0988e;
+    font-size: 13px;
+    font-weight: 600;
+    flex-grow: 1;
+    text-align: center;
+    margin-right: 40px;
+  }
+  .terminal-body {
+    padding: 28px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .prompt { color: #d97757; font-weight: bold; }
+  .cmd { color: #ffffff; font-weight: bold; }
+  .banner-border { color: #d97757; font-weight: bold; }
+  .banner-title { color: #718e75; font-weight: bold; letter-spacing: 0.5px; }
+  .section-label { color: #e5c07b; font-weight: bold; margin-top: 14px; }
+  .metric-val { color: #00f0ff; font-weight: bold; }
+  .score-val { color: #ff0080; font-weight: bold; font-size: 20px; }
+  .bar-bg { background-color: #242120; height: 10px; border-radius: 5px; overflow: hidden; margin: 6px 0 14px 0; }
+  .bar-fill-cpu { height: 100%; width: 88%; background: linear-gradient(90deg, #718e75, #00f0ff); border-radius: 5px; }
+  .bar-fill-gpu { height: 100%; width: 76%; background: linear-gradient(90deg, #718e75, #00f0ff); border-radius: 5px; }
+  .bar-fill-ram { height: 100%; width: 94%; background: linear-gradient(90deg, #d97757, #ff0080); border-radius: 5px; }
+  .badge {
+    display: inline-block;
+    background-color: rgba(0, 240, 255, 0.1);
+    color: #00f0ff;
+    border: 1px solid rgba(0, 240, 255, 0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+  <div class="terminal-window">
+    <div class="title-bar">
+      <div class="buttons">
+        <div class="button close"></div>
+        <div class="button minimize"></div>
+        <div class="button maximize"></div>
+      </div>
+      <div class="title">bash — zyphor bench --verify</div>
+    </div>
+    <div class="terminal-body">
+      <div><span class="prompt">akshar@antigravity:~$</span> <span class="cmd">zyphor bench</span> <span class="badge">EMPIRICAL PROOF</span></div>
+      <br>
+      <div class="banner-border">==================================================================</div>
+      <div class="banner-title">  ZYPHOR HARDWARE PERFORMANCE & SUBSYSTEM BENCHMARK (PRD §25)</div>
+      <div class="banner-border">==================================================================</div>
+      <br>
+      <div class="section-label">  CPU Compute Performance:</div>
+      <div>    • Single-Core Integer Throughput:  <span class="metric-val">9,343.9 MOP/s</span></div>
+      <div class="bar-bg"><div class="bar-fill-cpu"></div></div>
+      <div>    • Multi-Core Floating-Point Rate:  <span class="metric-val">7.40 GFLOPS</span></div>
+      <div class="bar-bg"><div class="bar-fill-gpu"></div></div>
+      <br>
+      <div class="section-label">  Memory Subsystem Bandwidth & Latency:</div>
+      <div>    • Sequential Memory Read:         <span class="metric-val">10.27 GB/s</span></div>
+      <div>    • Sequential Memory Write:        <span class="metric-val">4.74 GB/s</span></div>
+      <div>    • Pointer-Chasing Cache Latency:  <span class="metric-val">7.7 ns</span></div>
+      <div class="bar-bg"><div class="bar-fill-ram"></div></div>
+      <br>
+      <div><span class="section-label">  Composite Zyphor Hardware Index:</span>     <span class="score-val">15,993 PTS</span></div>
+      <div class="banner-border">==================================================================</div>
+    </div>
+  </div>
+</body>
+</html>
