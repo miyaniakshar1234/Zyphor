@@ -100,6 +100,15 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 
 ## 📊 Feature Matrix & Benchmark Proof
 
+### 📈 Script-Generated Benchmark Charts (Verified Empirical Proof)
+
+<div align="center">
+  | RAM Footprint & Startup Latency | Sampling CPU Overhead |
+  | :--- | :--- |
+  | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/benchmark_ram_latency.png" width="450" alt="RAM Usage & Startup Latency Benchmark Chart"> | <img src="https://raw.githubusercontent.com/miyaniakshar1234/Zyphor/master/screenshot/benchmark_cpu_overhead.png" width="450" alt="CPU Overhead Benchmark Chart"> |
+  <p><em>Empirical data visualizer generated directly from benchmark telemetry harness (<code>python scripts/generate_benchmark_charts.py</code>).</em></p>
+</div>
+
 ### 🚀 Real-Time Terminal Benchmark Output (Verified Proof)
 
 <div align="center">
@@ -119,6 +128,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 | **Frame Draw Overhead (60 FPS)** | **0.12 ms** | 1.85 ms | N/A (flickers) | N/A (slow) |
 | **Memory Latency (Pointer-Chasing)** | **7.7 ns** | N/A | N/A | N/A |
 | **Binary Executable Size** | **1.1 MB** | 8.2 MB | 3.5 MB | 45+ MB |
+
 
 
 ### Feature Comparison Matrix
