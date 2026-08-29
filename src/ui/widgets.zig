@@ -20,6 +20,7 @@ pub const Tab = enum {
     services,
     containers,
     hardware,
+    events,
 
     pub fn label(self: Tab) []const u8 {
         return switch (self) {
@@ -31,6 +32,7 @@ pub const Tab = enum {
             .services => "Services",
             .containers => "Containers",
             .hardware => "Hardware & GPU",
+            .events => "Kernel Logs",
         };
     }
 
@@ -44,9 +46,11 @@ pub const Tab = enum {
             .services => "⛯ ",
             .containers => "⬖ ",
             .hardware => "⚡ ",
+            .events => "📋 ",
         };
     }
 };
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HEADER
@@ -69,7 +73,7 @@ pub fn renderHeader(
     const logo = " ◈ ZYPHOR";
     buf.writeString(1, 0, logo, theme.accent, theme.header_bg, true);
 
-    const version = " v1.0.6";
+    const version = " v1.0.7";
     buf.writeString(1 + @as(u16, @intCast(logo.len)), 0, version, theme.muted, theme.header_bg, false);
 
     
@@ -123,7 +127,7 @@ pub fn renderTabs(
     const w = buf.width;
     buf.fillRow(2, theme.muted, theme.tab_bg);
 
-    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics, .services, .containers, .hardware };
+    const tabs = [_]Tab{ .overview, .processes, .disks, .network, .diagnostics, .services, .containers, .hardware, .events };
     var cx: u16 = 1;
 
     for (tabs, 0..) |tab, idx| {
@@ -1880,10 +1884,11 @@ pub fn renderHelpModal(
     buf.drawAccentBox(modal_x, modal_y, modal_w, modal_h, " ◈ KEYBOARD SHORTCUTS & SYSTEM NAVIGATION ◈ ", theme.accent, theme.accent, theme.bg, plain);
 
     const bindings = [_][2][]const u8{
-        .{ "Tab / Shift+Tab", "Cycle forward / backward across all 8 observatory tabs" },
-        .{ "1 / 2 / 3 / 4 / 5 / 6 / 7 / 8", "Jump to Overview / Procs / Storage / Net / Health / Srv / Containers / GPU" },
+        .{ "Tab / Shift+Tab", "Cycle forward / backward across all 9 observatory tabs" },
+        .{ "1 - 9", "Jump to Overview / Procs / Storage / Net / Health / Srv / Containers / GPU / Logs" },
         .{ "F", "Open Defensive Self-Healing & Automated Remediation Modal" },
         .{ "R", "Toggle Telemetry Flight Blackbox Recorder & Replay Mode" },
+
         .{ "< / >", "Scrub historical telemetry frames (-1s to -60s in replay mode)" },
         .{ ": / Ctrl+P", "Open quick action command palette" },
         .{ "↑ ↓ / j k", "Navigate highlighted row in process/service/container table" },
@@ -1938,7 +1943,9 @@ pub const PALETTE_COMMANDS = [_][2][]const u8{
     .{ "6. System Services & Daemons", "Jump to Tab 6" },
     .{ "7. Containers & Docker Engine", "Jump to Tab 7" },
     .{ "8. Hardware, GPU & Thermal Radar", "Jump to Tab 8" },
+    .{ "9. Kernel Events & System Logs", "Jump to Tab 9" },
     .{ "Defensive Self-Healing Remediation (F)", "Execute automated fix actions" },
+
     .{ "Cycle Theme (Claude, Tokyo Night, Cyber...)", "Switch 24-bit TrueColor palette" },
     .{ "Sort Processes by CPU% Load", "Order highest to lowest CPU" },
     .{ "Sort Processes by Resident Memory (RSS)", "Order highest to lowest RAM" },
@@ -2483,6 +2490,95 @@ pub fn renderFlightScrubberHUD(
         graphs.renderGaugeBar(buf, bar_x, y, bar_w, fill_pct, theme.bg, theme.border, theme.header_bg, false);
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KERNEL EVENTS & SYSTEM LOGS PANEL (Tab 9)
+// ─────────────────────────────────────────────────────────────────────────────
+
+pub fn renderEventsPanel(
+    buf: *ScreenBuffer,
+    logs: []const types.SystemLogEvent,
+    selected_idx: usize,
+    theme: *const Theme,
+    plain: bool,
+    search_query: ?[]const u8,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+    if (w < 40 or h < 8) return;
+
+    const panel_y: u16 = 4;
+    const panel_h = h - panel_y - 2;
+
+    buf.drawCyberBox(1, panel_y, w - 2, panel_h, " ◈ REAL-TIME KERNEL EVENTS & SYSTEM LOG STREAM ◈ ", theme.border, theme.accent, theme.bg, plain);
+
+    // Top status ribbon
+    var rib_buf: [128]u8 = undefined;
+    const rib_str = std.fmt.bufPrint(&rib_buf, " Stream: ● ACTIVE | Ring Buffer: {d} Events | Filter: [ALL] | Facility: [NT KERNEL & SYSTEMD] ", .{logs.len}) catch "";
+    buf.writeString(3, panel_y + 1, rib_str, theme.header, theme.bg, true);
+    graphs.renderSeparator(buf, 2, panel_y + 2, w - 4, theme.border, theme.bg, plain);
+
+    // Table Header
+    const hdr_y = panel_y + 3;
+    buf.fillRow(hdr_y, theme.header, theme.selected);
+    const hdr = "  TIME      SEV    EVENT ID   SOURCE SUBSYSTEM       EVENT PAYLOAD & DIAGNOSTIC MESSAGE";
+    buf.writeString(1, hdr_y, hdr[0..@min(hdr.len, w - 3)], theme.header, theme.selected, true);
+
+    const list_start_y = hdr_y + 1;
+    const max_rows = panel_y + panel_h - list_start_y - 1;
+
+    var visible_idx: usize = 0;
+    for (logs, 0..) |ev, idx| {
+        if (visible_idx >= max_rows) break;
+
+        // Apply search filter if active
+        if (search_query) |query| {
+            const matches_src = containsIgnoreCase(ev.getSource(), query);
+            const matches_msg = containsIgnoreCase(ev.getMessage(), query);
+            if (!matches_src and !matches_msg) continue;
+        }
+
+        const is_selected = (idx == selected_idx);
+        const row_y = list_start_y + @as(u16, @intCast(visible_idx));
+        const row_bg = if (is_selected) theme.selected else theme.bg;
+
+        if (is_selected) {
+            buf.fillRect(2, row_y, w - 4, 1, row_bg);
+        }
+
+        // Timestamp
+        var t_buf: [16]u8 = undefined;
+        const t_sec = @as(u64, @intCast(@max(0, @divTrunc(ev.timestamp_ms, 1000))));
+        const t_str = std.fmt.bufPrint(&t_buf, "{d:0>2}:{d:0>2}:{d:0>2}", .{ (t_sec / 3600) % 24, (t_sec / 60) % 60, t_sec % 60 }) catch "--:--:--";
+        buf.writeString(3, row_y, t_str, theme.muted, row_bg, false);
+
+        // Severity badge
+        const sev_color = switch (ev.severity) {
+            .info => theme.success,
+            .warning => theme.warning,
+            .err, .critical => theme.critical,
+        };
+        buf.writeString(13, row_y, ev.severity.asText(), sev_color, row_bg, true);
+
+        // Event ID
+        var id_buf: [12]u8 = undefined;
+        const id_str = std.fmt.bufPrint(&id_buf, "#{d:<5}", .{ev.event_id}) catch "#0";
+        buf.writeString(20, row_y, id_str, theme.secondary, row_bg, false);
+
+        // Source subsystem
+        buf.writeString(31, row_y, ev.getSource()[0..@min(ev.getSource().len, 20)], theme.accent, row_bg, true);
+
+        // Event message
+        const msg_x: u16 = 54;
+        if (msg_x < w - 4) {
+            const avail_w = w - 4 - msg_x;
+            buf.writeStringMax(msg_x, row_y, ev.getMessage(), avail_w, if (is_selected) theme.fg else theme.fg, row_bg, is_selected);
+        }
+
+        visible_idx += 1;
+    }
+}
+
 
 fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     if (needle.len == 0) return true;

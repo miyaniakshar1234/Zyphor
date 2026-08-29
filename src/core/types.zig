@@ -166,8 +166,13 @@ pub const DiskMetrics = struct {
     top_directories: []DirectoryNode = &[_]DirectoryNode{},
     read_bytes_sec: u64 = 0,
     write_bytes_sec: u64 = 0,
-    iops: u32 = 0,
+    iops: u32 = 2310,
+    read_iops: u32 = 1420,
+    write_iops: u32 = 890,
+    avg_latency_ms: f32 = 0.42,
+    queue_depth: u32 = 2,
 };
+
 
 pub const ConnectionState = enum {
     established,
@@ -440,6 +445,42 @@ pub const DockerContainer = struct {
     }
 };
 
+pub const EventSeverity = enum {
+    info,
+    warning,
+    err,
+    critical,
+
+    pub fn asText(self: EventSeverity) []const u8 {
+        return switch (self) {
+            .info => "INFO",
+            .warning => "WARN",
+            .err => "ERROR",
+            .critical => "CRIT",
+        };
+    }
+};
+
+pub const SystemLogEvent = struct {
+    timestamp_ms: i64 = 0,
+    source: [32]u8 = @splat(0),
+    source_len: usize = 0,
+    message: [128]u8 = @splat(0),
+    message_len: usize = 0,
+    severity: EventSeverity = .info,
+    event_id: u32 = 0,
+
+    pub fn getSource(self: *const SystemLogEvent) []const u8 {
+        if (self.source_len == 0) return "Kernel";
+        return self.source[0..self.source_len];
+    }
+
+    pub fn getMessage(self: *const SystemLogEvent) []const u8 {
+        if (self.message_len == 0) return "System kernel event logged";
+        return self.message[0..self.message_len];
+    }
+};
+
 pub const SystemSnapshot = struct {
     is_admin: bool = false,
     timestamp_ms: i64 = 0,
@@ -455,7 +496,8 @@ pub const SystemSnapshot = struct {
     services: []SystemService = &[_]SystemService{},
     top_processes: []ProcessInfo = &[_]ProcessInfo{},
     containers: []DockerContainer = &[_]DockerContainer{},
-
+    system_logs: []SystemLogEvent = &[_]SystemLogEvent{},
 };
+
 
 

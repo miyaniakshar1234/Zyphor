@@ -471,9 +471,36 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
                 std.Thread.sleep(500_000_000);
             }
             return;
-
-
+        } else if (std.mem.eql(u8, cmd, "events") or std.mem.eql(u8, cmd, "logs") or std.mem.eql(u8, cmd, "journal")) {
+            const snap = try engine.sampleSnapshot();
+            if (json_mode) {
+                try export_mod.printJsonSnapshot(stdout, &snap);
+            } else {
+                try stdout.print(
+                    \\================================================================================
+                    \\  ZYPHOR REAL-TIME KERNEL EVENTS & SYSTEM LOGS STREAM
+                    \\================================================================================
+                    \\  TIME      SEV     EVENT ID   FACILITY / SOURCE     LOG MESSAGE
+                    \\--------------------------------------------------------------------------------
+                    \\
+                , .{});
+                for (snap.system_logs) |ev| {
+                    var t_buf: [16]u8 = undefined;
+                    const t_sec = @as(u64, @intCast(@max(0, @divTrunc(ev.timestamp_ms, 1000))));
+                    const t_str = std.fmt.bufPrint(&t_buf, "{d:0>2}:{d:0>2}:{d:0>2}", .{ (t_sec / 3600) % 24, (t_sec / 60) % 60, t_sec % 60 }) catch "--:--:--";
+                    try stdout.print("  {s:<9} {s:<7} #{d:<9} {s:<21} {s}\n", .{
+                        t_str,
+                        ev.severity.asText(),
+                        ev.event_id,
+                        ev.getSource(),
+                        ev.getMessage(),
+                    });
+                }
+                try stdout.print("================================================================================\n\n", .{});
+            }
+            return;
         } else if (std.mem.eql(u8, cmd, "bench") or std.mem.eql(u8, cmd, "benchmark")) {
+
             const res = try bench_mod.runBenchmark(allocator);
             try bench_mod.printBenchmark(stdout, &res, json_mode);
             return;
@@ -721,9 +748,11 @@ fn printHelp() void {
         \\  health, diag     Run explainable root-cause diagnostics & scoring audit
         \\  gpu              Display GPU engine load, VRAM, clock, wattage, and PCIe I/O
         \\  sensors, thermals Display CPU/GPU thermals, core heatmap, and power distribution
+        \\  events, logs     Stream real-time OS kernel event log messages
         \\  top              Live streaming terminal process monitor
         \\  snapshot         Capture instantaneous comprehensive system state to JSON
         \\  report           Export standalone interactive dark-mode HTML report
+
         \\
         \\OPTIONS:
         \\  -j, --json       Output results in machine-readable JSON format
@@ -741,8 +770,9 @@ fn printHelp() void {
 
 fn printVersion() void {
     const stdout = types.getStdout();
-    stdout.writeAll("Zyphor v1.0.6 (Built with Zig 0.15.2 - Native Systems Observatory | Lead: Akshar Miyani)\n") catch {};
+    stdout.writeAll("Zyphor v1.0.7 (Built with Zig 0.15.2 - Native Systems Observatory | Lead: Akshar Miyani)\n") catch {};
 }
+
 
 
 

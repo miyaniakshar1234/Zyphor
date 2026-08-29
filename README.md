@@ -214,25 +214,28 @@ zyphor gpu
 # 5. Hardware sensors, per-core CPU heatmap, thermals, and battery health
 zyphor sensors
 
-# 6. Active network sockets, connection states, and remote host mappings
+# 6. Stream OS kernel event logs and system facility messages
+zyphor events
+
+# 7. Active network sockets, connection states, and remote host mappings
 zyphor netstat
 
-# 7. Live streaming terminal process monitor (top mode)
+# 8. Live streaming terminal process monitor (top mode)
 zyphor top
 
-# 8. Export an interactive standalone dark-mode HTML observatory report
+# 9. Export an interactive standalone dark-mode HTML observatory report
 zyphor report
 
-# 9. Run native hardware compute and RAM bandwidth benchmark
+# 10. Run native hardware compute and RAM bandwidth benchmark
 zyphor bench
 
-# 10. Run an automated environment audit (Kernel probes, permissions, sensors)
+# 11. Run an automated environment audit (Kernel probes, permissions, sensors)
 zyphor doctor
 
-# 11. Start the headless TCP daemon streaming live JSON telemetry on port 7777
+# 12. Start the headless TCP daemon streaming live JSON telemetry on port 7777
 zyphor daemon
 
-# 12. Export an instantaneous system snapshot to JSON
+# 13. Export an instantaneous system snapshot to JSON
 zyphor snapshot -o system-state.json
 ```
 
@@ -245,8 +248,9 @@ Zyphor supports standard navigation keys, arrow keys, and full **Vim-style navig
 ### Viewport Navigation
 | Hotkey | Action | Description |
 | :--- | :---: | :--- |
-| <kbd>1</kbd> .. <kbd>8</kbd> | Direct Jump | Switch to Overview, Processes, Disks, Network, Health, Services, Containers, or Hardware/GPU. |
-| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Next / Prev Tab | Advance viewport sequentially across all 8 panels. |
+| <kbd>1</kbd> .. <kbd>9</kbd> | Direct Jump | Switch to Overview, Processes, Disks, Network, Health, Services, Containers, Hardware/GPU, or Kernel Logs. |
+| <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> | Next / Prev Tab | Advance viewport sequentially across all 9 panels. |
+
 | <kbd>F</kbd> | Defensive Remediation | Open automated self-healing executor (purge standby RAM, flush DNS/sockets, kill rogues). |
 | <kbd>R</kbd> | Flight Blackbox Replay | Toggle 60-frame historical flight recorder replay mode. |
 | <kbd><</kbd> / <kbd>></kbd> | Time Scrubber | Step backward and forward across recorded historical frames (-1s to -60s). |

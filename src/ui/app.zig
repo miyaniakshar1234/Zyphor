@@ -199,7 +199,11 @@ pub const App = struct {
                 .hardware => {
                     widgets.renderHardwarePanel(&self.buffer, &snapshot, &self.theme, self.plain_mode);
                 },
+                .events => {
+                    widgets.renderEventsPanel(&self.buffer, snapshot.system_logs, self.selected_proc_idx, &self.theme, self.plain_mode, current_search);
+                },
             }
+
 
             if (self.is_paused) {
                 self.setStatus("⏸ PAUSED — Press Space to resume");
@@ -465,38 +469,39 @@ pub const App = struct {
                                 5 => self.active_tab = .services,
                                 6 => self.active_tab = .containers,
                                 7 => self.active_tab = .hardware,
-                                8 => {
+                                8 => self.active_tab = .events,
+                                9 => {
                                     self.show_remediation_modal = true;
                                     self.remediation_feedback_len = 0;
                                 },
-                                9 => self.cycleTheme(),
-                                10 => {
+                                10 => self.cycleTheme(),
+                                11 => {
                                     try self.engine.process_mgr.setSort(.cpu, .descending);
                                     self.setStatus("Sort: CPU% descending");
                                 },
-                                11 => {
+                                12 => {
                                     try self.engine.process_mgr.setSort(.memory, .descending);
                                     self.setStatus("Sort: Memory RSS descending");
                                 },
-                                12 => {
+                                13 => {
                                     try self.engine.process_mgr.setSort(.pid, .ascending);
                                     self.setStatus("Sort: PID ascending");
                                 },
-                                13 => {
+                                14 => {
                                     self.tree_mode = !self.tree_mode;
                                     try self.engine.process_mgr.toggleTreeMode();
                                     self.setStatus(if (self.tree_mode) "Tree view enabled" else "Flat view enabled");
                                 },
-                                14 => {
+                                15 => {
                                     self.is_paused = !self.is_paused;
                                     if (!self.is_paused) self.status_len = 0;
                                 },
-                                15 => {
+                                16 => {
                                     if (proc_count > 0 and self.selected_proc_idx < proc_count) {
                                         self.show_kill_modal = true;
                                     }
                                 },
-                                16 => {
+                                17 => {
                                     if (proc_count > 0 and self.selected_proc_idx < proc_count) {
                                         const proc = &snapshot.top_processes[self.selected_proc_idx];
                                         var col = self.engine.platform.getCollector();
@@ -504,7 +509,7 @@ pub const App = struct {
                                         self.setStatus("Process suspended (SIGSTOP)");
                                     }
                                 },
-                                17 => {
+                                18 => {
                                     if (proc_count > 0 and self.selected_proc_idx < proc_count) {
                                         const proc = &snapshot.top_processes[self.selected_proc_idx];
                                         var col = self.engine.platform.getCollector();
@@ -512,13 +517,14 @@ pub const App = struct {
                                         self.setStatus("Process resumed (SIGCONT)");
                                     }
                                 },
-                                18 => {
+                                19 => {
                                     _ = export_mod.saveSnapshotFile(self.allocator, &snapshot, null) catch {};
                                     self.setStatus("Telemetry snapshot exported to .json");
                                 },
-                                19 => self.show_help = true,
-                                20 => should_quit = true,
+                                20 => self.show_help = true,
+                                21 => should_quit = true,
                                 else => {},
+
                             }
                         },
                         else => {},
@@ -613,6 +619,7 @@ pub const App = struct {
                         '6' => self.active_tab = .services,
                         '7' => self.active_tab = .containers,
                         '8' => self.active_tab = .hardware,
+                        '9' => self.active_tab = .events,
                         'c' => {
                             try self.engine.process_mgr.setSort(.cpu, .descending);
                             self.setStatus("Sort: CPU% descending");
@@ -676,7 +683,7 @@ pub const App = struct {
                             }
                         },
                         'j' => {
-                            const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else proc_count;
+                            const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else if (self.active_tab == .events) snapshot.system_logs.len else proc_count;
                             if (self.selected_proc_idx + 1 < max_items) self.selected_proc_idx += 1;
                         },
                         'k' => {
@@ -684,7 +691,7 @@ pub const App = struct {
                         },
                         'g' => self.selected_proc_idx = 0,
                         'G' => {
-                            const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else proc_count;
+                            const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else if (self.active_tab == .events) snapshot.system_logs.len else proc_count;
                             self.selected_proc_idx = if (max_items > 0) max_items - 1 else 0;
                         },
                         else => {},
@@ -703,13 +710,14 @@ pub const App = struct {
                             .diagnostics => .services,
                             .services    => .containers,
                             .containers  => .hardware,
-                            .hardware    => .overview,
+                            .hardware    => .events,
+                            .events      => .overview,
                         };
                         self.selected_proc_idx = 0;
                     },
                     .shift_tab => {
                         self.active_tab = switch (self.active_tab) {
-                            .overview    => .hardware,
+                            .overview    => .events,
                             .processes   => .overview,
                             .disks       => .processes,
                             .network     => .disks,
@@ -717,19 +725,20 @@ pub const App = struct {
                             .services    => .diagnostics,
                             .containers  => .services,
                             .hardware    => .containers,
+                            .events      => .hardware,
                         };
                         self.selected_proc_idx = 0;
                     },
 
                     .down => {
-                        const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else proc_count;
+                        const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else if (self.active_tab == .events) snapshot.system_logs.len else proc_count;
                         if (self.selected_proc_idx + 1 < max_items) self.selected_proc_idx += 1;
                     },
                     .up => {
                         if (self.selected_proc_idx > 0) self.selected_proc_idx -= 1;
                     },
                     .page_down => {
-                        const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else proc_count;
+                        const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else if (self.active_tab == .events) snapshot.system_logs.len else proc_count;
                         const page = @as(usize, self.buffer.height / 2);
                         self.selected_proc_idx = @min(self.selected_proc_idx + page, if (max_items > 0) max_items - 1 else 0);
                     },
@@ -739,9 +748,10 @@ pub const App = struct {
                     },
                     .home => self.selected_proc_idx = 0,
                     .end  => {
-                        const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else proc_count;
+                        const max_items = if (self.active_tab == .services) snapshot.services.len else if (self.active_tab == .containers) snapshot.containers.len else if (self.active_tab == .events) snapshot.system_logs.len else proc_count;
                         self.selected_proc_idx = if (max_items > 0) max_items - 1 else 0;
                     },
+
                     .escape => {
                         if (self.show_help) self.show_help = false;
                         if (self.show_inspect_modal) self.show_inspect_modal = false;
