@@ -1,6 +1,6 @@
 {
   "name": "zyphor",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Next-generation native terminal system observatory written in pure Zig",
   "main": "bin/zyphor.js",
   "bin": {
