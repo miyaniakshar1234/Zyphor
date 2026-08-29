@@ -1,6 +1,7 @@
 [package]
 name = "zyphor"
-version = "1.0.0"
+version = "1.0.1"
+
 edition = "2021"
 authors = ["Akshar Miyani <miyaniakshar1234@gmail.com>"]
 description = "Next-generation native terminal system observatory written in pure Zig"
