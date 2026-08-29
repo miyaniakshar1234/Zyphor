@@ -98,27 +98,17 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 
 ---
 
-## 📊 Feature Matrix & Benchmark Proof
+## 📊 Subsystem Benchmarks & Performance Metrics
 
-### 📈 Script-Generated Benchmark Charts (Verified Empirical Proof)
+### Subsystem Resource Metrics & Benchmarks
 
 <div align="center">
-  | RAM Footprint & Startup Latency | Sampling CPU Overhead |
+  | Resource Allocation & Startup Latency | Sampling Overhead & Render Scaling |
   | :--- | :--- |
-  | <img src="screenshot/benchmark_ram_latency.png" width="450" alt="RAM Usage & Startup Latency Benchmark Chart"> | <img src="screenshot/benchmark_cpu_overhead.png" width="450" alt="CPU Overhead Benchmark Chart"> |
-  <p><em>Empirical data visualizer generated directly from benchmark telemetry harness (<code>python scripts/generate_benchmark_charts.py</code>).</em></p>
+  | <img src="screenshot/benchmark_ram_latency.png" width="450" alt="RAM Usage & Startup Latency Chart"> | <img src="screenshot/benchmark_cpu_overhead.png" width="450" alt="CPU Overhead Chart"> |
 </div>
 
-### 🚀 Real-Time Terminal Benchmark Output (Verified Proof)
-
-<div align="center">
-  <picture>
-    <img src="screenshot/09-profiler.png" alt="Zyphor Microsecond Process Profiler Proof" width="900">
-  </picture>
-  <p><em>Real-time microsecond-level process telemetry profiler (Hotkey <code>P</code>) measuring peak jitter, CPU rolling averages, memory growth rates, and thread states.</em></p>
-</div>
-
-### Empirical Performance Proof (Measured Benchmarks)
+### Measured Performance Benchmarks
 
 | Benchmark Metric | **Zyphor (Zig)** | **btop++ (C++)** | **htop (C)** | **Glances (Python)** |
 | :--- | :---: | :---: | :---: | :---: |
@@ -128,6 +118,7 @@ Zyphor provides 7 dedicated observatory panels alongside interactive profilers, 
 | **Frame Draw Overhead (60 FPS)** | **0.12 ms** | 1.85 ms | N/A (flickers) | N/A (slow) |
 | **Memory Latency (Pointer-Chasing)** | **7.7 ns** | N/A | N/A | N/A |
 | **Binary Executable Size** | **1.1 MB** | 8.2 MB | 3.5 MB | 45+ MB |
+
 
 
 
