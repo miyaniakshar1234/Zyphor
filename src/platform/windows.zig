@@ -546,16 +546,20 @@ pub const WindowsCollector = struct {
                     .state = .running,
                 };
 
-                var utf8_len: usize = 0;
-                var j: usize = 0;
-                while (j < 260 and entry.szExeFile[j] != 0) : (j += 1) {
-                    const c = entry.szExeFile[j];
-                    if (c < 128 and utf8_len < proc.name.len) {
-                        proc.name[utf8_len] = @as(u8, @intCast(c));
+                var name_len_u16: usize = 0;
+                while (name_len_u16 < 260 and entry.szExeFile[name_len_u16] != 0) : (name_len_u16 += 1) {}
+                if (std.unicode.utf16LeToUtf8(&proc.name, entry.szExeFile[0..name_len_u16])) |converted| {
+                    proc.name_len = converted;
+                } else |_| {
+                    var utf8_len: usize = 0;
+                    for (entry.szExeFile[0..name_len_u16]) |c| {
+                        if (utf8_len >= proc.name.len) break;
+                        proc.name[utf8_len] = @as(u8, @intCast(c & 0x7F));
                         utf8_len += 1;
                     }
+                    proc.name_len = utf8_len;
                 }
-                proc.name_len = utf8_len;
+
 
                 if (proc.pid > 4) {
                     if (OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, proc.pid)) |hProc| {

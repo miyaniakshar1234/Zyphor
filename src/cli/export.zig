@@ -25,6 +25,23 @@ pub fn writeJsonEscapedString(writer: anytype, str: []const u8) !void {
     try writer.writeAll("\"");
 }
 
+pub fn writeHtmlEscapedString(writer: anytype, str: []const u8) !void {
+    for (str) |c| {
+        switch (c) {
+            '&' => try writer.writeAll("&amp;"),
+            '<' => try writer.writeAll("&lt;"),
+            '>' => try writer.writeAll("&gt;"),
+            '"' => try writer.writeAll("&quot;"),
+            '\'' => try writer.writeAll("&#39;"),
+            else => {
+                const char_slice = [_]u8{c};
+                try writer.writeAll(&char_slice);
+            },
+        }
+    }
+}
+
+
 pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !void {
     try writer.print(
         \\{{
@@ -374,15 +391,11 @@ pub fn printHtmlSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
             std.fmt.bufPrint(&r_buf, "{s}:{d}", .{ conn.getRemoteAddr(), conn.remote_port }) catch "[LISTEN]"
         else
             "[LISTEN]";
-        try writer.print(
-            \\      <tr><td>{d}</td><td><strong>{s}</strong></td><td>:{d}</td><td>{s}</td><td><span class="tag tag-listen">{s}</span></td></tr>
-        , .{
-            conn.pid,
-            conn.getProcessName(),
-            conn.local_port,
-            r_str,
-            conn.state.asText(),
-        });
+        try writer.print("      <tr><td>{d}</td><td><strong>", .{conn.pid});
+        try writeHtmlEscapedString(writer, conn.getProcessName());
+        try writer.print("</strong></td><td>:{d}</td><td>", .{conn.local_port});
+        try writeHtmlEscapedString(writer, r_str);
+        try writer.print("</td><td><span class=\"tag tag-listen\">{s}</span></td></tr>\n", .{conn.state.asText()});
     }
 
     try writer.print(
@@ -397,16 +410,14 @@ pub fn printHtmlSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
         \\      <tr><th>PID</th><th>PPID</th><th>Process Name</th><th>CPU%</th><th>RAM (MB)</th><th>Threads</th><th>State</th></tr>
         \\    </thead>
         \\    <tbody>
+        \\
     , .{});
 
     const max_procs = @min(30, snap.top_processes.len);
     for (snap.top_processes[0..max_procs]) |p| {
-        try writer.print(
-            \\      <tr><td>{d}</td><td>{d}</td><td><strong>{s}</strong></td><td style="color: var(--accent);">{d:.1}%</td><td>{d}</td><td>{d}</td><td><span class="tag tag-running">{s}</span></td></tr>
-        , .{
-            p.pid,
-            p.ppid,
-            p.getName(),
+        try writer.print("      <tr><td>{d}</td><td>{d}</td><td><strong>", .{ p.pid, p.ppid });
+        try writeHtmlEscapedString(writer, p.getName());
+        try writer.print("</strong></td><td style=\"color: var(--accent);\">{d:.1}%</td><td>{d}</td><td>{d}</td><td><span class=\"tag tag-running\">{s}</span></td></tr>\n", .{
             p.cpu_percent,
             p.memory_rss / (1024 * 1024),
             p.threads_count,
@@ -447,3 +458,14 @@ test "JSON string escaping handles quotes, backslashes, and control characters" 
     const result = fbs.getWritten();
     try std.testing.expectEqualStrings("\"Hello \\\"World\\\" \\\\ path\\n\"", result);
 }
+
+test "HTML string escaping handles angle brackets, ampersands, and quotes" {
+    var buf: [256]u8 = undefined;
+    var fbs = std.io.fixedBufferStream(&buf);
+    const writer = fbs.writer();
+
+    try writeHtmlEscapedString(writer, "<script>alert('xss & attack')</script>");
+    const result = fbs.getWritten();
+    try std.testing.expectEqualStrings("&lt;script&gt;alert(&#39;xss &amp; attack&#39;)&lt;/script&gt;", result);
+}
+

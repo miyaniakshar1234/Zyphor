@@ -24,7 +24,7 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
         }
         std.mem.doNotOptimizeAway(accum);
         const elapsed_ns = timer.read();
-        const elapsed_s = @as(f64, @floatFromInt(elapsed_ns)) / 1_000_000_000.0;
+        const elapsed_s = @max(0.000001, @as(f64, @floatFromInt(elapsed_ns)) / 1_000_000_000.0);
         result.cpu_single_mops = (@as(f64, @floatFromInt(iters)) / 1_000_000.0) / elapsed_s;
     }
 
@@ -57,7 +57,7 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
             handle.join();
         }
         const elapsed_ns = timer.read();
-        const elapsed_s = @as(f64, @floatFromInt(elapsed_ns)) / 1_000_000_000.0;
+        const elapsed_s = @max(0.000001, @as(f64, @floatFromInt(elapsed_ns)) / 1_000_000_000.0);
         const total_ops = @as(f64, @floatFromInt(iters_per_thread * num_threads * 2));
         result.cpu_multi_gflops = (total_ops / 1_000_000_000.0) / elapsed_s;
     }
@@ -73,7 +73,7 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
         @memset(buffer, 0xAA);
         std.mem.doNotOptimizeAway(buffer);
         const write_ns = timer.read();
-        const write_s = @as(f64, @floatFromInt(write_ns)) / 1_000_000_000.0;
+        const write_s = @max(0.000001, @as(f64, @floatFromInt(write_ns)) / 1_000_000_000.0);
         const gb = @as(f64, @floatFromInt(buf_size)) / (1024.0 * 1024.0 * 1024.0);
         result.ram_seq_write_gb_s = gb / write_s;
 
@@ -85,7 +85,7 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
         }
         std.mem.doNotOptimizeAway(sum);
         const read_ns = timer.read();
-        const read_s = @as(f64, @floatFromInt(read_ns)) / 1_000_000_000.0;
+        const read_s = @max(0.000001, @as(f64, @floatFromInt(read_ns)) / 1_000_000_000.0);
         result.ram_seq_read_gb_s = gb / read_s;
 
         // Latency test via pointer-chasing cache-line stride (PRD §25)
@@ -109,14 +109,16 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
         result.ram_latency_ns = @as(f64, @floatFromInt(lat_ns)) / @as(f64, @floatFromInt(lat_iters));
     }
 
-
     // 4. Compute Composite Benchmark Score
     const cpu_score = result.cpu_single_mops * 1.5 + result.cpu_multi_gflops * 250.0;
     const mem_score = (result.ram_seq_read_gb_s + result.ram_seq_write_gb_s) * 60.0;
-    result.composite_index = @as(u32, @intFromFloat(cpu_score + mem_score));
+    const raw_composite = cpu_score + mem_score;
+    const safe_composite = if (std.math.isNan(raw_composite) or std.math.isInf(raw_composite) or raw_composite < 0.0) 0.0 else raw_composite;
+    result.composite_index = @as(u32, @intFromFloat(std.math.clamp(safe_composite, 0.0, @as(f64, @floatFromInt(std.math.maxInt(u32))))));
 
     return result;
 }
+
 
 pub fn printBenchmark(stdout: anytype, result: *const BenchmarkResult, json_mode: bool) !void {
     if (json_mode) {

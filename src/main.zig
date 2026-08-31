@@ -13,7 +13,9 @@ pub const process_tree = @import("process/tree.zig");
 pub const buffer = @import("ui/buffer.zig");
 pub const theme = @import("ui/theme.zig");
 pub const graphs = @import("ui/graphs.zig");
+pub const widgets = @import("ui/widgets.zig");
 pub const speedtest = @import("net/speedtest.zig");
+
 
 pub fn main() !void {
     if (@import("builtin").os.tag == .windows) {
@@ -363,6 +365,57 @@ test "html snapshot serialization generates well-formed diagnostics page" {
     try std.testing.expect(list.items.len > 500);
     try std.testing.expect(std.mem.indexOf(u8, list.items, "Akshar Miyani") != null);
 }
+
+test "HTML string escaping handles XSS characters correctly" {
+    const allocator = std.testing.allocator;
+    var list: std.ArrayList(u8) = .empty;
+    defer list.deinit(allocator);
+
+    const export_mod = @import("cli/export.zig");
+    try export_mod.writeHtmlEscapedString(list.writer(allocator), "<div>\"Dangerous & Malicious\"</div>");
+    try std.testing.expectEqualStrings("&lt;div&gt;&quot;Dangerous &amp; Malicious&quot;&lt;/div&gt;", list.items);
+}
+
+test "compact overview panel renders on narrow buffers without crashing" {
+    const allocator = std.testing.allocator;
+    var buf = try buffer.ScreenBuffer.init(allocator, 30, 15);
+    defer buf.deinit();
+
+    const t = theme.BuiltinThemes.anthropic;
+    const snap = types.SystemSnapshot{
+        .timestamp_ms = 1788000000000,
+        .cpu = .{ .total_usage = 75.0 },
+        .memory = .{ .used_percent = 60.0 },
+    };
+
+    widgets.renderCompactOverviewPanel(&buf, &snap, &t, false);
+    widgets.renderCompactOverviewPanel(&buf, &snap, &t, true); // plain mode
+}
+
+test "doctor and bench print formatting functions remain stable" {
+    const bench_mod = @import("cli/bench.zig");
+    const res = bench_mod.BenchmarkResult{
+        .cpu_single_mops = 450.5,
+        .cpu_multi_gflops = 85.2,
+        .ram_seq_read_gb_s = 48.5,
+        .ram_seq_write_gb_s = 32.1,
+        .ram_latency_ns = 58.4,
+        .composite_index = 28500,
+    };
+
+    const allocator = std.testing.allocator;
+    var list: std.ArrayList(u8) = .empty;
+    defer list.deinit(allocator);
+
+    try bench_mod.printBenchmark(list.writer(allocator), &res, false);
+    try std.testing.expect(list.items.len > 100);
+
+    list.clearRetainingCapacity();
+    try bench_mod.printBenchmark(list.writer(allocator), &res, true); // JSON mode
+    try std.testing.expect(list.items.len > 50);
+}
+
+
 
 
 

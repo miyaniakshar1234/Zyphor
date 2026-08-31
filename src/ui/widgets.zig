@@ -170,6 +170,57 @@ pub fn renderTabs(
 // OVERVIEW PANEL (Tab 1 - System Matrix & Hardware Observatory)
 // ─────────────────────────────────────────────────────────────────────────────
 
+pub fn renderCompactOverviewPanel(
+    buf: *ScreenBuffer,
+    snapshot: *const types.SystemSnapshot,
+    theme: *const Theme,
+    plain: bool,
+) void {
+    const w = buf.width;
+    const h = buf.height;
+    if (w < 20 or h < 6) return;
+
+    buf.drawCyberBox(1, 4, w - 2, h - 5, " ◈ SYSTEM TELEMETRY ◈ ", theme.border, theme.accent, theme.bg, plain);
+
+    const bar_w = if (w > 22) w - 16 else 6;
+    var row: u16 = 6;
+
+    // CPU
+    if (row < h - 2) {
+        buf.writeString(3, row, "CPU", theme.accent, theme.bg, true);
+        graphs.renderGaugeBar(buf, 7, row, bar_w, snapshot.cpu.total_usage, theme.accent, theme.muted, theme.bg, plain);
+        row += 2;
+    }
+
+    // RAM
+    if (row < h - 2) {
+        buf.writeString(3, row, "RAM", theme.secondary, theme.bg, true);
+        graphs.renderGaugeBar(buf, 7, row, bar_w, snapshot.memory.used_percent, theme.secondary, theme.muted, theme.bg, plain);
+        row += 2;
+    }
+
+    // GPU
+    if (row < h - 2 and snapshot.gpu.utilization_pct > 0) {
+        buf.writeString(3, row, "GPU", theme.warning, theme.bg, true);
+        graphs.renderGaugeBar(buf, 7, row, bar_w, snapshot.gpu.utilization_pct, theme.warning, theme.muted, theme.bg, plain);
+        row += 2;
+    }
+
+    // Disk
+    if (row < h - 2 and snapshot.disk.partitions.len > 0) {
+        buf.writeString(3, row, "DSK", theme.success, theme.bg, true);
+        graphs.renderGaugeBar(buf, 7, row, bar_w, snapshot.disk.partitions[0].used_percent, theme.success, theme.muted, theme.bg, plain);
+        row += 2;
+    }
+
+    // Health
+    if (row < h - 2) {
+        var hbuf: [48]u8 = undefined;
+        const hstr = std.fmt.bufPrint(&hbuf, "Health: {d}/100 [{s}]", .{ snapshot.health.overall_score, snapshot.health.status.asText() }) catch "";
+        buf.writeStringMax(3, row, hstr, w - 6, theme.fg, theme.bg, true);
+    }
+}
+
 pub fn renderOverviewPanel(
     buf: *ScreenBuffer,
     snapshot: *const types.SystemSnapshot,
@@ -179,7 +230,11 @@ pub fn renderOverviewPanel(
 ) void {
     const w = buf.width;
     const h = buf.height;
-    if (w < 60 or h < 22) return;
+    if (w < 60 or h < 20) {
+        renderCompactOverviewPanel(buf, snapshot, theme, plain);
+        return;
+    }
+
 
     const content_y: u16 = 4;
     const bottom_h: u16 = if (h >= 30) 7 else 5;
