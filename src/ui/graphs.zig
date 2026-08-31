@@ -4,9 +4,16 @@ const theme_mod = @import("theme.zig");
 const ScreenBuffer = buffer_mod.ScreenBuffer;
 const Color = theme_mod.Color;
 
+/// Safe percentage clamp that handles NaN and Inf gracefully
+pub fn safeClampPct(val: f32) f32 {
+    if (std.math.isNan(val) or std.math.isInf(val) or val < 0.0) return 0.0;
+    if (val > 100.0) return 100.0;
+    return val;
+}
+
 /// Returns a color gradient: emerald green at 0%, amber at 60%, crimson red at 85%+
 pub fn percentColor(pct: f32) Color {
-    const p = std.math.clamp(pct, 0.0, 100.0);
+    const p = safeClampPct(pct);
     if (p < 50.0) {
         // Green (63, 185, 80) -> Yellow-Green (120, 205, 60)
         const t = p / 50.0;
@@ -37,6 +44,7 @@ pub fn percentColor(pct: f32) Color {
         return Color.rgb(r, g, b);
     }
 }
+
 
 /// Smooth quarter-fraction sub-cell block characters
 const FRACTION_BLOCKS = [_][]const u8{
@@ -227,13 +235,14 @@ pub fn renderWaveformGraph(
     // Find peak value in history for dynamic auto-scaling
     var peak_val: f32 = 0.01;
     for (history) |v| {
-        if (v > peak_val) peak_val = v;
+        if (!std.math.isNan(v) and !std.math.isInf(v) and v > peak_val) peak_val = v;
     }
     const scale_max = if (color_override != null) @max(0.05, peak_val * 1.15) else 100.0;
 
     var col: usize = 0;
     while (col < count) : (col += 1) {
-        const val = history[start + col];
+        const raw_v = history[start + col];
+        const val = if (std.math.isNan(raw_v) or std.math.isInf(raw_v) or raw_v < 0.0) 0.0 else raw_v;
         const col_fg = color_override orelse percentColor(val);
 
         // Normalize across height rows (0 to height)
@@ -309,7 +318,7 @@ pub fn renderBrailleGraph(
     // Find peak value in history for dynamic auto-scaling
     var peak_val: f32 = 0.01;
     for (history) |v| {
-        if (v > peak_val) peak_val = v;
+        if (!std.math.isNan(v) and !std.math.isInf(v) and v > peak_val) peak_val = v;
     }
     const scale_max = if (color_override != null) @max(0.05, peak_val * 1.15) else 100.0;
 
@@ -319,15 +328,20 @@ pub fn renderBrailleGraph(
         const left_idx = start_idx + @as(usize, col) * 2;
         const right_idx = left_idx + 1;
 
-        const left_val = if (left_idx < history.len) history[left_idx] else 0.0;
-        const right_val = if (right_idx < history.len) history[right_idx] else 0.0;
+        const raw_left = if (left_idx < history.len) history[left_idx] else 0.0;
+        const raw_right = if (right_idx < history.len) history[right_idx] else 0.0;
+        const left_val = if (std.math.isNan(raw_left) or std.math.isInf(raw_left) or raw_left < 0.0) 0.0 else raw_left;
+        const right_val = if (std.math.isNan(raw_right) or std.math.isInf(raw_right) or raw_right < 0.0) 0.0 else raw_right;
 
         const max_val = @max(left_val, right_val);
         const col_fg = color_override orelse percentColor(max_val);
 
         const total_pixels = @as(f32, @floatFromInt(height)) * 4.0;
-        const left_pixels = @as(u16, @intFromFloat(std.math.clamp(left_val / scale_max * total_pixels, 0.0, total_pixels)));
-        const right_pixels = @as(u16, @intFromFloat(std.math.clamp(right_val / scale_max * total_pixels, 0.0, total_pixels)));
+        const left_ratio = std.math.clamp(left_val / scale_max, 0.0, 1.0);
+        const right_ratio = std.math.clamp(right_val / scale_max, 0.0, 1.0);
+        const left_pixels = @as(u16, @intFromFloat(left_ratio * total_pixels));
+        const right_pixels = @as(u16, @intFromFloat(right_ratio * total_pixels));
+
 
         var row: u16 = 0;
         while (row < height) : (row += 1) {

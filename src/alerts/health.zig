@@ -67,8 +67,9 @@ pub fn computeHealthScore(
 
     // Weighted Overall Score
     // CPU: 30%, Memory: 35%, Disk: 20%, Thermals: 15%
-    const total = (cpu_score * 0.30) + (mem_score * 0.35) + (disk_score * 0.20) + (thermal_score * 0.15);
-    const score_u8 = @as(u8, @intFromFloat(std.math.clamp(total, 0.0, 100.0)));
+    const raw_total = (cpu_score * 0.30) + (mem_score * 0.35) + (disk_score * 0.20) + (thermal_score * 0.15);
+    const safe_total = if (std.math.isNan(raw_total) or std.math.isInf(raw_total) or raw_total < 0.0) 100.0 else raw_total;
+    const score_u8 = @as(u8, @intFromFloat(std.math.clamp(safe_total, 0.0, 100.0)));
 
     const status: types.HealthStatus = if (score_u8 >= 90)
         .excellent
@@ -84,12 +85,13 @@ pub fn computeHealthScore(
     var health = types.SystemHealth{
         .overall_score = score_u8,
         .status = status,
-        .cpu_score = @as(u8, @intFromFloat(cpu_score)),
-        .memory_score = @as(u8, @intFromFloat(mem_score)),
-        .disk_score = @as(u8, @intFromFloat(disk_score)),
+        .cpu_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(cpu_score)) 100.0 else cpu_score, 0.0, 100.0))),
+        .memory_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(mem_score)) 100.0 else mem_score, 0.0, 100.0))),
+        .disk_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(disk_score)) 100.0 else disk_score, 0.0, 100.0))),
         .network_score = 100,
-        .thermal_score = @as(u8, @intFromFloat(thermal_score)),
+        .thermal_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(thermal_score)) 100.0 else thermal_score, 0.0, 100.0))),
     };
+
 
     var summary_buf: [128]u8 = @splat(0);
     const summary_str = switch (status) {

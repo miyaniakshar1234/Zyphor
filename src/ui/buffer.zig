@@ -240,9 +240,13 @@ pub const ScreenBuffer = struct {
                     x + @as(u16, @intCast((inner_w - title_display_len - 2) / 2)) + 1
                 else
                     x + 2;
-                self.writeString(title_x - 1, y, " ", border_color, bg_color, false);
-                self.writeString(title_x, y, t, title_color, bg_color, true);
-                self.writeString(title_x + @as(u16, @intCast(title_display_len)), y, " ", border_color, bg_color, false);
+                if (title_x > x and title_x + title_display_len < right) {
+                    self.writeString(title_x - 1, y, " ", border_color, bg_color, false);
+                    self.writeString(title_x, y, t, title_color, bg_color, true);
+                    self.writeString(title_x + @as(u16, @intCast(title_display_len)), y, " ", border_color, bg_color, false);
+                } else {
+                    self.writeStringMax(x + 1, y, t, w - 2, title_color, bg_color, true);
+                }
             }
         }
     }
@@ -310,19 +314,24 @@ pub const ScreenBuffer = struct {
             if (t.len > 0 and w > 10) {
                 const title_display_len = utf8DisplayLen(t);
                 const inner_w = @as(usize, w - 2);
-                const title_x = if (title_display_len + 4 < inner_w)
+                const title_x = if (title_display_len + 6 < inner_w)
                     x + @as(u16, @intCast((inner_w - title_display_len - 2) / 2)) + 1
                 else
                     x + 4;
                 
-                self.writeString(title_x - 3, y, "◥", border_color, bg_color, false);
-                self.writeString(title_x - 2, y, " ", border_color, title_color, false); // inverted background
-                self.writeString(title_x - 1, y, t, bg_color, title_color, true); // glowing text
-                self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)), y, " ", border_color, title_color, false);
-                self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)) + 1, y, "◤", border_color, bg_color, false);
+                if (title_x >= x + 3 and title_x + title_display_len + 2 <= right) {
+                    self.writeString(title_x - 3, y, "◥", border_color, bg_color, false);
+                    self.writeString(title_x - 2, y, " ", border_color, title_color, false); // inverted background
+                    self.writeString(title_x - 1, y, t, bg_color, title_color, true); // glowing text
+                    self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)), y, " ", border_color, title_color, false);
+                    self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)) + 1, y, "◤", border_color, bg_color, false);
+                } else if (title_x >= x + 1) {
+                    self.writeStringMax(x + 2, y, t, w - 4, title_color, bg_color, true);
+                }
             }
         }
     }
+
 
 
     /// Differential flush: only writes cells that changed since last frame
@@ -418,14 +427,22 @@ pub const ScreenBuffer = struct {
                 }
 
                 try w.writeAll(cell.char[0..cell.char_len]);
+
+                // Flush in chunks if nearing fixed buffer capacity (handles 4K/8K ultra-wide terminals)
+                if (out.pos >= 60000) {
+                    try writer.writeAll(buf[0..out.pos]);
+                    out.pos = 0;
+                }
             }
         }
 
         // Reset at end
         try w.writeAll("\x1b[0m");
 
-        // Commit
-        try writer.writeAll(buf[0..out.pos]);
+        // Commit remaining buffer
+        if (out.pos > 0) {
+            try writer.writeAll(buf[0..out.pos]);
+        }
 
         // Swap buffers
         @memcpy(self.prev_cells, self.cells);
@@ -440,13 +457,14 @@ fn utf8DisplayLen(s: []const u8) usize {
         if (byte < 0x80) {
             i += 1;
         } else if (byte < 0xE0) {
-            i += 2;
+            i += @min(2, s.len - i);
         } else if (byte < 0xF0) {
-            i += 3;
+            i += @min(3, s.len - i);
         } else {
-            i += 4;
+            i += @min(4, s.len - i);
         }
         count += 1;
     }
     return count;
 }
+

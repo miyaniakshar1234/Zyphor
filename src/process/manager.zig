@@ -132,12 +132,18 @@ pub const ProcessManager = struct {
                 const second = if (ctx.order == .ascending) ctx.items[b_idx] else ctx.items[a_idx];
 
                 return switch (ctx.field) {
-                    .cpu => if (first.cpu_percent == second.cpu_percent) first.pid < second.pid else first.cpu_percent < second.cpu_percent,
+                    .cpu => {
+                        const a_cpu = if (std.math.isNan(first.cpu_percent) or std.math.isInf(first.cpu_percent) or first.cpu_percent < 0.0) 0.0 else first.cpu_percent;
+                        const b_cpu = if (std.math.isNan(second.cpu_percent) or std.math.isInf(second.cpu_percent) or second.cpu_percent < 0.0) 0.0 else second.cpu_percent;
+                        if (a_cpu == b_cpu) return first.pid < second.pid;
+                        return a_cpu < b_cpu;
+                    },
                     .memory => if (first.memory_rss == second.memory_rss) first.pid < second.pid else first.memory_rss < second.memory_rss,
                     .pid => first.pid < second.pid,
                     .name => std.mem.order(u8, first.getName(), second.getName()) == .lt,
                     .threads => if (first.threads_count == second.threads_count) first.pid < second.pid else first.threads_count < second.threads_count,
                 };
+
             }
         };
 
