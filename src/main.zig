@@ -88,6 +88,27 @@ test "history ring buffer overflow wrapping" {
     try std.testing.expectEqual(@as(f32, 4.0), out[2]);
 }
 
+test "history ring buffer percentile and NaN-safe minMaxAvg" {
+    var ring = history.RingBuffer(f32, 10).init();
+    ring.push(10.0);
+    ring.push(std.math.nan(f32));
+    ring.push(50.0);
+    ring.push(90.0);
+    ring.push(std.math.inf(f32));
+
+    const stats = ring.minMaxAvg();
+    try std.testing.expectEqual(@as(f32, 10.0), stats.min);
+    try std.testing.expectEqual(@as(f32, 90.0), stats.max);
+    try std.testing.expectEqual(@as(f32, 50.0), stats.avg);
+
+    // Percentiles
+    const p50 = ring.percentile(50.0);
+    const p99 = ring.percentile(99.0);
+    try std.testing.expect(p50 >= 10.0 and p50 <= 90.0);
+    try std.testing.expect(p99 >= 50.0);
+}
+
+
 test "health score computation nominal" {
     const cpu = types.CpuMetrics{ .total_usage = 10.0 };
     const mem = types.MemoryMetrics{ .used_percent = 40.0, .swap_used_percent = 0.0 };

@@ -34,4 +34,32 @@ pub const Config = struct {
         @memcpy(self.theme_name[0..len], name[0..len]);
         self.theme_name_len = len;
     }
+
+    pub fn validate(self: *Config) void {
+
+        self.refresh_rate_ms = std.math.clamp(self.refresh_rate_ms, 50, 60000);
+        self.cpu_warning_pct = std.math.clamp(self.cpu_warning_pct, 10.0, 99.0);
+        self.cpu_critical_pct = std.math.clamp(self.cpu_critical_pct, self.cpu_warning_pct, 100.0);
+        self.mem_warning_pct = std.math.clamp(self.mem_warning_pct, 10.0, 99.0);
+        self.mem_critical_pct = std.math.clamp(self.mem_critical_pct, self.mem_warning_pct, 100.0);
+        self.disk_warning_pct = std.math.clamp(self.disk_warning_pct, 10.0, 99.0);
+        self.disk_critical_pct = std.math.clamp(self.disk_critical_pct, self.disk_warning_pct, 100.0);
+        if (self.theme_name_len == 0) {
+            self.setThemeName("anthropic");
+        }
+    }
 };
+
+test "config validation clamps out-of-range thresholds" {
+    var cfg = Config{
+        .refresh_rate_ms = 10,
+        .cpu_warning_pct = 150.0,
+        .cpu_critical_pct = -20.0,
+        .theme_name_len = 0,
+    };
+    cfg.validate();
+    try std.testing.expect(cfg.refresh_rate_ms >= 50);
+    try std.testing.expect(cfg.cpu_warning_pct <= 99.0);
+    try std.testing.expectEqualStrings("anthropic", cfg.getThemeName());
+}
+

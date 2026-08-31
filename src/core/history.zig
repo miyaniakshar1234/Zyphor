@@ -49,26 +49,54 @@ pub fn RingBuffer(comptime T: type, comptime Capacity: usize) type {
         pub fn minMaxAvg(self: *const Self) struct { min: T, max: T, avg: f32 } {
             if (self.count == 0) return .{ .min = 0, .max = 0, .avg = 0.0 };
 
-            var min_v: T = self.buffer[0];
-            var max_v: T = self.buffer[0];
+            var min_v: T = 1000000.0;
+            var max_v: T = -1000000.0;
             var sum: f64 = 0.0;
+            var valid_count: usize = 0;
 
             var i: usize = 0;
             while (i < self.count) : (i += 1) {
                 const v = self.buffer[i];
+                if (std.math.isNan(v) or std.math.isInf(v)) continue;
                 if (v < min_v) min_v = v;
                 if (v > max_v) max_v = v;
                 sum += @as(f64, @floatCast(v));
+                valid_count += 1;
             }
+
+            if (valid_count == 0) return .{ .min = 0, .max = 0, .avg = 0.0 };
 
             return .{
                 .min = min_v,
                 .max = max_v,
-                .avg = @as(f32, @floatCast(sum / @as(f64, @floatFromInt(self.count)))),
+                .avg = @as(f32, @floatCast(sum / @as(f64, @floatFromInt(valid_count)))),
             };
+        }
+
+        pub fn percentile(self: *const Self, p: f32) T {
+            if (self.count == 0) return 0;
+            var temp: [Capacity]T = undefined;
+            const len = self.getChronological(&temp);
+            if (len == 0) return 0;
+            
+            // Inline insertion sort for small static array without dynamic allocations
+            var i: usize = 1;
+            while (i < len) : (i += 1) {
+                const key = temp[i];
+                var j: usize = i;
+                while (j > 0 and temp[j - 1] > key) : (j -= 1) {
+                    temp[j] = temp[j - 1];
+                }
+                temp[j] = key;
+            }
+
+            const clamped_p = std.math.clamp(p, 0.0, 100.0);
+            const rank = @as(usize, @intFromFloat((clamped_p / 100.0) * @as(f32, @floatFromInt(len - 1))));
+            return temp[rank];
         }
     };
 }
+
 
 pub const SystemHistory = struct {
     cpu_history: RingBuffer(f32, 120) = RingBuffer(f32, 120).init(),

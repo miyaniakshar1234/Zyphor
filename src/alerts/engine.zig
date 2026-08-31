@@ -66,7 +66,7 @@ pub const AlertEngine = struct {
             alert.title_len = title.len;
 
             var buf: [128]u8 = undefined;
-            const msg = try std.fmt.bufPrint(&buf, "RAM usage at {d:.1}%. Potential risk of swap thrashing.", .{mem.used_percent});
+            const msg = std.fmt.bufPrint(&buf, "RAM usage at {d:.1}%. Potential risk of swap thrashing.", .{mem.used_percent}) catch "High memory pressure detected.";
             @memcpy(alert.message[0..msg.len], msg);
             alert.message_len = msg.len;
 
@@ -74,7 +74,7 @@ pub const AlertEngine = struct {
         }
 
         // 2. Check CPU Usage
-        if (cpu.total_usage > 90.0) {
+        if (!std.math.isNan(cpu.total_usage) and cpu.total_usage > 90.0) {
             var alert = Alert{
                 .severity = if (cpu.total_usage > 95.0) .critical else .warning,
                 .timestamp_ms = std.time.milliTimestamp(),
@@ -84,7 +84,7 @@ pub const AlertEngine = struct {
             alert.title_len = title.len;
 
             var buf: [128]u8 = undefined;
-            const msg = try std.fmt.bufPrint(&buf, "Total CPU load at {d:.1}%. Check top running processes.", .{cpu.total_usage});
+            const msg = std.fmt.bufPrint(&buf, "Total CPU load at {d:.1}%. Check top running processes.", .{cpu.total_usage}) catch "High CPU utilization detected.";
             @memcpy(alert.message[0..msg.len], msg);
             alert.message_len = msg.len;
 
@@ -93,7 +93,7 @@ pub const AlertEngine = struct {
 
         // 3. Check Disk Capacity
         for (disk.partitions) |part| {
-            if (part.used_percent > 90.0) {
+            if (!std.math.isNan(part.used_percent) and part.used_percent > 90.0) {
                 var alert = Alert{
                     .severity = if (part.used_percent > 95.0) .critical else .warning,
                     .timestamp_ms = std.time.milliTimestamp(),
@@ -103,7 +103,7 @@ pub const AlertEngine = struct {
                 alert.title_len = title.len;
 
                 var buf: [128]u8 = undefined;
-                const msg = try std.fmt.bufPrint(&buf, "Mount '{s}' is {d:.1}% full ({d} MB free).", .{ part.getMount(), part.used_percent, part.free_bytes / (1024 * 1024) });
+                const msg = std.fmt.bufPrint(&buf, "Mount '{s}' is {d:.1}% full ({d} MB free).", .{ part.getMount(), part.used_percent, part.free_bytes / (1024 * 1024) }) catch "Low storage capacity on partition.";
                 @memcpy(alert.message[0..msg.len], msg);
                 alert.message_len = msg.len;
 
@@ -112,3 +112,4 @@ pub const AlertEngine = struct {
         }
     }
 };
+
