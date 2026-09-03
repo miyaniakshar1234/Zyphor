@@ -1,0 +1,8 @@
+complete -c zyphor -f -a "doctor" -d "Run system diagnostics audit"
+complete -c zyphor -f -a "cpu" -d "Show live CPU telemetry"
+complete -c zyphor -f -a "memory" -d "Show RAM and pagefile metrics"
+complete -c zyphor -f -a "disk" -d "Show disk partition table"
+complete -c zyphor -l json -d "Emit raw JSON snapshot"
+complete -c zyphor -l plain -d "Run in plain ASCII mode"
+complete -c zyphor -l help -d "Display help information"
+complete -c zyphor -l version -d "Display version string"
