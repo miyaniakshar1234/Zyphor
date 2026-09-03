@@ -59,12 +59,15 @@ pub const ProcessManager = struct {
         if (query) |q| {
             const len = @min(q.len, self.active_filter.len);
             @memcpy(self.active_filter[0..len], q[0..len]);
+            @memset(self.active_filter[len..], 0);
             self.active_filter_len = len;
         } else {
+            @memset(&self.active_filter, 0);
             self.active_filter_len = 0;
         }
         try self.applyFilterAndSort();
     }
+
 
     pub fn getFilter(self: *const ProcessManager) ?[]const u8 {
         if (self.active_filter_len == 0) return null;

@@ -22,4 +22,10 @@ pub const PlatformManager = struct {
     pub fn getCollector(self: *PlatformManager) PlatformCollector {
         return self.context.collector();
     }
+
+    pub fn deinit(self: *PlatformManager) void {
+        var col = self.getCollector();
+        col.deinit();
+    }
 };
+

@@ -50,7 +50,9 @@ pub const SystemEngine = struct {
         self.process_mgr.deinit();
         self.process_tree.deinit();
         self.alert_engine.deinit();
+        self.platform.deinit();
     }
+
 
     pub fn sampleSnapshot(self: *SystemEngine) !types.SystemSnapshot {
         // Double-buffer arena swap: advance to the next arena slot and reset only the incoming slot
