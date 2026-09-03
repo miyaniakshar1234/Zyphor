@@ -300,16 +300,18 @@ pub fn renderOverviewPanel(
     }
 
     // Row 4: Core Grid Heatmap
-    if (cy + 2 < top_y + top_h) {
-        renderCoreGrid(buf, snapshot, theme, left_x + 2, cy, col_w - 4, plain);
-        cy += 2;
+    if (cy + 1 < top_y + top_h) {
+        const remaining_h = (top_y + top_h - 1) -| cy;
+        const max_core_rows = @min(remaining_h, if (snapshot.top_processes.len > 0 and remaining_h > 1) remaining_h - 1 else remaining_h);
+        const rows_used = renderCoreGrid(buf, snapshot, theme, left_x + 2, cy, col_w - 4, max_core_rows, plain);
+        cy += rows_used;
     }
 
     // Top process pill
     if (snapshot.top_processes.len > 0 and cy < top_y + top_h) {
         const top_p = snapshot.top_processes[0];
         var top_buf: [64]u8 = undefined;
-        const top_str = std.fmt.bufPrint(&top_buf, "▶ Top CPU: {s} ({d:.1}% • PID {d})", .{ top_p.getName(), top_p.cpu_percent, top_p.pid }) catch "";
+        const top_str = std.fmt.bufPrint(&top_buf, "▶ Top Task: {s} ({d:.1}% • PID {d})", .{ top_p.getName(), top_p.cpu_percent, top_p.pid }) catch "";
         buf.writeStringMax(left_x + 2, cy, top_str, col_w - 4, theme.accent, theme.bg, true);
     }
 
@@ -492,13 +494,15 @@ fn renderCoreGrid(
     x: u16,
     y: u16,
     avail_w: u16,
+    max_rows: u16,
     plain: bool,
-) void {
-    const core_count = @min(snapshot.cpu.core_usage.len, 64);
-    if (core_count == 0) return;
+) u16 {
+    const core_count = snapshot.cpu.core_usage.len;
+    if (core_count == 0 or max_rows == 0) return 0;
 
-    const bar_w: u16 = 6;
-    const cell_w: u16 = bar_w + 9; // "C00 99% ▓▓▓▓▓▓"
+    const is_dense = (core_count >= 16);
+    const bar_w: u16 = if (is_dense) 4 else 5;
+    const cell_w: u16 = if (is_dense) 11 else 13;
     const cols_fit = @max(1, avail_w / cell_w);
 
     var i: usize = 0;
@@ -508,20 +512,34 @@ fn renderCoreGrid(
         if (col >= cols_fit) {
             col = 0;
             row += 1;
-            if (row > 3) break; // max 4 rows of cores in overview
+            if (row >= max_rows) {
+                if (i < core_count and cols_fit > 1) {
+                    var more_buf: [32]u8 = undefined;
+                    const more_str = std.fmt.bufPrint(&more_buf, "+{d} more (Tab 5)", .{core_count - i}) catch "";
+                    buf.writeString(x + (cols_fit - 1) * cell_w, y + row - 1, more_str, theme.muted, theme.bg, false);
+                }
+                break;
+            }
         }
         const cx = x + col * cell_w;
         const cy = y + row;
 
         var core_label: [16]u8 = undefined;
         const load = snapshot.cpu.core_usage[i];
-        const lbl = std.fmt.bufPrint(&core_label, "C{d:0>2} {d:>2.0}%", .{ i, load }) catch "C? ?%";
         const color = graphs.percentColor(load);
 
-        buf.writeString(cx, cy, lbl, color, theme.bg, false);
-        graphs.renderMiniBar(buf, cx + 8, cy, bar_w, load, theme.bg, plain);
+        if (is_dense) {
+            const lbl = std.fmt.bufPrint(&core_label, "{d:0>2}:{d:>2.0}%", .{ i, load }) catch "??%";
+            buf.writeString(cx, cy, lbl, color, theme.bg, false);
+            graphs.renderMiniBar(buf, cx + 6, cy, bar_w, load, theme.bg, plain);
+        } else {
+            const lbl = std.fmt.bufPrint(&core_label, "C{d:0>2} {d:>2.0}%", .{ i, load }) catch "??%";
+            buf.writeString(cx, cy, lbl, color, theme.bg, false);
+            graphs.renderMiniBar(buf, cx + 7, cy, bar_w, load, theme.bg, plain);
+        }
         col += 1;
     }
+    return row + 1;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1883,18 +1901,44 @@ pub fn renderStatusBar(
     const y = buf.height - 1;
 
     buf.fillRow(y, theme.muted, theme.tab_bg);
-    graphs.renderSeparator(buf, 0, y - 1, w, theme.accent_dim, theme.bg, false);
+    graphs.renderSeparator(buf, 0, y - 1, w, theme.border, theme.bg, false);
 
     if (search_input_active) {
         var sbuf: [128]u8 = undefined;
-        const prompt = std.fmt.bufPrint(&sbuf, " 🔍 Search Filter: {s}█ [Enter: Done | Esc: Cancel]", .{current_search_input}) catch "";
+        const prompt = std.fmt.bufPrint(&sbuf, "  🔍 FILTER: {s}█  [Enter: Apply | Esc: Clear]", .{current_search_input}) catch "";
         buf.writeString(0, y, prompt, theme.warning, theme.selected, true);
         return;
     }
 
-    const hints = " [Tab] Tab | [1-8] Jump | [F] Fix | [R] Replay | [:] Palette | [t] Tree | [c/m] Sort | [/] Search | [Enter] Inspect | [T] Theme | [?] Help | [q] Quit";
-    buf.writeString(0, y, hints[0..@min(hints.len, w - 1)], theme.muted, theme.tab_bg, false);
+    const key_badges = [_]struct { key: []const u8, label: []const u8 }{
+        .{ .key = "1-6", .label = "Tab" },
+        .{ .key = "Tab", .label = "Next" },
+        .{ .key = "t", .label = "Tree" },
+        .{ .key = "m", .label = "Sort" },
+        .{ .key = "/", .label = "Filter" },
+        .{ .key = "Enter", .label = "Inspect" },
+        .{ .key = "F", .label = "Remediate" },
+        .{ .key = "T", .label = "Theme" },
+        .{ .key = "p", .label = "Pause" },
+        .{ .key = "?", .label = "Help" },
+        .{ .key = "q", .label = "Quit" },
+    };
 
+    var cur_x: u16 = 1;
+    for (key_badges) |badge| {
+        if (cur_x + badge.key.len + badge.label.len + 3 >= w - 15) break;
+
+        buf.setCell(cur_x, y, "[", theme.muted, theme.tab_bg, false);
+        cur_x += 1;
+        buf.writeString(cur_x, y, badge.key, theme.accent, theme.tab_bg, true);
+        cur_x += @intCast(badge.key.len);
+        buf.setCell(cur_x, y, "]", theme.muted, theme.tab_bg, false);
+        cur_x += 1;
+        buf.setCell(cur_x, y, " ", theme.muted, theme.tab_bg, false);
+        cur_x += 1;
+        buf.writeString(cur_x, y, badge.label, theme.fg, theme.tab_bg, false);
+        cur_x += @intCast(badge.label.len + 1);
+    }
 
     if (status_text.len > 0) {
         const offset = w -| @as(u16, @intCast(status_text.len + 3));
@@ -2548,46 +2592,59 @@ pub fn renderHardwarePanel(
     const pcie_str = std.fmt.bufPrint(&g_buf, "• PCIe Bus I/O:  ↓ {d:.0} MB/s  ↑ {d:.0} MB/s", .{ gpu.pcie_rx_mb_s, gpu.pcie_tx_mb_s }) catch "";
     buf.writeString(left_x + 2, panel_y + 16, pcie_str, theme.muted, theme.bg, false);
 
-    // ── 2. Thermal Radar & Core Heatmap (Center Pane) ──────────────────────
-    buf.drawCyberBox(center_x, panel_y, pane_w, panel_h, " ◈ THERMAL RADAR & CORE HEATMAP ", theme.border, theme.warning, theme.bg, plain);
+    // ── 2. CPU Architecture & Multi-Core Fabric (Center Pane) ─────────────
+    buf.drawCyberBox(center_x, panel_y, pane_w, panel_h, " CPU TOPOLOGY & MULTI-CORE FABRIC ", theme.border, theme.header, theme.bg, plain);
 
-    const therm = &snapshot.thermal;
     var t_buf: [128]u8 = undefined;
 
-    buf.writeString(center_x + 2, panel_y + 2, "CPU Package Temp:", theme.header, theme.bg, true);
-    const cpu_t_str = std.fmt.bufPrint(&t_buf, "{d:.1} °C", .{therm.cpu_package_temp}) catch "";
-    buf.writeString(center_x + 20, panel_y + 2, cpu_t_str, if (therm.cpu_package_temp > 75.0) theme.critical else theme.success, theme.bg, true);
-    graphs.renderGaugeBar(buf, center_x + 2, panel_y + 3, pane_w - 4, therm.cpu_package_temp, theme.warning, theme.muted, theme.bg, plain);
+    // CPU Model & Topology
+    buf.writeStringMax(center_x + 2, panel_y + 2, snapshot.cpu.getModelName(), pane_w - 4, theme.accent, theme.bg, true);
 
-    buf.writeString(center_x + 2, panel_y + 5, "GPU Core Temp:", theme.header, theme.bg, true);
-    const gpu_t_str = std.fmt.bufPrint(&t_buf, "{d:.1} °C", .{therm.gpu_temp}) catch "";
-    buf.writeString(center_x + 20, panel_y + 5, gpu_t_str, theme.fg, theme.bg, true);
-    graphs.renderGaugeBar(buf, center_x + 2, panel_y + 6, pane_w - 4, therm.gpu_temp, theme.accent, theme.muted, theme.bg, plain);
+    const topo_str = std.fmt.bufPrint(&t_buf, "{d} Cores / {d} Threads @ {d} MHz", .{
+        snapshot.cpu.physical_cores, snapshot.cpu.logical_cores, snapshot.cpu.frequency_mhz,
+    }) catch "";
+    buf.writeStringMax(center_x + 2, panel_y + 3, topo_str, pane_w - 4, theme.muted, theme.bg, false);
 
-    buf.writeString(center_x + 2, panel_y + 8, "NVMe SSD Temp:", theme.header, theme.bg, true);
-    const nvme_t_str = std.fmt.bufPrint(&t_buf, "{d:.1} °C", .{therm.nvme_temp}) catch "";
-    buf.writeString(center_x + 20, panel_y + 8, nvme_t_str, theme.fg, theme.bg, true);
-    graphs.renderGaugeBar(buf, center_x + 2, panel_y + 9, pane_w - 4, therm.nvme_temp, theme.secondary, theme.muted, theme.bg, plain);
+    // Aggregate CPU Load Bar
+    const total_lbl = std.fmt.bufPrint(&t_buf, "Total Compute Load: {d:>5.1}%", .{snapshot.cpu.total_usage}) catch "";
+    buf.writeString(center_x + 2, panel_y + 5, total_lbl, theme.header, theme.bg, true);
+    graphs.renderGaugeBar(buf, center_x + 2, panel_y + 6, pane_w - 4, snapshot.cpu.total_usage, graphs.percentColor(snapshot.cpu.total_usage), theme.muted, theme.bg, plain);
 
-    graphs.renderSeparator(buf, center_x + 2, panel_y + 11, pane_w - 4, theme.border, theme.bg, plain);
-    buf.writeString(center_x + 2, panel_y + 12, "CORE TEMPERATURE HEATMAP (°C):", theme.header, theme.bg, true);
+    graphs.renderSeparator(buf, center_x + 2, panel_y + 8, pane_w - 4, theme.border, theme.bg, plain);
+    buf.writeString(center_x + 2, panel_y + 9, "ALL THREAD UTILIZATION MATRIX:", theme.header, theme.bg, true);
 
-    var c_idx: u8 = 0;
-    while (c_idx < therm.core_count and c_idx < 16) : (c_idx += 1) {
-        const col: u16 = (c_idx % 4);
-        const row: u16 = (c_idx / 4);
-        const cx = center_x + 2 + col * (pane_w / 4);
-        const cy = panel_y + 14 + row * 2;
-        if (cy >= panel_y + panel_h - 2) break;
+    // Thread utilization grid
+    const core_count = snapshot.cpu.core_usage.len;
+    const grid_y = panel_y + 11;
+    const max_grid_rows = (panel_y + panel_h - 3) -| grid_y;
+    const cell_w: u16 = 11; // "T00 99% ▰▰"
+    const cols_fit = @max(1, (pane_w - 4) / cell_w);
 
-        const temp = therm.core_temps[c_idx];
-        const c_str = std.fmt.bufPrint(&t_buf, "C{d}: {d:.0}°", .{ c_idx, temp }) catch "";
-        const c_col = if (temp > 75.0) theme.critical else (if (temp > 55.0) theme.warning else theme.success);
-        buf.writeString(cx, cy, c_str, c_col, theme.bg, true);
+    var ci: usize = 0;
+    while (ci < core_count) : (ci += 1) {
+        const col = @as(u16, @intCast(ci % cols_fit));
+        const row = @as(u16, @intCast(ci / cols_fit));
+        if (row >= max_grid_rows) break;
+
+        const cx = center_x + 2 + col * cell_w;
+        const cy = grid_y + row;
+        const load = snapshot.cpu.core_usage[ci];
+        const color = graphs.percentColor(load);
+
+        var c_label: [16]u8 = undefined;
+        const c_str = std.fmt.bufPrint(&c_label, "T{d:0>2} {d:>2.0}%", .{ ci, load }) catch "";
+        buf.writeString(cx, cy, c_str, color, theme.bg, false);
+        graphs.renderMiniBar(buf, cx + 7, cy, 3, load, theme.bg, plain);
     }
 
-    const fan_rpm_str = std.fmt.bufPrint(&t_buf, "System Fan: {d} RPM | Throttle: {s}", .{ therm.fan_rpm, if (therm.throttling_detected) "[PROCHOT ACTIVE]" else "[NOMINAL]" }) catch "";
-    buf.writeString(center_x + 2, panel_y + panel_h - 2, fan_rpm_str, if (therm.throttling_detected) theme.critical else theme.muted, theme.bg, true);
+    // Thermal / Governor status at bottom of center pane
+    const bot_y = panel_y + panel_h - 2;
+    if (snapshot.cpu.temperature_c) |tc| {
+        const temp_str = std.fmt.bufPrint(&t_buf, "Package Thermal: {d:.1}°C [NORMAL]", .{tc}) catch "";
+        buf.writeStringMax(center_x + 2, bot_y, temp_str, pane_w - 4, theme.secondary, theme.bg, false);
+    } else {
+        buf.writeStringMax(center_x + 2, bot_y, "Hardware Telemetry: Live OS Kernel", pane_w - 4, theme.muted, theme.bg, false);
+    }
 
     // ── 3. Battery & Power Distribution Subsystem (Right Pane) ─────────────
     buf.drawCyberBox(right_x, panel_y, right_w, panel_h, " ◈ POWER DISTRIBUTION & BATTERY HUD ", theme.border, theme.secondary, theme.bg, plain);

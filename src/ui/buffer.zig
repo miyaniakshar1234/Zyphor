@@ -267,7 +267,7 @@ pub const ScreenBuffer = struct {
         self.drawCyberBox(x, y, w, h, title, border_color, title_color, bg_color, plain);
     }
 
-    /// Next-Gen Cyberpunk Panel Frame
+    /// Next-Gen Precision btop++ Panel Frame (Clean Rounded Unicode)
     pub fn drawCyberBox(
         self: *ScreenBuffer,
         x: u16,
@@ -284,14 +284,12 @@ pub const ScreenBuffer = struct {
         const right = x + w - 1;
         const bottom = y + h - 1;
 
-        const tl = if (plain) "+" else "▛";
-        const tr = if (plain) "+" else "▜";
-        const bl = if (plain) "+" else "▙";
-        const br = if (plain) "+" else "▟";
-        const horiz_top = if (plain) "-" else "▀";
-        const horiz_bot = if (plain) "-" else "▄";
-        const vert = if (plain) "|" else "▌";
-        const vert_r = if (plain) "|" else "▐";
+        const tl = if (plain) "+" else "╭";
+        const tr = if (plain) "+" else "╮";
+        const bl = if (plain) "+" else "╰";
+        const br = if (plain) "+" else "╯";
+        const horiz = if (plain) "-" else "─";
+        const vert = if (plain) "|" else "│";
 
         self.setCell(x, y, tl, border_color, bg_color, false);
         self.setCell(right, y, tr, border_color, bg_color, false);
@@ -300,33 +298,32 @@ pub const ScreenBuffer = struct {
 
         var cx = x + 1;
         while (cx < right) : (cx += 1) {
-            self.setCell(cx, y, horiz_top, border_color, bg_color, false);
-            self.setCell(cx, bottom, horiz_bot, border_color, bg_color, false);
+            self.setCell(cx, y, horiz, border_color, bg_color, false);
+            self.setCell(cx, bottom, horiz, border_color, bg_color, false);
         }
 
         var cy = y + 1;
         while (cy < bottom) : (cy += 1) {
             self.setCell(x, cy, vert, border_color, bg_color, false);
-            self.setCell(right, cy, vert_r, border_color, bg_color, false);
+            self.setCell(right, cy, vert, border_color, bg_color, false);
         }
 
         if (title) |t| {
-            if (t.len > 0 and w > 10) {
-                const title_display_len = utf8DisplayLen(t);
-                const inner_w = @as(usize, w - 2);
-                const title_x = if (title_display_len + 6 < inner_w)
-                    x + @as(u16, @intCast((inner_w - title_display_len - 2) / 2)) + 1
-                else
-                    x + 4;
-                
-                if (title_x >= x + 3 and title_x + title_display_len + 2 <= right) {
-                    self.writeString(title_x - 3, y, "◥", border_color, bg_color, false);
-                    self.writeString(title_x - 2, y, " ", border_color, title_color, false); // inverted background
-                    self.writeString(title_x - 1, y, t, bg_color, title_color, true); // glowing text
-                    self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)), y, " ", border_color, title_color, false);
-                    self.writeString(title_x - 1 + @as(u16, @intCast(title_display_len)) + 1, y, "◤", border_color, bg_color, false);
-                } else if (title_x >= x + 1) {
-                    self.writeStringMax(x + 2, y, t, w - 4, title_color, bg_color, true);
+            if (t.len > 0 and w > 8) {
+                var clean_t = t;
+                // Clean leading/trailing decorative whitespace
+                while (clean_t.len > 0 and clean_t[0] == ' ') : (clean_t = clean_t[1..]) {}
+                while (clean_t.len > 0 and clean_t[clean_t.len - 1] == ' ') : (clean_t = clean_t[0 .. clean_t.len - 1]) {}
+
+                const title_display_len = utf8DisplayLen(clean_t);
+                const title_x = x + 2;
+
+                if (title_x + title_display_len + 1 < right) {
+                    self.setCell(title_x - 1, y, " ", border_color, bg_color, false);
+                    self.writeString(title_x, y, clean_t, title_color, bg_color, true);
+                    self.setCell(title_x + @as(u16, @intCast(title_display_len)), y, " ", border_color, bg_color, false);
+                } else {
+                    self.writeStringMax(x + 1, y, clean_t, w - 2, title_color, bg_color, true);
                 }
             }
         }
