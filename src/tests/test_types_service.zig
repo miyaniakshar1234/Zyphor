@@ -10,5 +10,5 @@ test "SystemService status and startup string mapping" {
 
     try std.testing.expectEqualStrings(name, srv.getName());
     try std.testing.expectEqual(types.ServiceStatus.running, srv.status);
-    try std.testing.expectEqualStrings("Running", srv.status.asText());
+    try std.testing.expectEqualStrings("RUNNING", srv.status.asText());
 }

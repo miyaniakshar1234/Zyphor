@@ -6,7 +6,7 @@ test "ProcessInfo name trimming and metrics" {
         .pid = 1337,
         .ppid = 1,
         .cpu_percent = 12.5,
-        .memory_rss_bytes = 64 * 1024 * 1024,
+        .memory_rss = 64 * 1024 * 1024,
     };
     const name = "zyphor.exe";
     @memcpy(proc.name[0..name.len], name);

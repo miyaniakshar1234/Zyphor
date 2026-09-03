@@ -1,7 +1,7 @@
 const std = @import("std");
 const theme_mod = @import("theme.zig");
 const types_mod = @import("../core/types.zig");
-const Color = theme_mod.Color;
+pub const Color = theme_mod.Color;
 
 pub const Cell = struct {
     char: [4]u8 = .{ ' ', 0, 0, 0 },
@@ -61,6 +61,12 @@ pub const ScreenBuffer = struct {
     pub fn deinit(self: *ScreenBuffer) void {
         self.allocator.free(self.cells);
         self.allocator.free(self.prev_cells);
+    }
+
+    pub fn getCell(self: *const ScreenBuffer, x: u16, y: u16) Cell {
+        if (x >= self.width or y >= self.height) return Cell{};
+        const idx = @as(usize, y) * @as(usize, self.width) + @as(usize, x);
+        return self.cells[idx];
     }
 
     pub fn resize(self: *ScreenBuffer, width: u16, height: u16) !void {
@@ -446,7 +452,7 @@ pub const ScreenBuffer = struct {
     }
 };
 
-fn utf8DisplayLen(s: []const u8) usize {
+pub fn utf8DisplayLen(s: []const u8) usize {
     var count: usize = 0;
     var i: usize = 0;
     while (i < s.len) {

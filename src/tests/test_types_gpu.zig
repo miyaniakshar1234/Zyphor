@@ -3,6 +3,7 @@ const types = @import("../core/types.zig");
 
 test "GpuMetrics name and VRAM allocation" {
     var gpu = types.GpuMetrics{};
+    gpu.available = true;
     const name = "NVIDIA GeForce RTX 4050";
     @memcpy(gpu.name[0..name.len], name);
     gpu.name_len = name.len;

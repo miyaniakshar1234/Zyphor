@@ -5,11 +5,11 @@ test "DiskPartition mount and filesystem helpers" {
     var part = types.DiskPartition{};
     const mount = "C:\\";
     @memcpy(part.mount_point[0..mount.len], mount);
-    part.mount_point_len = mount.len;
+    part.mount_len = mount.len;
 
     const fs = "NTFS";
-    @memcpy(part.filesystem[0..fs.len], fs);
-    part.filesystem_len = fs.len;
+    @memcpy(part.fs_type[0..fs.len], fs);
+    part.fs_len = fs.len;
 
     part.total_bytes = 500 * 1024 * 1024 * 1024;
     part.used_bytes = 250 * 1024 * 1024 * 1024;

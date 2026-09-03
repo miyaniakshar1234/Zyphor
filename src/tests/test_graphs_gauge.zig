@@ -14,6 +14,6 @@ test "graphs renderGaugeBar boundary percentages" {
     graphs.renderGaugeBar(&buf, 1, 1, 20, 0.0, fg, empty_fg, bg, false);
     graphs.renderGaugeBar(&buf, 1, 2, 20, 100.0, fg, empty_fg, bg, false);
 
-    const c_full = buf.getCell(1, 2);
+    const c_full = buf.getCell(2, 2);
     try std.testing.expectEqualStrings("█", c_full.char[0..c_full.char_len]);
 }

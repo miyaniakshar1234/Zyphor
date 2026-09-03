@@ -8,13 +8,13 @@ test "computeHealthScore socket density penalties" {
     const disk = types.DiskMetrics{};
 
     // Nominal network
-    var net_normal = types.NetworkMetrics{};
-    net_normal.active_connections = 20;
+    const net_normal = types.NetworkMetrics{};
     const h1 = health.computeHealthScore(&cpu, &mem, &disk, &net_normal);
 
-    // Saturated network sockets
+    // Saturated network sockets (> 800 connections triggers net_score = 75.0)
+    var conns: [900]types.NetworkConnection = [_]types.NetworkConnection{.{}} ** 900;
     var net_heavy = types.NetworkMetrics{};
-    net_heavy.active_connections = 600;
+    net_heavy.connections = &conns;
     const h2 = health.computeHealthScore(&cpu, &mem, &disk, &net_heavy);
 
     try std.testing.expect(h1.overall_score > h2.overall_score);

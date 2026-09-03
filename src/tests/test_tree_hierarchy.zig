@@ -13,9 +13,9 @@ test "ProcessTree child hierarchy and depth" {
         .{ .pid = 100, .ppid = 10, .cpu_percent = 3.0 },
     };
 
-    try tree.buildTree(&procs);
-    try std.testing.expectEqual(@as(usize, 3), tree.flattened.items.len);
-    try std.testing.expectEqual(@as(u16, 0), tree.flattened.items[0].tree_depth);
-    try std.testing.expectEqual(@as(u16, 1), tree.flattened.items[1].tree_depth);
-    try std.testing.expectEqual(@as(u16, 2), tree.flattened.items[2].tree_depth);
+    try tree.build(&procs);
+    try std.testing.expectEqual(@as(usize, 1), tree.roots.items.len);
+    try std.testing.expectEqual(@as(usize, 0), tree.roots.items[0].depth);
+    try std.testing.expectEqual(@as(usize, 1), tree.roots.items[0].children.items.len);
+    try std.testing.expectEqual(@as(usize, 1), tree.roots.items[0].children.items[0].depth);
 }
