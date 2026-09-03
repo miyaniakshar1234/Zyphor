@@ -1,90 +1,22 @@
-name: Build and Release
+name: Release
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 jobs:
-  build-cross:
-    name: Build (${{ matrix.name }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-linux
-            name: zyphor-linux-x86_64
-            bin: zyphor
-            is_windows: false
-          - target: aarch64-linux
-            name: zyphor-linux-aarch64
-            bin: zyphor
-            is_windows: false
-          - target: x86_64-macos
-            name: zyphor-macos-x86_64
-            bin: zyphor
-            is_windows: false
-          - target: aarch64-macos
-            name: zyphor-macos-aarch64
-            bin: zyphor
-            is_windows: false
-          - target: x86_64-windows
-            name: zyphor-windows-x86_64
-            bin: zyphor.exe
-            is_windows: true
-
+  build-release:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
+      - uses: mlugg/setup-zig@v1
         with:
           version: 0.15.2
-
-      - name: Build Binary
-        run: zig build -Dtarget=${{ matrix.target }} -Doptimize=ReleaseFast
-
-      - name: Package Tarball (Unix)
-        if: ${{ !matrix.is_windows }}
-        run: |
-          mkdir -p dist
-          cp zig-out/bin/${{ matrix.bin }} dist/
-          tar -czvf ${{ matrix.name }}.tar.gz -C dist ${{ matrix.bin }}
-
-      - name: Package Zip (Windows)
-        if: ${{ matrix.is_windows }}
-        run: |
-          sudo apt-get update && sudo apt-get install -y zip
-          mkdir -p dist
-          cp zig-out/bin/${{ matrix.bin }} dist/
-          cd dist && zip -9 ../${{ matrix.name }}.zip ${{ matrix.bin }}
-
+      - name: Build optimized binary
+        run: zig build -Doptimize=ReleaseFast
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
-          path: |
-            *.tar.gz
-            *.zip
-
-  release:
-    needs: build-cross
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/**/*.tar.gz
-            artifacts/**/*.zip
-          generate_release_notes: true
+          name: zyphor-windows-x86_64
+          path: zig-out/bin/zyphor.exe
