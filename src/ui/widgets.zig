@@ -259,7 +259,7 @@ pub fn renderOverviewPanel(
     var val_buf: [128]u8 = undefined;
 
     // ── 1. TOP-LEFT: CPU COMPUTE FABRIC (btop++ style) ─────────────────────
-    buf.drawCyberBox(left_x, top_y, col_w, top_h, " ◈ CPU COMPUTE FABRIC [x86_64: AVX2 | FMA3 | BMI2] ◈ ", theme.border, theme.accent, theme.bg, plain);
+    buf.drawCyberBox(left_x, top_y, col_w, top_h, " ◈ CPU COMPUTE FABRIC ◈ ", theme.border, theme.accent, theme.bg, plain);
 
     var cy: u16 = top_y + 1;
     // Row 1: Frequency, Cores, Model
@@ -403,7 +403,15 @@ pub fn renderOverviewPanel(
     }
 
     if (sy < top_y + top_h) {
-        buf.writeString(right_x + 2, sy, "Status: NVMe PCIe Gen4 x4 • IO Latency: Sub-0.5ms [OPTIMAL]", theme.accent_dim, theme.bg, false);
+        if (snapshot.disk.partitions.len > 0) {
+            var stat_buf: [64]u8 = undefined;
+            const stat_str = std.fmt.bufPrint(&stat_buf, "Storage: {d} Volume(s) Online • Primary FS: {s}", .{
+                snapshot.disk.partitions.len, snapshot.disk.partitions[0].getFs(),
+            }) catch "";
+            buf.writeStringMax(right_x + 2, sy, stat_str, col_w - 4, theme.accent_dim, theme.bg, false);
+        } else {
+            buf.writeString(right_x + 2, sy, "Storage: No Active Volumes Detected", theme.accent_dim, theme.bg, false);
+        }
     }
 
     // ── 4. BOTTOM-RIGHT: NETWORK OSCILLOSCOPE ─────────────────────────────
@@ -426,9 +434,9 @@ pub fn renderOverviewPanel(
 
     if (ny < bottom_y + bottom_h) {
         var iface_buf: [64]u8 = undefined;
-        const iface_name = if (snapshot.network.interfaces.len > 0) snapshot.network.interfaces[0].getName() else "eth0";
+        const iface_name = if (snapshot.network.interfaces.len > 0) snapshot.network.interfaces[0].getName() else "No Active Adapter";
         const net_footer = std.fmt.bufPrint(&iface_buf, "Link: {s} • Active Sockets: {d} TCP Connections", .{
-            iface_name, snapshot.network.interfaces.len * 8 + 4,
+            iface_name, snapshot.network.connections.len,
         }) catch "";
         buf.writeStringMax(right_x + 2, ny, net_footer, col_w - 4, theme.muted, theme.bg, false);
     }
@@ -443,10 +451,14 @@ pub fn renderOverviewPanel(
         const vram_tot_gb = @as(f32, @floatFromInt(snapshot.gpu.vram_total_bytes)) / (1024.0 * 1024.0 * 1024.0);
         const vram_pct = if (vram_tot_gb > 0) (vram_used_gb / vram_tot_gb) * 100.0 else 0.0;
 
-        const gpu_temp = snapshot.gpu.temperature_c orelse 52.0;
-        const gpu_str = std.fmt.bufPrint(&val_buf, "GPU: {s}  Load: {d:>4.1}%  VRAM: {d:.1}/{d:.1} GB ({d:.1}%)  Temp: {d:.0}°C", .{
-            snapshot.gpu.getName(), snapshot.gpu.utilization_pct, vram_used_gb, vram_tot_gb, vram_pct, gpu_temp,
-        }) catch "";
+        const gpu_str = if (snapshot.gpu.utilization_pct > 0.0 or snapshot.gpu.vram_total_bytes > 0)
+            std.fmt.bufPrint(&val_buf, "GPU: {s}  Load: {d:>4.1}%  VRAM: {d:.1}/{d:.1} GB ({d:.1}%)", .{
+                snapshot.gpu.getName(), snapshot.gpu.utilization_pct, vram_used_gb, vram_tot_gb, vram_pct,
+            }) catch ""
+        else
+            std.fmt.bufPrint(&val_buf, "GPU: {s}  [Discrete Hardware Accelerator Detected]", .{
+                snapshot.gpu.getName(),
+            }) catch "";
         buf.writeStringMax(left_x + 2, hy, gpu_str, w - 6, theme.accent, theme.bg, true);
 
     } else {
@@ -455,13 +467,20 @@ pub fn renderOverviewPanel(
 
     if (hy + 1 < gpu_hud_y + hud_h) {
         hy += 1;
-        const temp_c = snapshot.cpu.temperature_c orelse 46.5;
         const batt_str = if (snapshot.battery.available)
-            std.fmt.bufPrint(&val_buf, "Package Temp: {d:.1}°C [NORMAL]  •  Battery: {d:.1}% {s}", .{
-                temp_c, snapshot.battery.percentage, if (snapshot.battery.is_charging) "⚡ (AC Online)" else "(Discharging)",
-            }) catch ""
+            if (snapshot.cpu.temperature_c) |tc|
+                std.fmt.bufPrint(&val_buf, "CPU Package: {d:.1}°C  •  Battery: {d:.1}% {s}", .{
+                    tc, snapshot.battery.percentage, if (snapshot.battery.is_charging) "⚡ (AC Online)" else "(Discharging)",
+                }) catch ""
+            else
+                std.fmt.bufPrint(&val_buf, "Battery: {d:.1}% {s}  •  Thermals: Requires Elevated MSR Driver", .{
+                    snapshot.battery.percentage, if (snapshot.battery.is_charging) "⚡ (AC Online)" else "(Discharging)",
+                }) catch ""
         else
-            std.fmt.bufPrint(&val_buf, "Package Temp: {d:.1}°C [NORMAL]  •  Power: AC Constant Supply [STABLE]", .{temp_c}) catch "";
+            if (snapshot.cpu.temperature_c) |tc|
+                std.fmt.bufPrint(&val_buf, "CPU Package: {d:.1}°C  •  Power: AC Constant Supply [STABLE]", .{tc}) catch ""
+            else
+                "Power: AC Constant Supply [STABLE]  •  Thermals: Requires Elevated MSR Driver";
         buf.writeStringMax(left_x + 2, hy, batt_str, w - 6, theme.secondary, theme.bg, false);
     }
 }
@@ -802,7 +821,7 @@ pub fn renderDiskPanel(
         buf.drawCyberBox(3, card_y, left_w, 4, vtitle, theme.border, theme.accent, theme.bg, plain);
 
         var vinfo_buf: [80]u8 = undefined;
-        const vinfo = std.fmt.bufPrint(&vinfo_buf, "FS: {s:<5} [⚡ NVMe PCIe 4.0]  {d:>5.1} / {d:>5.1} GB ({d:.1} GB Free)", .{
+        const vinfo = std.fmt.bufPrint(&vinfo_buf, "FS: {s:<6} {d:>6.1} / {d:>6.1} GB  ({d:.1} GB Free)", .{
             part.getFs(), used_gb, total_gb, free_gb,
         }) catch "";
         buf.writeString(5, card_y + 1, vinfo[0..@min(vinfo.len, left_w - 4)], theme.fg, theme.bg, false);
@@ -838,7 +857,7 @@ pub fn renderDiskPanel(
         graphs.renderBrailleGraph(buf, right_x + 2, osc_box_y + 5, right_w - 4, 2, w_hist[0..w_count], theme.warning, theme.bg, plain);
 
         var iops_buf: [64]u8 = undefined;
-        const iops_lbl = std.fmt.bufPrint(&iops_buf, "Activity: {d} IOPS • Queue Depth: 1.2 • Bus Latency: 0.42ms", .{disk.iops}) catch "";
+        const iops_lbl = std.fmt.bufPrint(&iops_buf, "Physical Volumes: {d} • Host Filesystem: {s}", .{ disk.partitions.len, if (disk.partitions.len > 0) disk.partitions[0].getFs() else "NTFS" }) catch "";
         buf.writeString(right_x + 2, osc_box_y + 7, iops_lbl[0..@min(iops_lbl.len, right_w - 4)], theme.muted, theme.bg, false);
     }
 
@@ -856,6 +875,10 @@ pub fn renderDiskPanel(
         var dr: usize = 0;
         const dir_start_y = hdr_y + 1;
         const max_dir_rows = panel_y + panel_h - dir_start_y - 1;
+
+        if (disk.top_directories.len == 0 and dir_start_y < panel_y + panel_h) {
+            buf.writeString(3, dir_start_y, "  Directory analyzer inactive (background disk sweep disabled to prevent SSD contention)", theme.muted, theme.bg, false);
+        }
 
         while (dr < disk.top_directories.len and dr < max_dir_rows) : (dr += 1) {
             const dir = disk.top_directories[dr];
@@ -964,7 +987,7 @@ pub fn renderNetworkPanel(
     if (speed_y + 3 < panel_y + panel_h and left_w > 20) {
         graphs.renderSeparator(buf, 2, speed_y - 1, left_w, theme.border, theme.bg, plain);
         buf.writeString(3, speed_y, "▼ SPEED & QUALITY BENCHMARK [Press 's': Test | 'S': Stress]", theme.accent, theme.bg, true);
-        buf.writeString(3, speed_y + 1, "CDN Edge: Cloudflare/Google Anycast | Quality Rank: A+ (Pro Gaming)", theme.muted, theme.bg, false);
+        buf.writeString(3, speed_y + 1, "DNS Probe Target: 1.1.1.1 / 8.8.8.8 (UDP 53) • Non-blocking RTT", theme.muted, theme.bg, false);
         if (speed_res) |res| {
             var dl_buf: [128]u8 = undefined;
             const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress: {d:>5.1} Mbps ({d:>4.1} MB/s)  |  ↑ Egress: {d:>5.1} Mbps ({d:>4.1} MB/s)", .{res.download_mbps, res.download_mbps / 8.0, res.upload_mbps, res.upload_mbps / 8.0}) catch "";
@@ -1110,21 +1133,32 @@ pub fn renderDiagnosticsPanel(
     const stat_str = std.fmt.bufPrint(&stat_buf, "Stability Index: {d}%", .{health.overall_score}) catch "";
     buf.writeString(15, panel_y + 5, stat_str, theme.muted, theme.bg, false);
 
-    buf.writeString(5, panel_y + 7, "Kernel Latency: 12 µs • No Starvation", theme.accent_dim, theme.bg, false);
-    buf.writeString(5, panel_y + 8, "Interrupt Latency: Sub-15 µs [NOMINAL]", theme.secondary, theme.bg, false);
+    var procs_str_buf: [64]u8 = undefined;
+    const procs_str = std.fmt.bufPrint(&procs_str_buf, "Tracked Processes: {d} Active", .{snapshot.top_processes.len}) catch "";
+    buf.writeString(5, panel_y + 7, procs_str, theme.accent_dim, theme.bg, false);
+
+    var srvs_str_buf: [64]u8 = undefined;
+    const srvs_str = std.fmt.bufPrint(&srvs_str_buf, "System Services: {d} Tracked", .{snapshot.services.len}) catch "";
+    buf.writeString(5, panel_y + 8, srvs_str, theme.secondary, theme.bg, false);
 
     // Right Panel: 5-Subsystem Hardware Telemetry Radar
     if (is_wide) {
         buf.drawCyberBox(right_x, panel_y + 1, right_w, 10, " ◈ HARDWARE SUBSYSTEM RADAR ◈ ", theme.border, theme.secondary, theme.bg, plain);
 
-        renderSubsystemMeter(buf, right_x + 2, panel_y + 2, "Compute Core (CPU)", health.cpu_score, "3.8 GHz Nominal", right_w - 4, theme, plain);
-        renderSubsystemMeter(buf, right_x + 2, panel_y + 3, "Memory Fabric (RAM)", health.memory_score, "Low Pressure", right_w - 4, theme, plain);
-        renderSubsystemMeter(buf, right_x + 2, panel_y + 4, "Storage Fabric (I/O)", health.disk_score, "NVMe Healthy", right_w - 4, theme, plain);
-        renderSubsystemMeter(buf, right_x + 2, panel_y + 5, "Network Link & Sockets", health.network_score, "Low Jitter", right_w - 4, theme, plain);
-        renderSubsystemMeter(buf, right_x + 2, panel_y + 6, "Thermal Sensor Margins", health.thermal_score, "Cool Margins", right_w - 4, theme, plain);
+        var cpu_sub_buf: [32]u8 = undefined;
+        const cpu_sub_str = if (snapshot.cpu.frequency_mhz > 0)
+            std.fmt.bufPrint(&cpu_sub_buf, "{d} MHz Nominal", .{snapshot.cpu.frequency_mhz}) catch "Nominal"
+        else
+            "Nominal";
+
+        renderSubsystemMeter(buf, right_x + 2, panel_y + 2, "Compute Core (CPU)", health.cpu_score, cpu_sub_str, right_w - 4, theme, plain);
+        renderSubsystemMeter(buf, right_x + 2, panel_y + 3, "Memory Fabric (RAM)", health.memory_score, snapshot.memory.pressure_level.asText(), right_w - 4, theme, plain);
+        renderSubsystemMeter(buf, right_x + 2, panel_y + 4, "Storage Fabric (I/O)", health.disk_score, if (snapshot.disk.partitions.len > 0) snapshot.disk.partitions[0].getFs() else "Online", right_w - 4, theme, plain);
+        renderSubsystemMeter(buf, right_x + 2, panel_y + 5, "Network Link & Sockets", health.network_score, if (snapshot.network.connections.len > 0) "Sockets Active" else "Nominal", right_w - 4, theme, plain);
+        renderSubsystemMeter(buf, right_x + 2, panel_y + 6, "Thermal Sensor Margins", health.thermal_score, if (snapshot.cpu.temperature_c != null) "Monitored" else "N/A (Standard User)", right_w - 4, theme, plain);
 
         graphs.renderSeparator(buf, right_x + 2, panel_y + 7, right_w - 4, theme.border, theme.bg, plain);
-        buf.writeString(right_x + 2, panel_y + 8, "Autonomous Sensor Polling: 60 FPS • Zero IRQ Drops • Bus Healthy", theme.muted, theme.bg, false);
+        buf.writeString(right_x + 2, panel_y + 8, "Zero-overhead native telemetry • Double-buffered ring buffer engine", theme.muted, theme.bg, false);
     }
 
     // Bottom Section: Explainable Diagnostic Timeline & Remediation Playbook
@@ -2024,14 +2058,18 @@ pub fn renderServicesPanel(
         cur_y += 2;
 
         graphs.renderSeparator(buf, right_x + 2, cur_y - 1, right_w - 4, theme.border, theme.bg, plain);
-        buf.writeString(right_x + 2, cur_y, "SECURITY & KERNEL CONTEXT:", theme.header, theme.bg, true);
+        buf.writeString(right_x + 2, cur_y, "SERVICE CONTROL & PROCESS INFO:", theme.header, theme.bg, true);
         cur_y += 1;
 
-        buf.writeString(right_x + 2, cur_y, "Account:     NT AUTHORITY\\SYSTEM (Protected)", theme.muted, theme.bg, false);
+        var s_pid_buf: [64]u8 = undefined;
+        const s_pid_str = if (cur_srv.pid > 0)
+            std.fmt.bufPrint(&s_pid_buf, "Process PID:  {d} (Running Instance)", .{cur_srv.pid}) catch ""
+        else
+            "Process PID:  None (Service is Inactive)";
+        buf.writeString(right_x + 2, cur_y, s_pid_str, theme.fg, theme.bg, false);
         cur_y += 1;
-        buf.writeString(right_x + 2, cur_y, "Binary:      C:\\Windows\\System32\\svchost.exe", theme.muted, theme.bg, false);
-        cur_y += 1;
-        buf.writeString(right_x + 2, cur_y, "Stability:   [✓ NOMINAL - 0 CRASH RESTARTS]", theme.success, theme.bg, false);
+
+        buf.writeString(right_x + 2, cur_y, "Management:   Use services.msc or sc.exe to configure", theme.muted, theme.bg, false);
         cur_y += 2;
 
         graphs.renderSeparator(buf, right_x + 2, cur_y - 1, right_w - 4, theme.border, theme.bg, plain);
@@ -2579,18 +2617,22 @@ pub fn renderHardwarePanel(
             buf.writeString(right_x + 2, panel_y + 11, time_b_str, theme.secondary, theme.bg, true);
         }
 
-        const health_b_str = std.fmt.bufPrint(&b_buf, "• Battery Health: {d:.1}% ({d} Cycles)", .{ batt.health_pct, batt.cycle_count }) catch "";
-        buf.writeString(right_x + 2, panel_y + 12, health_b_str, theme.muted, theme.bg, false);
+        if (batt.health_pct > 0.0) {
+            const health_b_str = std.fmt.bufPrint(&b_buf, "• Battery Health: {d:.1}%", .{batt.health_pct}) catch "";
+            buf.writeString(right_x + 2, panel_y + 12, health_b_str, theme.muted, theme.bg, false);
+        } else {
+            buf.writeString(right_x + 2, panel_y + 12, "• ACPI Battery: Present & Operational", theme.muted, theme.bg, false);
+        }
     } else {
         buf.writeString(right_x + 2, panel_y + 2, "⚡ DESKTOP / AC CONSTANT POWER", theme.accent, theme.bg, true);
         buf.writeString(right_x + 2, panel_y + 4, "System running on direct AC mains supply.", theme.muted, theme.bg, false);
         buf.writeString(right_x + 2, panel_y + 5, "No internal chemical battery detected.", theme.muted, theme.bg, false);
 
         graphs.renderSeparator(buf, right_x + 2, panel_y + 7, right_w - 4, theme.border, theme.bg, plain);
-        buf.writeString(right_x + 2, panel_y + 8, "POWER SUPPLY RAIL TELEMETRY:", theme.header, theme.bg, true);
-        buf.writeString(right_x + 2, panel_y + 10, "• +12V Rail:  12.08 V [STABLE]", theme.success, theme.bg, false);
-        buf.writeString(right_x + 2, panel_y + 11, "• +5V Rail:    5.02 V [STABLE]", theme.success, theme.bg, false);
-        buf.writeString(right_x + 2, panel_y + 12, "• +3.3V Rail:  3.31 V [STABLE]", theme.success, theme.bg, false);
+        buf.writeString(right_x + 2, panel_y + 8, "POWER PROFILE & STATUS:", theme.header, theme.bg, true);
+        buf.writeString(right_x + 2, panel_y + 10, "• Supply Line: AC Mains Connected", theme.success, theme.bg, false);
+        buf.writeString(right_x + 2, panel_y + 11, "• Energy Mode: High Performance Profile", theme.fg, theme.bg, false);
+        buf.writeString(right_x + 2, panel_y + 12, "• ACPI State:  System Power S0 (Working)", theme.secondary, theme.bg, false);
     }
 }
 

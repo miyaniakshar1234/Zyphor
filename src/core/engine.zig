@@ -102,119 +102,14 @@ pub const SystemEngine = struct {
             top_procs[i] = self.process_mgr.getProcessAt(i) orelse types.ProcessInfo{};
         }
 
-        // 6. Populate System Services & Daemons (PRD §23)
-        const sample_services = [_]struct {
-            name: []const u8,
-            disp: []const u8,
-            desc: []const u8,
-            group: []const u8,
-            status: types.ServiceStatus,
-            startup: []const u8,
-            pid: u32,
-        }{
-            .{ .name = "WinDefend", .disp = "Microsoft Defender Antivirus Service", .desc = "Active runtime threat defense and memory integrity guardian", .group = "Security", .status = .running, .startup = "Automatic", .pid = 2840 },
-            .{ .name = "EventLog", .disp = "Windows Event Log Kernel Service", .desc = "Kernel structured telemetry and system event dispatcher", .group = "Core OS", .status = .running, .startup = "Automatic", .pid = 820 },
-            .{ .name = "Dhcp", .disp = "DHCP Client Network Service", .desc = "IPv4/IPv6 address negotiation and dynamic routing client", .group = "Network", .status = .running, .startup = "Automatic", .pid = 1140 },
-            .{ .name = "Dnscache", .disp = "DNS Client Caching Service", .desc = "Domain name resolution caching and DoH edge client", .group = "Network", .status = .running, .startup = "Automatic", .pid = 1480 },
-            .{ .name = "docker", .disp = "Docker Engine Virtualization Daemon", .desc = "OCI container runtime and virtualization orchestration engine", .group = "Containers", .status = .running, .startup = "Automatic", .pid = 4920 },
-            .{ .name = "sshd", .disp = "OpenSSH SSH Server Daemon", .desc = "Encrypted remote terminal and secure shell listener (:22)", .group = "Network", .status = .running, .startup = "Automatic", .pid = 3120 },
-            .{ .name = "wuauserv", .disp = "Windows Update Service", .desc = "Background software patch and security rollup manager", .group = "Maintenance", .status = .running, .startup = "Manual", .pid = 6200 },
-            .{ .name = "Audiosrv", .disp = "Windows Audio Core Service", .desc = "Kernel low-latency audio stream mixer and DSP pipeline", .group = "Media", .status = .running, .startup = "Automatic", .pid = 1960 },
-            .{ .name = "LanmanServer", .disp = "Server SMB File Sharing", .desc = "SMB 3.1.1 network storage protocol and named pipe provider", .group = "Network", .status = .running, .startup = "Automatic", .pid = 2150 },
-            .{ .name = "W32Time", .disp = "Windows Time Synchronization", .desc = "NTP chronometer client maintaining sub-millisecond clock sync", .group = "Core OS", .status = .running, .startup = "Automatic", .pid = 2410 },
-            .{ .name = "Spooler", .disp = "Print Spooler Subsystem", .desc = "Print queue spooler and document rasterization service", .group = "Drivers", .status = .stopped, .startup = "Manual", .pid = 0 },
-            .{ .name = "SysMain", .disp = "SuperFetch Memory Optimizer", .desc = "Physical RAM predictive page cache preloader", .group = "Performance", .status = .running, .startup = "Automatic", .pid = 1680 },
-            .{ .name = "DiagTrack", .disp = "Connected User Diagnostics", .desc = "Hardware telemetry collector and diagnostic event pipeline", .group = "Diagnostics", .status = .running, .startup = "Automatic", .pid = 3890 },
-            .{ .name = "BFE", .disp = "Base Filtering Engine", .desc = "IPsec and packet filtering policy manager for firewall", .group = "Security", .status = .running, .startup = "Automatic", .pid = 1320 },
-        };
+        // 6. Collect Real System Services & Daemons from Platform Collector
+        const services = collector.getServices(scratch) catch &[_]types.SystemService{};
 
-        var services = try scratch.alloc(types.SystemService, sample_services.len);
-        for (sample_services, 0..) |ss, sidx| {
-            var srv = types.SystemService{
-                .status = ss.status,
-                .pid = ss.pid,
-            };
-            @memcpy(srv.name[0..ss.name.len], ss.name);
-            srv.name_len = ss.name.len;
-            @memcpy(srv.display_name[0..ss.disp.len], ss.disp);
-            srv.display_name_len = ss.disp.len;
-            @memcpy(srv.description[0..ss.desc.len], ss.desc);
-            srv.description_len = ss.desc.len;
-            @memcpy(srv.group[0..ss.group.len], ss.group);
-            srv.group_len = ss.group.len;
-            @memcpy(srv.startup_type[0..ss.startup.len], ss.startup);
-            srv.startup_type_len = ss.startup.len;
-            services[sidx] = srv;
-        }
+        // 7. Containers (Docker Engine API - empty until active daemon connected)
+        const containers = &[_]types.DockerContainer{};
 
-        // 7. Populate Docker Containers (PRD §43)
-        const sample_containers = [_]struct {
-            id: []const u8,
-            name: []const u8,
-            image: []const u8,
-            state: types.ContainerState,
-            cpu: f32,
-            mem: u64,
-            mem_limit: u64,
-            rx: u64,
-            tx: u64,
-        }{
-            .{ .id = "a1b2c3d4e5f6", .name = "zyphor-postgres-1", .image = "postgres:15-alpine", .state = .running, .cpu = 2.4, .mem = 420 * 1024 * 1024, .mem_limit = 2 * 1024 * 1024 * 1024, .rx = 1250000, .tx = 850000 },
-            .{ .id = "f6e5d4c3b2a1", .name = "zyphor-redis-1", .image = "redis:7-alpine", .state = .running, .cpu = 0.4, .mem = 80 * 1024 * 1024, .mem_limit = 512 * 1024 * 1024, .rx = 250000, .tx = 250000 },
-            .{ .id = "9a8b7c6d5e4f", .name = "zyphor-api-prod", .image = "zyphor/api:latest", .state = .running, .cpu = 8.2, .mem = 310 * 1024 * 1024, .mem_limit = 1024 * 1024 * 1024, .rx = 4100000, .tx = 4500000 },
-            .{ .id = "3c4d5e6f7a8b", .name = "zyphor-worker", .image = "zyphor/worker:latest", .state = .running, .cpu = 15.6, .mem = 850 * 1024 * 1024, .mem_limit = 2 * 1024 * 1024 * 1024, .rx = 150000, .tx = 950000 },
-            .{ .id = "7f8e9d0c1b2a", .name = "legacy-cron-job", .image = "ubuntu:20.04", .state = .exited, .cpu = 0.0, .mem = 0, .mem_limit = 512 * 1024 * 1024, .rx = 0, .tx = 0 },
-        };
-
-        var containers = try scratch.alloc(types.DockerContainer, sample_containers.len);
-        for (sample_containers, 0..) |sc, cidx| {
-            var c = types.DockerContainer{
-                .state = sc.state,
-                .cpu_percent = sc.cpu,
-                .memory_used_bytes = sc.mem,
-                .memory_limit_bytes = sc.mem_limit,
-                .net_rx_bytes = sc.rx,
-                .net_tx_bytes = sc.tx,
-            };
-            @memcpy(c.id[0..sc.id.len], sc.id);
-            c.id_len = sc.id.len;
-            @memcpy(c.name[0..sc.name.len], sc.name);
-            c.name_len = sc.name.len;
-            @memcpy(c.image[0..sc.image.len], sc.image);
-            c.image_len = sc.image.len;
-            containers[cidx] = c;
-        }
-
-        // 8. Populate System & Kernel Event Logs
-        const sample_logs = [_]struct {
-            source: []const u8,
-            message: []const u8,
-            severity: types.EventSeverity,
-            id: u32,
-        }{
-            .{ .source = "Kernel-Power", .message = "System power transition to High Performance AC profile completed successfully", .severity = .info, .id = 105 },
-            .{ .source = "Ntfs", .message = "Volume C: filesystem state verified clean, zero orphan clusters detected", .severity = .info, .id = 98 },
-            .{ .source = "TCPIP", .message = "TCP auto-tuning window size scaled to 4MB for high-throughput link", .severity = .info, .id = 4210 },
-            .{ .source = "Security-Mitigation", .message = "Kernel memory guard and stack canary validation passed for all user sessions", .severity = .info, .id = 701 },
-            .{ .source = "DirectX-Graphics", .message = "GPU hardware acceleration context bound to Direct3D 12 adapter 0", .severity = .info, .id = 312 },
-            .{ .source = "Disk-IO", .message = "NVMe controller queued trim operation completed on 14,200 blocks", .severity = .info, .id = 1204 },
-            .{ .source = "DNS-Resolver", .message = "Upstream DNS query cache refreshed from primary resolver 1.1.1.1 (RTT 8.2ms)", .severity = .info, .id = 3008 },
-            .{ .source = "Service-Manager", .message = "Background telemetry collector worker thread dispatched with low priority", .severity = .info, .id = 7036 },
-        };
-
-        var logs = try scratch.alloc(types.SystemLogEvent, sample_logs.len);
-        for (sample_logs, 0..) |sl, lidx| {
-            var ev = types.SystemLogEvent{
-                .timestamp_ms = std.time.milliTimestamp() - @as(i64, @intCast((sample_logs.len - lidx) * 4500)),
-                .severity = sl.severity,
-                .event_id = sl.id,
-            };
-            @memcpy(ev.source[0..sl.source.len], sl.source);
-            ev.source_len = sl.source.len;
-            @memcpy(ev.message[0..sl.message.len], sl.message);
-            ev.message_len = sl.message.len;
-            logs[lidx] = ev;
-        }
+        // 8. Real System & Kernel Event Logs from Platform Collector
+        const logs = collector.getSystemLogs(scratch) catch &[_]types.SystemLogEvent{};
 
         const snap = types.SystemSnapshot{
             .timestamp_ms = std.time.milliTimestamp(),
@@ -224,11 +119,11 @@ pub const SystemEngine = struct {
             .network = net,
             .gpu = gpu,
             .thermal = .{
-                .cpu_package_temp = cpu.temperature_c orelse 48.5,
-                .gpu_temp = gpu.temperature_c orelse 52.0,
-                .nvme_temp = 39.0,
-                .throttling_detected = (cpu.total_usage > 95.0 and (cpu.temperature_c orelse 0.0) > 85.0),
-                .fan_rpm = if (cpu.total_usage > 70.0) 2400 else 1850,
+                .cpu_package_temp = cpu.temperature_c orelse 0.0,
+                .gpu_temp = gpu.temperature_c orelse 0.0,
+                .nvme_temp = 0.0,
+                .throttling_detected = false,
+                .fan_rpm = 0,
             },
             .battery = battery,
             .health = health,

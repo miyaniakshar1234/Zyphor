@@ -166,11 +166,11 @@ pub const DiskMetrics = struct {
     top_directories: []DirectoryNode = &[_]DirectoryNode{},
     read_bytes_sec: u64 = 0,
     write_bytes_sec: u64 = 0,
-    iops: u32 = 2310,
-    read_iops: u32 = 1420,
-    write_iops: u32 = 890,
-    avg_latency_ms: f32 = 0.42,
-    queue_depth: u32 = 2,
+    iops: u32 = 0,
+    read_iops: u32 = 0,
+    write_iops: u32 = 0,
+    avg_latency_ms: f32 = 0.0,
+    queue_depth: u32 = 0,
 };
 
 
@@ -255,33 +255,33 @@ pub const GpuMetrics = struct {
     vram_total_bytes: u64 = 0,
     vram_used_bytes: u64 = 0,
     temperature_c: ?f32 = null,
-    clock_mhz: u32 = 1450,
-    power_watts: f32 = 45.0,
-    fan_speed_pct: f32 = 42.0,
-    pcie_rx_mb_s: f32 = 320.0,
-    pcie_tx_mb_s: f32 = 180.0,
+    clock_mhz: u32 = 0,
+    power_watts: f32 = 0.0,
+    fan_speed_pct: f32 = 0.0,
+    pcie_rx_mb_s: f32 = 0.0,
+    pcie_tx_mb_s: f32 = 0.0,
     driver_version: [32]u8 = @splat(0),
     driver_len: usize = 0,
 
     pub fn getName(self: *const GpuMetrics) []const u8 {
-        if (!self.available or self.name_len == 0) return "Direct3D 12 / Dedicated GPU";
+        if (!self.available or self.name_len == 0) return "No GPU Detected";
         return self.name[0..self.name_len];
     }
 
     pub fn getDriver(self: *const GpuMetrics) []const u8 {
-        if (self.driver_len == 0) return "v552.22 (DirectX 12.2)";
+        if (self.driver_len == 0) return "N/A";
         return self.driver_version[0..self.driver_len];
     }
 };
 
 pub const ThermalMetrics = struct {
-    cpu_package_temp: f32 = 48.5,
-    gpu_temp: f32 = 52.0,
-    nvme_temp: f32 = 39.0,
-    core_temps: [16]f32 = [_]f32{ 46.0, 48.0, 47.5, 49.0, 45.5, 46.2, 48.1, 47.0, 45.0, 46.5, 47.2, 48.0, 46.0, 45.5, 47.0, 46.8 },
-    core_count: u8 = 8,
+    cpu_package_temp: f32 = 0.0,
+    gpu_temp: f32 = 0.0,
+    nvme_temp: f32 = 0.0,
+    core_temps: [16]f32 = @splat(0),
+    core_count: u8 = 0,
     throttling_detected: bool = false,
-    fan_rpm: u32 = 1850,
+    fan_rpm: u32 = 0,
 };
 
 pub const BatteryMetrics = struct {
@@ -290,8 +290,8 @@ pub const BatteryMetrics = struct {
     is_charging: bool = false,
     power_watts: ?f32 = null,
     time_remaining_mins: ?u32 = null,
-    health_pct: f32 = 96.5,
-    cycle_count: u32 = 48,
+    health_pct: f32 = 0.0,
+    cycle_count: u32 = 0,
 };
 
 
@@ -405,11 +405,11 @@ pub const SystemService = struct {
 };
 
 pub const BootAnalysis = struct {
-    total_boot_s: f32 = 7.42,
-    kernel_time_s: f32 = 1.42,
-    services_time_s: f32 = 2.31,
-    user_session_s: f32 = 3.69,
-    startup_apps_count: u32 = 14,
+    total_boot_s: f32 = 0.0,
+    kernel_time_s: f32 = 0.0,
+    services_time_s: f32 = 0.0,
+    user_session_s: f32 = 0.0,
+    startup_apps_count: u32 = 0,
 };
 
 pub const ContainerState = enum {
@@ -493,10 +493,10 @@ pub const SystemSnapshot = struct {
     battery: BatteryMetrics = .{},
     health: SystemHealth = .{},
     boot: BootAnalysis = .{},
-    services: []SystemService = &[_]SystemService{},
-    top_processes: []ProcessInfo = &[_]ProcessInfo{},
-    containers: []DockerContainer = &[_]DockerContainer{},
-    system_logs: []SystemLogEvent = &[_]SystemLogEvent{},
+    services: []const SystemService = &[_]SystemService{},
+    top_processes: []const ProcessInfo = &[_]ProcessInfo{},
+    containers: []const DockerContainer = &[_]DockerContainer{},
+    system_logs: []const SystemLogEvent = &[_]SystemLogEvent{},
 };
 
 

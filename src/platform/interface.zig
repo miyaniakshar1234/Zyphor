@@ -13,6 +13,8 @@ pub const PlatformCollector = struct {
         getGpuMetrics: *const fn (ctx: *anyopaque) types.GpuMetrics,
         getBatteryMetrics: *const fn (ctx: *anyopaque) types.BatteryMetrics,
         getProcessList: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo,
+        getServices: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.SystemService,
+        getSystemLogs: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror![]types.SystemLogEvent,
         killProcess: *const fn (ctx: *anyopaque, pid: u32) anyerror!void,
         suspendProcess: *const fn (ctx: *anyopaque, pid: u32) anyerror!void,
         resumeProcess: *const fn (ctx: *anyopaque, pid: u32) anyerror!void,
@@ -45,6 +47,14 @@ pub const PlatformCollector = struct {
 
     pub fn getProcessList(self: PlatformCollector, allocator: std.mem.Allocator) anyerror![]types.ProcessInfo {
         return self.vtable.getProcessList(self.ptr, allocator);
+    }
+
+    pub fn getServices(self: PlatformCollector, allocator: std.mem.Allocator) anyerror![]types.SystemService {
+        return self.vtable.getServices(self.ptr, allocator);
+    }
+
+    pub fn getSystemLogs(self: PlatformCollector, allocator: std.mem.Allocator) anyerror![]types.SystemLogEvent {
+        return self.vtable.getSystemLogs(self.ptr, allocator);
     }
 
     pub fn killProcess(self: PlatformCollector, pid: u32) anyerror!void {

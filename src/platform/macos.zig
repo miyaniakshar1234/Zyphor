@@ -26,6 +26,8 @@ pub const MacosCollector = struct {
         .getGpuMetrics = getGpuMetrics,
         .getBatteryMetrics = getBatteryMetrics,
         .getProcessList = getProcessList,
+        .getServices = getServices,
+        .getSystemLogs = getSystemLogs,
         .killProcess = killProcess,
         .suspendProcess = suspendProcess,
         .resumeProcess = resumeProcess,
@@ -40,6 +42,14 @@ pub const MacosCollector = struct {
     }
 
     fn deinit(_: *anyopaque) void {}
+
+    fn getServices(_: *anyopaque, _: std.mem.Allocator) anyerror![]types.SystemService {
+        return &[_]types.SystemService{};
+    }
+
+    fn getSystemLogs(_: *anyopaque, _: std.mem.Allocator) anyerror![]types.SystemLogEvent {
+        return &[_]types.SystemLogEvent{};
+    }
 
     fn getCpuMetrics(ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!types.CpuMetrics {
         const self: *MacosCollector = @ptrCast(@alignCast(ctx));
