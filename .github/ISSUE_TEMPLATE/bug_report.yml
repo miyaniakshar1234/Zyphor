@@ -1,67 +1,28 @@
-name: 🐛 Bug Report
-description: Report an issue, crash, or unexpected behavior in Zyphor
+name: Bug Report
+description: File a reproducible bug or defect in Zyphor
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
-      value: |
-        Thanks for taking the time to report an issue in Zyphor! Please fill out the sections below.
-
+      value: Thanks for taking the time to report an issue!
   - type: input
-    id: version
-    attributes:
-      label: Zyphor Version
-      description: What version of Zyphor are you using? (Run `zyphor --version` or `zyphor doctor`)
-      placeholder: e.g. 0.1.0 (commit 40f50c3)
-    validations:
-      required: true
-
-  - type: dropdown
     id: os
     attributes:
-      label: Operating System
-      options:
-        - Windows 11 / 10 (x86_64)
-        - Windows 11 on ARM (aarch64)
-        - Linux (x86_64)
-        - Linux (aarch64 / ARM64)
-        - macOS (Apple Silicon / ARM64)
-        - macOS (Intel / x86_64)
+      label: Operating System & Build
+      placeholder: Windows 11 23H2 (Build 22631.3007)
     validations:
       required: true
-
-  - type: input
-    id: terminal
-    attributes:
-      label: Terminal Emulator
-      description: Which terminal emulator are you running?
-      placeholder: e.g. Windows Terminal, Alacritty, WezTerm, iTerm2, Kitty
-    validations:
-      required: true
-
-  - type: textarea
-    id: doctor_output
-    attributes:
-      label: Diagnostic Doctor Output
-      description: Paste the output of `zyphor doctor` here if applicable.
-      render: shell
-
   - type: textarea
     id: description
     attributes:
-      label: Describe the Bug
-      description: A clear and concise description of what happened.
+      label: Bug Description
+      description: A clear and concise description of the issue.
     validations:
       required: true
-
   - type: textarea
-    id: steps
+    id: reproduction
     attributes:
       label: Steps to Reproduce
-      description: Detailed steps to reproduce the issue.
-      placeholder: |
-        1. Run `zyphor`
-        2. Press 't' to enter tree mode
-        3. Observe crash or rendering anomaly
+      description: How can we reproduce this problem?
     validations:
       required: true
