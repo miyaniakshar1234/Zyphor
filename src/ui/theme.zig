@@ -250,6 +250,44 @@ pub const BuiltinThemes = struct {
         .muted      = Color.rgb(180, 180, 180),
     };
 
+    /// Synthwave '84 - retro neon violet, pink, and sunset amber
+    pub const synthwave_84 = Theme{
+        .name = "synthwave_84",
+        .bg         = Color.rgb(26,  20,  40),
+        .fg         = Color.rgb(240, 235, 255),
+        .accent     = Color.rgb(255, 105, 180), // Hot pink
+        .accent_dim = Color.rgb(140, 50,  100),
+        .secondary  = Color.rgb(120, 220, 255), // Neon sky blue
+        .success    = Color.rgb(114, 241, 184), // Neon aqua
+        .warning    = Color.rgb(254, 218, 106), // Sunset gold
+        .critical   = Color.rgb(254, 68,  122), // Laser red
+        .border     = Color.rgb(75,  55,  105),
+        .header     = Color.rgb(255, 120, 200),
+        .header_bg  = Color.rgb(36,  28,  55),
+        .tab_bg     = Color.rgb(20,  15,  32),
+        .selected   = Color.rgb(75,  50,  110),
+        .muted      = Color.rgb(160, 140, 190),
+    };
+
+    /// Matrix Rain - ultra-clean dark cyber matrix
+    pub const matrix_rain = Theme{
+        .name = "matrix_rain",
+        .bg         = Color.rgb(5,   10,  7),
+        .fg         = Color.rgb(150, 255, 170),
+        .accent     = Color.rgb(0,   255, 102), // Radioactive green
+        .accent_dim = Color.rgb(0,   90,  36),
+        .secondary  = Color.rgb(0,   204, 153), // Electric mint
+        .success    = Color.rgb(57,  255, 20),
+        .warning    = Color.rgb(255, 215, 0),
+        .critical   = Color.rgb(255, 51,  102),
+        .border     = Color.rgb(15,  50,  25),
+        .header     = Color.rgb(0,   255, 102),
+        .header_bg  = Color.rgb(8,   20,  12),
+        .tab_bg     = Color.rgb(4,   12,  6),
+        .selected   = Color.rgb(10,  40,  20),
+        .muted      = Color.rgb(60,  140, 80),
+    };
+
     /// Plain — no colors (for terminals without true-color support)
     pub const no_color = Theme{
         .name = "plain",
@@ -272,10 +310,12 @@ pub const BuiltinThemes = struct {
 
 pub const ALL_THEMES = [_]Theme{
     BuiltinThemes.anthropic,
+    BuiltinThemes.cyber,
+    BuiltinThemes.synthwave_84,
+    BuiltinThemes.matrix_rain,
     BuiltinThemes.tokyo_night,
     BuiltinThemes.hacker,
     BuiltinThemes.midnight,
-    BuiltinThemes.cyber,
     BuiltinThemes.aurora,
     BuiltinThemes.nord,
     BuiltinThemes.solarized,
@@ -285,9 +325,12 @@ pub const ALL_THEMES = [_]Theme{
 
 pub fn getThemeByName(name: []const u8) Theme {
     if (std.mem.eql(u8, name, "anthropic"))     return BuiltinThemes.anthropic;
+    if (std.mem.eql(u8, name, "cyber"))         return BuiltinThemes.cyber;
+    if (std.mem.eql(u8, name, "synthwave_84"))  return BuiltinThemes.synthwave_84;
+    if (std.mem.eql(u8, name, "matrix_rain"))   return BuiltinThemes.matrix_rain;
     if (std.mem.eql(u8, name, "tokyo_night"))   return BuiltinThemes.tokyo_night;
     if (std.mem.eql(u8, name, "hacker"))        return BuiltinThemes.hacker;
-    if (std.mem.eql(u8, name, "cyber"))         return BuiltinThemes.cyber;
+    if (std.mem.eql(u8, name, "midnight"))      return BuiltinThemes.midnight;
     if (std.mem.eql(u8, name, "aurora"))        return BuiltinThemes.aurora;
     if (std.mem.eql(u8, name, "nord"))          return BuiltinThemes.nord;
     if (std.mem.eql(u8, name, "solarized"))     return BuiltinThemes.solarized;
@@ -300,3 +343,4 @@ pub fn getThemeByName(name: []const u8) Theme {
 pub fn getThemeByIndex(idx: usize) Theme {
     return ALL_THEMES[idx % ALL_THEMES.len];
 }
+
