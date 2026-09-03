@@ -1,6 +1,6 @@
 .{
     .name = .zyphor,
-    .fingerprint = 0xb4e1792d4f40d125,
+    .fingerprint = 0x9e2c50c627d06e49,
     .version = "1.0.8",
     .minimum_zig_version = "0.15.0",
     .dependencies = .{},
