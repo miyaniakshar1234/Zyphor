@@ -1,13 +1,14 @@
 .{
     .name = .zyphor,
-    .version = "0.1.0",
-    .fingerprint = 0x9e2c50c6d3b956cc,
+    .fingerprint = 0xb4e1792d4f40d125,
+    .version = "1.0.8",
     .minimum_zig_version = "0.15.0",
     .dependencies = .{},
     .paths = .{
         "build.zig",
         "build.zig.zon",
         "src",
+        "docs",
         "LICENSE",
         "README.md",
     },
