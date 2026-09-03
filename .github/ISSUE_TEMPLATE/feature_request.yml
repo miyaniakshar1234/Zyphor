@@ -1,36 +1,21 @@
-name: 💡 Feature Request
-description: Propose an idea, new panel, or platform integration for Zyphor
+name: Feature Request
+description: Propose a new feature, screen, or platform backend
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
-      value: |
-        Thank you for contributing ideas to make Zyphor the ultimate system observatory!
-
+      value: Propose new ideas or hardware capabilities for Zyphor.
   - type: textarea
     id: problem
     attributes:
-      label: Is your feature request related to a problem?
-      description: A clear and concise description of what the limitation or friction is.
+      label: Problem Statement
+      description: Is your feature request related to a problem?
     validations:
       required: true
-
   - type: textarea
     id: solution
     attributes:
-      label: Describe the Solution You'd Like
-      description: A clear and concise description of what you want to happen.
+      label: Proposed Solution
+      description: Describe your proposed hardware or UI solution.
     validations:
       required: true
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Describe Alternatives You've Considered
-      description: Any alternative solutions or features you've evaluated (e.g. htop, btop, bpytop, glances).
-
-  - type: textarea
-    id: additional_context
-    attributes:
-      label: Additional Context
-      description: Add any mockups, screenshots, or context about the proposal.
