@@ -7,8 +7,6 @@ pub fn computeHealthScore(
     disk: *const types.DiskMetrics,
     net: *const types.NetworkMetrics,
 ) types.SystemHealth {
-    _ = net;
-
     // 1. CPU Score (0-100)
     var cpu_score: f32 = 100.0;
     if (cpu.total_usage > 95.0) {
@@ -53,7 +51,15 @@ pub fn computeHealthScore(
         }
     }
 
-    // 4. Thermal Score
+    // 4. Network Score (0-100)
+    var net_score: f32 = 100.0;
+    if (net.connections.len > 1500) {
+        net_score = 40.0;
+    } else if (net.connections.len > 800) {
+        net_score = 75.0;
+    }
+
+    // 5. Thermal Score (0-100)
     var thermal_score: f32 = 100.0;
     if (cpu.temperature_c) |temp| {
         if (temp > 95.0) {
@@ -66,8 +72,8 @@ pub fn computeHealthScore(
     }
 
     // Weighted Overall Score
-    // CPU: 30%, Memory: 35%, Disk: 20%, Thermals: 15%
-    const raw_total = (cpu_score * 0.30) + (mem_score * 0.35) + (disk_score * 0.20) + (thermal_score * 0.15);
+    // CPU: 30%, Memory: 30%, Disk: 20%, Network: 10%, Thermals: 10%
+    const raw_total = (cpu_score * 0.30) + (mem_score * 0.30) + (disk_score * 0.20) + (net_score * 0.10) + (thermal_score * 0.10);
     const safe_total = if (std.math.isNan(raw_total) or std.math.isInf(raw_total) or raw_total < 0.0) 100.0 else raw_total;
     const score_u8 = @as(u8, @intFromFloat(std.math.clamp(safe_total, 0.0, 100.0)));
 
@@ -88,10 +94,9 @@ pub fn computeHealthScore(
         .cpu_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(cpu_score)) 100.0 else cpu_score, 0.0, 100.0))),
         .memory_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(mem_score)) 100.0 else mem_score, 0.0, 100.0))),
         .disk_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(disk_score)) 100.0 else disk_score, 0.0, 100.0))),
-        .network_score = 100,
+        .network_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(net_score)) 100.0 else net_score, 0.0, 100.0))),
         .thermal_score = @as(u8, @intFromFloat(std.math.clamp(if (std.math.isNan(thermal_score)) 100.0 else thermal_score, 0.0, 100.0))),
     };
-
 
     var summary_buf: [128]u8 = @splat(0);
     const summary_str = switch (status) {
