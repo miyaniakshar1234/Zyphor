@@ -436,6 +436,33 @@ test "doctor and bench print formatting functions remain stable" {
     try std.testing.expect(list.items.len > 50);
 }
 
+test {
+    _ = @import("tests/test_types_cpu.zig");
+    _ = @import("tests/test_types_memory.zig");
+    _ = @import("tests/test_types_disk.zig");
+    _ = @import("tests/test_types_network.zig");
+    _ = @import("tests/test_types_gpu.zig");
+    _ = @import("tests/test_types_battery.zig");
+    _ = @import("tests/test_types_process.zig");
+    _ = @import("tests/test_types_service.zig");
+    _ = @import("tests/test_buffer_init.zig");
+    _ = @import("tests/test_buffer_bounds.zig");
+    _ = @import("tests/test_buffer_strings.zig");
+    _ = @import("tests/test_buffer_utf8.zig");
+    _ = @import("tests/test_buffer_boxes.zig");
+    _ = @import("tests/test_buffer_cyberbox.zig");
+    _ = @import("tests/test_graphs_colors.zig");
+    _ = @import("tests/test_graphs_minibar.zig");
+    _ = @import("tests/test_graphs_gauge.zig");
+    _ = @import("tests/test_graphs_separator.zig");
+    _ = @import("tests/test_history_push.zig");
+    _ = @import("tests/test_history_stats.zig");
+    _ = @import("tests/test_history_chrono.zig");
+    _ = @import("tests/test_tree_hierarchy.zig");
+    _ = @import("tests/test_manager_sort.zig");
+    _ = @import("tests/test_health_penalties.zig");
+}
+
 
 
 
