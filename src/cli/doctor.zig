@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const engine_mod = @import("../core/engine.zig");
+const export_cli = @import("export.zig");
 const types = @import("../core/types.zig");
 
 pub fn runDoctor(engine: *engine_mod.SystemEngine, json_mode: bool) !void {
@@ -8,34 +9,22 @@ pub fn runDoctor(engine: *engine_mod.SystemEngine, json_mode: bool) !void {
     const snap = try engine.sampleSnapshot();
 
     if (json_mode) {
+        var compiler_buf: [128]u8 = undefined;
+        const compiler_text = try std.fmt.bufPrint(&compiler_buf, "Zig {s}", .{builtin.zig_version_string});
+        try stdout.writeAll("{\n  \"os\": ");
+        try export_cli.writeJsonEscapedString(stdout, @tagName(builtin.os.tag));
+        try stdout.writeAll(",\n  \"arch\": ");
+        try export_cli.writeJsonEscapedString(stdout, @tagName(builtin.cpu.arch));
+        try stdout.writeAll(",\n  \"compiler\": ");
+        try export_cli.writeJsonEscapedString(stdout, compiler_text);
         try stdout.print(
-            \\{{
-            \\  "os": "{s}",
-            \\  "arch": "{s}",
-            \\  "compiler": "Zig {s}",
-            \\  "is_elevated": false,
-            \\  "telemetry": {{
-            \\    "cpu": true,
-            \\    "memory": true,
-            \\    "disk": true,
-            \\    "network": true,
-            \\    "process_tree": true,
-            \\    "services": true,
-            \\    "gpu": {s},
-            \\    "battery": {s}
-            \\  }},
-            \\  "health_score": {d},
-            \\  "compatibility_score": 100
-            \\}}
-            \\
-        , .{
-            @tagName(builtin.os.tag),
-            @tagName(builtin.cpu.arch),
-            builtin.zig_version_string,
-            if (snap.gpu.available) "true" else "false",
-            if (snap.battery.available) "true" else "false",
-            snap.health.overall_score,
-        });
+            ",\n  \"is_elevated\": false,\n  \"telemetry\": {{\n    \"cpu\": true,\n    \"memory\": true,\n    \"disk\": true,\n    \"network\": true,\n    \"process_tree\": true,\n    \"services\": true,\n    \"gpu\": {s},\n    \"battery\": {s}\n  }},\n  \"health_score\": {d},\n  \"compatibility_score\": 100\n}}\n",
+            .{
+                if (snap.gpu.available) "true" else "false",
+                if (snap.battery.available) "true" else "false",
+                snap.health.overall_score,
+            },
+        );
         return;
     }
 
