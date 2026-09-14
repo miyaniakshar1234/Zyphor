@@ -41,7 +41,6 @@ pub fn writeHtmlEscapedString(writer: anytype, str: []const u8) !void {
     }
 }
 
-
 pub fn printJsonSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !void {
     try writer.print(
         \\{{
@@ -384,7 +383,6 @@ pub fn printHtmlSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
         disk_w_mb,
     });
 
-
     for (snap.network.connections) |conn| {
         var r_buf: [32]u8 = undefined;
         const r_str = if (conn.remote_port > 0)
@@ -435,7 +433,6 @@ pub fn printHtmlSnapshot(writer: anytype, snap: *const types.SystemSnapshot) !vo
     );
 }
 
-
 pub fn saveHtmlSnapshotFile(allocator: std.mem.Allocator, snap: *const types.SystemSnapshot, custom_path: ?[]const u8) !void {
     var filename_buf: [128]u8 = undefined;
     const path = if (custom_path) |p| p else try std.fmt.bufPrint(&filename_buf, "zyphor-report-{d}.html", .{snap.timestamp_ms});
@@ -468,4 +465,3 @@ test "HTML string escaping handles angle brackets, ampersands, and quotes" {
     const result = fbs.getWritten();
     try std.testing.expectEqualStrings("&lt;script&gt;alert(&#39;xss &amp; attack&#39;)&lt;/script&gt;", result);
 }
-

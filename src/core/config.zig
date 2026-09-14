@@ -36,7 +36,6 @@ pub const Config = struct {
     }
 
     pub fn validate(self: *Config) void {
-
         self.refresh_rate_ms = std.math.clamp(self.refresh_rate_ms, 50, 60000);
         self.cpu_warning_pct = std.math.clamp(self.cpu_warning_pct, 10.0, 99.0);
         self.cpu_critical_pct = std.math.clamp(self.cpu_critical_pct, self.cpu_warning_pct, 100.0);
@@ -62,4 +61,3 @@ test "config validation clamps out-of-range thresholds" {
     try std.testing.expect(cfg.cpu_warning_pct <= 99.0);
     try std.testing.expectEqualStrings("anthropic", cfg.getThemeName());
 }
-

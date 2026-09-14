@@ -45,7 +45,6 @@ pub fn percentColor(pct: f32) Color {
     }
 }
 
-
 /// Smooth quarter-fraction sub-cell block characters
 const FRACTION_BLOCKS = [_][]const u8{
     " ", "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█",
@@ -342,7 +341,6 @@ pub fn renderBrailleGraph(
         const left_pixels = @as(u16, @intFromFloat(left_ratio * total_pixels));
         const right_pixels = @as(u16, @intFromFloat(right_ratio * total_pixels));
 
-
         var row: u16 = 0;
         while (row < height) : (row += 1) {
             const cell_y = y + (height - 1 - row);
@@ -364,7 +362,7 @@ pub fn renderBrailleGraph(
                 const code = 0x2800 | left_mask[l_px] | right_mask[r_px];
                 var utf8_buf: [4]u8 = undefined;
                 const len = std.unicode.utf8Encode(@as(u21, @intCast(code)), &utf8_buf) catch 0;
-                
+
                 const row_fg = if (row == height - 1) col_fg else col_fg.darken(@as(u8, @intCast((height - 1 - row) * 12)));
                 buf.setCell(x + col, cell_y, utf8_buf[0..len], row_fg, bg, false);
             }
@@ -401,14 +399,14 @@ pub fn renderRadialDial(
     plain: bool,
 ) void {
     if (plain or radius_chars < 3) return;
-    
+
     const w = radius_chars * 2;
     const h = radius_chars;
     const cx = @as(f32, @floatFromInt(w)) * 2.0 / 2.0;
     const cy = @as(f32, @floatFromInt(h)) * 4.0 / 2.0;
     const radius = @as(f32, @floatFromInt(radius_chars)) * 4.0 / 2.0;
     const inner_radius = radius - thickness;
-    
+
     const pct = std.math.clamp(percent, 0.0, 100.0) / 100.0;
     const end_angle = pct * std.math.pi * 2.0;
 
@@ -424,7 +422,7 @@ pub fn renderRadialDial(
                 while (dx < 2) : (dx += 1) {
                     const px = @as(f32, @floatFromInt(col * 2 + dx));
                     const py = @as(f32, @floatFromInt(row * 4 + dy));
-                    
+
                     const dist = std.math.hypot(px - cx, py - cy);
                     if (dist >= inner_radius and dist <= radius) {
                         var angle = std.math.atan2(px - cx, cy - py);
@@ -439,7 +437,7 @@ pub fn renderRadialDial(
                     }
                 }
             }
-            
+
             if (dots > 0) {
                 var braille: u16 = 0x2800;
                 if (dots & (1 << 0) != 0) braille |= 0x01;
@@ -450,7 +448,7 @@ pub fn renderRadialDial(
                 if (dots & (1 << 5) != 0) braille |= 0x10;
                 if (dots & (1 << 6) != 0) braille |= 0x20;
                 if (dots & (1 << 7) != 0) braille |= 0x80;
-                
+
                 var utf8_buf: [4]u8 = undefined;
                 const len = std.unicode.utf8Encode(@as(u21, @intCast(braille)), &utf8_buf) catch 0;
                 buf.setCell(x + col, y + row, utf8_buf[0..len], fg, bg, false);
@@ -464,7 +462,7 @@ pub fn renderRadialDial(
                 if (track_dots & (1 << 5) != 0) braille |= 0x10;
                 if (track_dots & (1 << 6) != 0) braille |= 0x20;
                 if (track_dots & (1 << 7) != 0) braille |= 0x80;
-                
+
                 var utf8_buf: [4]u8 = undefined;
                 const len = std.unicode.utf8Encode(@as(u21, @intCast(braille)), &utf8_buf) catch 0;
                 const dim_fg = Color.rgb(
@@ -477,8 +475,6 @@ pub fn renderRadialDial(
         }
     }
 }
-
-
 
 pub fn renderSeparatorVertical(buf: *ScreenBuffer, x: u16, y: u16, h: u16, color: Color, bg: Color, plain: bool) void {
     var i: u16 = 0;

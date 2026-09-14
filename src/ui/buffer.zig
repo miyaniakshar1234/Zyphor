@@ -164,9 +164,7 @@ pub const ScreenBuffer = struct {
         while (i < text.len and curr_x < self.width and chars_written < max_chars) {
             const byte = text[i];
             var char_len: usize = 1;
-            if (byte >= 0xF0) char_len = 4
-            else if (byte >= 0xE0) char_len = 3
-            else if (byte >= 0xC0) char_len = 2;
+            if (byte >= 0xF0) char_len = 4 else if (byte >= 0xE0) char_len = 3 else if (byte >= 0xC0) char_len = 2;
 
             const end_idx = @min(i + char_len, text.len);
             self.setCell(curr_x, y, text[i..end_idx], fg, bg, bold);
@@ -183,9 +181,7 @@ pub const ScreenBuffer = struct {
         while (i < text.len and curr_x < self.width) {
             const byte = text[i];
             var char_len: usize = 1;
-            if (byte >= 0xF0) char_len = 4
-            else if (byte >= 0xE0) char_len = 3
-            else if (byte >= 0xC0) char_len = 2;
+            if (byte >= 0xF0) char_len = 4 else if (byte >= 0xE0) char_len = 3 else if (byte >= 0xC0) char_len = 2;
             const end_idx = @min(i + char_len, text.len);
             self.setCellUnderline(curr_x, y, text[i..end_idx], fg, bg, bold);
             curr_x += 1;
@@ -335,8 +331,6 @@ pub const ScreenBuffer = struct {
         }
     }
 
-
-
     /// Differential flush: only writes cells that changed since last frame
     pub fn flush(self: *ScreenBuffer, writer: anytype) !void {
         var buf: [65536]u8 = undefined;
@@ -470,4 +464,3 @@ pub fn utf8DisplayLen(s: []const u8) usize {
     }
     return count;
 }
-

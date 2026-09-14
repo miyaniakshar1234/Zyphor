@@ -42,8 +42,6 @@ pub const Tab = enum {
     }
 };
 
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // HEADER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,10 +66,9 @@ pub fn renderHeader(
     const version = " v1.0.7";
     buf.writeString(1 + @as(u16, @intCast(logo.len)), 0, version, theme.muted, theme.header_bg, false);
 
-    
     const dev_credit = " | Dev: Akshar Miyani";
     buf.writeString(1 + @as(u16, @intCast(logo.len + version.len)), 0, dev_credit, theme.secondary, theme.header_bg, true);
-    
+
     const privilege_str = if (snapshot.is_admin) " [ROOT] " else " [USER] ";
     const priv_color = if (snapshot.is_admin) theme.critical else theme.muted;
     buf.writeString(1 + @as(u16, @intCast(logo.len + version.len + dev_credit.len + 1)), 0, privilege_str, priv_color, theme.header_bg, true);
@@ -160,8 +157,6 @@ pub fn renderTabs(
         }
         cx += @intCast(label.len + 1);
     }
-
-
 
     // Search query badge if active
     if (search_query) |query| {
@@ -462,7 +457,6 @@ pub fn renderOverviewPanel(
                 snapshot.gpu.getName(),
             }) catch "";
         buf.writeStringMax(left_x + 2, hy, gpu_str, w - 6, theme.accent, theme.bg, true);
-
     } else {
         buf.writeString(left_x + 2, hy, "GPU: Discrete Hardware Accelerator Standby • Integrated Graphics Fabric Active", theme.muted, theme.bg, false);
     }
@@ -478,11 +472,10 @@ pub fn renderOverviewPanel(
                 std.fmt.bufPrint(&val_buf, "Battery: {d:.1}% {s}  •  Thermals: Requires Elevated MSR Driver", .{
                     snapshot.battery.percentage, if (snapshot.battery.is_charging) "⚡ (AC Online)" else "(Discharging)",
                 }) catch ""
+        else if (snapshot.cpu.temperature_c) |tc|
+            std.fmt.bufPrint(&val_buf, "CPU Package: {d:.1}°C  •  Power: AC Constant Supply [STABLE]", .{tc}) catch ""
         else
-            if (snapshot.cpu.temperature_c) |tc|
-                std.fmt.bufPrint(&val_buf, "CPU Package: {d:.1}°C  •  Power: AC Constant Supply [STABLE]", .{tc}) catch ""
-            else
-                "Power: AC Constant Supply [STABLE]  •  Thermals: Requires Elevated MSR Driver";
+            "Power: AC Constant Supply [STABLE]  •  Thermals: Requires Elevated MSR Driver";
         buf.writeStringMax(left_x + 2, hy, batt_str, w - 6, theme.secondary, theme.bg, false);
     }
 }
@@ -636,27 +629,27 @@ pub fn renderProcessPanel(
         // Process name & lineage tree
         var name_buf: [128]u8 = undefined;
         var name_len: usize = 0;
-        
+
         if (tree_mode and proc.tree_depth > 0) {
             var i: u16 = 0;
             while (i < proc.tree_depth and name_len < 60) : (i += 1) {
                 if (i == proc.tree_depth - 1) {
                     const branch = if (plain) "+-" else if (proc.is_last_child) "└─" else "├─";
-                    @memcpy(name_buf[name_len..name_len+branch.len], branch);
+                    @memcpy(name_buf[name_len .. name_len + branch.len], branch);
                     name_len += branch.len;
                 } else {
                     const pipe = if (plain) "| " else "│ ";
-                    @memcpy(name_buf[name_len..name_len+pipe.len], pipe);
+                    @memcpy(name_buf[name_len .. name_len + pipe.len], pipe);
                     name_len += pipe.len;
                 }
             }
         }
-        
+
         const name = proc.getName();
         const copy_len = @min(name.len, 128 - name_len);
-        @memcpy(name_buf[name_len..name_len+copy_len], name[0..copy_len]);
+        @memcpy(name_buf[name_len .. name_len + copy_len], name[0..copy_len]);
         name_len += copy_len;
-        
+
         buf.writeStringMax(name_x, row_y, name_buf[0..name_len], 22, name_fg, row_bg, is_selected);
 
         // CPU%
@@ -712,7 +705,7 @@ pub fn renderProcessPanel(
 
             var drw_title_buf: [80]u8 = undefined;
             const p_name = proc.getName();
-            const drw_title = std.fmt.bufPrint(&drw_title_buf, " ◈ INSPECTOR: {s} ", .{ p_name[0..@min(p_name.len, 25)] }) catch "";
+            const drw_title = std.fmt.bufPrint(&drw_title_buf, " ◈ INSPECTOR: {s} ", .{p_name[0..@min(p_name.len, 25)]}) catch "";
             buf.drawCyberBox(right_x, detail_y, right_w, detail_h, drw_title, theme.border, theme.secondary, theme.bg, plain);
 
             var cur_y = detail_y + 2;
@@ -760,7 +753,7 @@ pub fn renderProcessPanel(
             graphs.renderSeparator(buf, right_x + 2, cur_y - 1, right_w - 4, theme.border, theme.bg, plain);
             buf.writeString(right_x + 2, cur_y, "ACTIONABLE KERNEL SIGNALS:", theme.header, theme.bg, true);
             cur_y += 1;
-            
+
             buf.writeString(right_x + 2, cur_y, " [x] Terminate (SIGKILL)   [s] Suspend (SIGSTOP)", theme.critical, theme.bg, false);
             cur_y += 1;
             buf.writeString(right_x + 2, cur_y, " [Enter] Trace Handles     [r] Resume  (SIGCONT)", theme.accent, theme.bg, false);
@@ -811,10 +804,8 @@ pub fn renderDiskPanel(
 
     var io_buf: [160]u8 = undefined;
     const io_str = std.fmt.bufPrint(&io_buf, " Storage Pool: {d:.1}/{d:.1} GB ({d:.1}% Allocated) | ↓ Read: {d:.1} MB/s | ↑ Write: {d:.1} MB/s | {d} IOPS ", .{
-        tot_used_gb, tot_cap_gb, tot_pct,
-        @as(f32, @floatFromInt(disk.read_bytes_sec)) / (1024.0 * 1024.0),
-        @as(f32, @floatFromInt(disk.write_bytes_sec)) / (1024.0 * 1024.0),
-        disk.iops,
+        tot_used_gb,                                                      tot_cap_gb,                                                        tot_pct,
+        @as(f32, @floatFromInt(disk.read_bytes_sec)) / (1024.0 * 1024.0), @as(f32, @floatFromInt(disk.write_bytes_sec)) / (1024.0 * 1024.0), disk.iops,
     }) catch "";
     buf.writeString(3, panel_y + 1, io_str, theme.header, theme.bg, true);
     graphs.renderSeparator(buf, 2, panel_y + 2, w - 4, theme.border, theme.bg, plain);
@@ -844,8 +835,7 @@ pub fn renderDiskPanel(
         }) catch "";
         buf.writeString(5, card_y + 1, vinfo[0..@min(vinfo.len, left_w - 4)], theme.fg, theme.bg, false);
 
-        graphs.renderGaugeBar(buf, 5, card_y + 2, left_w - 4, part.used_percent,
-            theme.accent, theme.muted, theme.bg, plain);
+        graphs.renderGaugeBar(buf, 5, card_y + 2, left_w - 4, part.used_percent, theme.accent, theme.muted, theme.bg, plain);
 
         card_y += 5;
     }
@@ -905,7 +895,7 @@ pub fn renderDiskPanel(
 
             var path_buf: [64]u8 = undefined;
             const branch = if (dir.depth > 0) " └─ " else " 📁 ";
-            const path_str = std.fmt.bufPrint(&path_buf, "{s}{s}", .{branch, dir.getName()}) catch dir.getName();
+            const path_str = std.fmt.bufPrint(&path_buf, "{s}{s}", .{ branch, dir.getName() }) catch dir.getName();
             buf.writeString(3, dy, path_str[0..@min(path_str.len, 36)], theme.fg, theme.bg, false);
 
             var sbuf: [16]u8 = undefined;
@@ -999,7 +989,7 @@ pub fn renderNetworkPanel(
         graphs.renderBrailleGraph(buf, 3, panel_y + 3, spark_w, 5, rx_hist[0..rx_count], theme.success, theme.bg, plain);
         graphs.renderBrailleGraph(buf, 3, panel_y + 10, spark_w, 5, tx_hist[0..tx_count], theme.warning, theme.bg, plain);
     }
-    
+
     // Telemetry & Speedtest Card in Left Pane
     const speed_y = panel_y + 16;
     if (speed_y + 3 < panel_y + panel_h and left_w > 20) {
@@ -1008,17 +998,17 @@ pub fn renderNetworkPanel(
         buf.writeString(3, speed_y + 1, "DNS Probe Target: 1.1.1.1 / 8.8.8.8 (UDP 53) • Non-blocking RTT", theme.muted, theme.bg, false);
         if (speed_res) |res| {
             var dl_buf: [128]u8 = undefined;
-            const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress: {d:>5.1} Mbps ({d:>4.1} MB/s)  |  ↑ Egress: {d:>5.1} Mbps ({d:>4.1} MB/s)", .{res.download_mbps, res.download_mbps / 8.0, res.upload_mbps, res.upload_mbps / 8.0}) catch "";
+            const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress: {d:>5.1} Mbps ({d:>4.1} MB/s)  |  ↑ Egress: {d:>5.1} Mbps ({d:>4.1} MB/s)", .{ res.download_mbps, res.download_mbps / 8.0, res.upload_mbps, res.upload_mbps / 8.0 }) catch "";
             buf.writeString(3, speed_y + 2, dl_str, theme.fg, theme.bg, true);
             var lat_buf: [128]u8 = undefined;
-            const lat_str = std.fmt.bufPrint(&lat_buf, "RTT Latency: {d:.1} ms              |  Jitter: ±{d:.1} ms ({d:.0}% Drops)", .{res.ping_ms, res.jitter_ms, res.packet_loss_pct}) catch "";
+            const lat_str = std.fmt.bufPrint(&lat_buf, "RTT Latency: {d:.1} ms              |  Jitter: ±{d:.1} ms ({d:.0}% Drops)", .{ res.ping_ms, res.jitter_ms, res.packet_loss_pct }) catch "";
             buf.writeString(3, speed_y + 3, lat_str, theme.secondary, theme.bg, false);
         } else if (speed_tracker.is_running) {
             var dl_buf: [128]u8 = undefined;
-            const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress: {d:>5.1} Mbps (Live)       |  ↑ Egress: {d:>5.1} Mbps (Live)", .{speed_tracker.live_download_mbps, speed_tracker.live_upload_mbps}) catch "";
+            const dl_str = std.fmt.bufPrint(&dl_buf, "↓ Ingress: {d:>5.1} Mbps (Live)       |  ↑ Egress: {d:>5.1} Mbps (Live)", .{ speed_tracker.live_download_mbps, speed_tracker.live_upload_mbps }) catch "";
             buf.writeString(3, speed_y + 2, dl_str, theme.accent, theme.bg, true);
             var lat_buf: [128]u8 = undefined;
-            const lat_str = std.fmt.bufPrint(&lat_buf, "RTT Latency: {d:.1} ms              |  Jitter: ±{d:.1} ms (Live)", .{speed_tracker.live_ping_ms, speed_tracker.live_jitter_ms}) catch "";
+            const lat_str = std.fmt.bufPrint(&lat_buf, "RTT Latency: {d:.1} ms              |  Jitter: ±{d:.1} ms (Live)", .{ speed_tracker.live_ping_ms, speed_tracker.live_jitter_ms }) catch "";
             buf.writeString(3, speed_y + 3, lat_str, theme.warning, theme.bg, false);
         } else {
             buf.writeString(3, speed_y + 2, "↓ Ingress: --.- Mbps (--.- MB/s)  |  ↑ Egress: --.- Mbps (--.- MB/s)", theme.muted, theme.bg, true);
@@ -1031,7 +1021,7 @@ pub fn renderNetworkPanel(
 
     // --- RIGHT PANE (Interfaces) ---
     buf.writeString(right_x, panel_y + 1, " NETWORK ADAPTERS & SOCKETS ", theme.header, theme.bg, true);
-    
+
     var r: u16 = 0;
     for (net.interfaces) |iface| {
         const row_y = panel_y + 3 + r * 4;
@@ -1046,11 +1036,11 @@ pub fn renderNetworkPanel(
 
         const i_rx = @as(f32, @floatFromInt(iface.rx_bytes_sec)) / (1024.0 * 1024.0);
         const i_tx = @as(f32, @floatFromInt(iface.tx_bytes_sec)) / (1024.0 * 1024.0);
-        
+
         var stats_buf: [64]u8 = undefined;
-        const stats_str = std.fmt.bufPrint(&stats_buf, "↓ {d:.2} MB/s    ↑ {d:.2} MB/s", .{i_rx, i_tx}) catch "";
+        const stats_str = std.fmt.bufPrint(&stats_buf, "↓ {d:.2} MB/s    ↑ {d:.2} MB/s", .{ i_rx, i_tx }) catch "";
         buf.writeString(right_x + 2, row_y + 2, stats_str, theme.muted, theme.bg, false);
-        
+
         r += 1;
     }
 
@@ -1083,7 +1073,7 @@ pub fn renderNetworkPanel(
 
             var r_buf: [32]u8 = undefined;
             const r_str = if (conn.remote_port > 0)
-                std.fmt.bufPrint(&r_buf, "{s}:{d}", .{conn.getRemoteAddr(), conn.remote_port}) catch "[LISTEN]"
+                std.fmt.bufPrint(&r_buf, "{s}:{d}", .{ conn.getRemoteAddr(), conn.remote_port }) catch "[LISTEN]"
             else
                 "[LISTEN]";
             buf.writeString(right_x + 35, cy, r_str[0..@min(r_str.len, 16)], theme.muted, theme.bg, false);
@@ -1192,7 +1182,7 @@ pub fn renderDiagnosticsPanel(
 
         if (insights.len > 0) {
             const ins = insights[0];
-            
+
             const ai_color = switch (ins.severity) {
                 .excellent => theme.success,
                 .good => Color.rgb(80, 210, 130),
@@ -1201,17 +1191,17 @@ pub fn renderDiagnosticsPanel(
             };
 
             buf.drawCyberBox(3, diag_y + 1, w - 6, 8, " ▼ LOCAL AI DIAGNOSTICS & HEURISTIC ENGINE ", theme.border, theme.header, theme.bg, plain);
-            
+
             buf.writeString(5, diag_y + 3, "QUESTION: Why is my system slow?", theme.muted, theme.bg, false);
-            
+
             var t_buf: [128]u8 = undefined;
             const t_str = std.fmt.bufPrint(&t_buf, "DIAGNOSIS: {s}", .{ins.title}) catch "";
             buf.writeString(5, diag_y + 4, t_str, ai_color, theme.bg, true);
-            
+
             var x_buf: [256]u8 = undefined;
             const x_str = std.fmt.bufPrint(&x_buf, "EVIDENCE: {s}", .{ins.explanation}) catch "";
             buf.writeString(5, diag_y + 5, x_str[0..@min(x_str.len, w - 10)], theme.fg, theme.bg, false);
-            
+
             var a_buf: [256]u8 = undefined;
             const a_str = std.fmt.bufPrint(&a_buf, "ACTION: {s}", .{ins.action}) catch "";
             buf.writeString(5, diag_y + 6, a_str[0..@min(a_str.len, w - 10)], theme.accent, theme.bg, false);
@@ -1222,7 +1212,7 @@ pub fn renderDiagnosticsPanel(
         }
 
         const alerts_start_y = diag_y + 10;
-        
+
         if (alerts.len == 0) {
             buf.writeString(5, alerts_start_y, "⚡ Playbook Shortcuts: [2] Process List [c/m] | [3] Storage Tree | [4] Sockets Explorer | [s] Speedtest", theme.accent, theme.bg, true);
         } else {
@@ -1510,7 +1500,6 @@ pub fn renderObservabilityPanel(
     _ = alerts;
 }
 
-
 // ─────────────────────────────────────────────────────────────────────────────
 // PROCESS DEEP INSPECTION MODAL (Enter)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1563,7 +1552,7 @@ pub fn renderProcessInspectModal(
     var cpu_line_buf: [16]u8 = undefined;
     const cpu_line = std.fmt.bufPrint(&cpu_line_buf, "{d:>5.1}%", .{proc.cpu_percent}) catch "?%";
     graphs.renderLabel(buf, modal_x + 2, y, "  CPU Load:      ", cpu_line, theme.muted, graphs.percentColor(proc.cpu_percent), theme.bg);
-    
+
     // Mini CPU bar inside the modal
     graphs.renderGaugeBar(buf, modal_x + 30, y, 24, proc.cpu_percent, theme.accent, theme.muted, theme.bg, plain);
     y += 2;
@@ -1582,11 +1571,11 @@ pub fn renderProcessInspectModal(
     graphs.renderSeparator(buf, modal_x + 2, y - 1, modal_w - 4, theme.border, theme.bg, plain);
     buf.writeString(modal_x + 2, y, "  COMMAND LINE & DISK I/O:", theme.header, theme.bg, true);
     y += 1;
-    
+
     var cmd_buf: [128]u8 = undefined;
     var cmd_str = proc.getCmdline();
     if (cmd_str.len == 0) cmd_str = proc.getName();
-    if (cmd_str.len > modal_w - 18) cmd_str = cmd_str[0..modal_w - 18];
+    if (cmd_str.len > modal_w - 18) cmd_str = cmd_str[0 .. modal_w - 18];
     const cmd_line = std.fmt.bufPrint(&cmd_buf, "  CMD: {s}", .{cmd_str}) catch "";
     buf.writeString(modal_x + 2, y, cmd_line, theme.accent_dim, theme.bg, false);
     y += 1;
@@ -1594,7 +1583,7 @@ pub fn renderProcessInspectModal(
     var io_buf: [128]u8 = undefined;
     const read_mb = @as(f32, @floatFromInt(proc.read_bytes_sec)) / (1024.0 * 1024.0);
     const write_mb = @as(f32, @floatFromInt(proc.write_bytes_sec)) / (1024.0 * 1024.0);
-    const io_line = std.fmt.bufPrint(&io_buf, "  Disk Throughput: ↓ {d:.2} MB/s Read  |  ↑ {d:.2} MB/s Write", .{read_mb, write_mb}) catch "";
+    const io_line = std.fmt.bufPrint(&io_buf, "  Disk Throughput: ↓ {d:.2} MB/s Read  |  ↑ {d:.2} MB/s Write", .{ read_mb, write_mb }) catch "";
     buf.writeString(modal_x + 2, y, io_line, theme.warning, theme.bg, false);
     y += 2;
 
@@ -1648,7 +1637,6 @@ pub fn renderKillConfirmModal(
     graphs.renderSeparator(buf, modal_x + 2, modal_y + 11, modal_w - 4, theme.border, theme.bg, plain);
     buf.writeString(modal_x + 3, modal_y + 12, "[1-3 / y] Dispatch Signal   |   [n / Esc] Cancel", theme.muted, theme.bg, false);
 }
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SPEEDTEST & STRESS TEST MODALS (s / S on Network Tab)
@@ -1791,7 +1779,7 @@ pub fn renderStressTestModal(
     if (!tracker.is_running and !tracker.has_result) {
         // --- PRE-RUN CONFIGURATION HUD ---
         buf.writeString(modal_x + 3, modal_y + 2, "◈ PRE-LAUNCH SATURATION CONFIGURATION", theme.header, theme.bg, true);
-        
+
         var dur_buf: [64]u8 = undefined;
         const dur_str = std.fmt.bufPrint(&dur_buf, "Target Duration: {d} seconds", .{config_duration}) catch "";
         buf.writeString(modal_x + 3, modal_y + 4, dur_str, theme.warning, theme.bg, true);
@@ -2166,7 +2154,6 @@ pub fn renderHelpModal(
         .{ "q / Ctrl+C", "Restore console and exit cleanly" },
     };
 
-
     const key_col = modal_x + 3;
     const val_col = modal_x + 23;
 
@@ -2189,8 +2176,6 @@ pub fn renderHelpModal(
 
     graphs.renderSeparator(buf, modal_x + 1, modal_y + modal_h - 2, modal_w - 2, theme.border, theme.bg, plain);
     buf.writeString(modal_x + 3, modal_y + modal_h - 1, "  Press [Esc] or any key to close help modal  ", theme.muted, theme.bg, false);
-
-
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2219,8 +2204,6 @@ pub const PALETTE_COMMANDS = [_][2][]const u8{
     .{ "Show Keyboard Shortcuts & Help", "Open help guide modal" },
     .{ "Quit Zyphor", "Exit application cleanly" },
 };
-
-
 
 pub fn renderCommandPalette(
     buf: *ScreenBuffer,
@@ -2283,13 +2266,6 @@ pub fn renderBackgroundGrid(buf: *ScreenBuffer, theme: *const Theme) void {
     }
 }
 
-
-
-
-
-
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTAINERS PANEL
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2304,10 +2280,10 @@ pub fn renderContainersPanel(
 ) void {
     const w = buf.width;
     const h = buf.height;
-    
+
     const panel_y: u16 = 4;
     const panel_h = h - panel_y - 2;
-    
+
     buf.drawCyberBox(1, panel_y, w - 2, panel_h, " ◈ DOCKER ENGINE & OCI CONTAINER ORCHESTRATION OBSERVATORY ◈ ", theme.border, theme.accent, theme.bg, plain);
 
     const is_wide = w >= 95;
@@ -2317,13 +2293,13 @@ pub fn renderContainersPanel(
 
     // --- LEFT PANE (Container List) ---
     const hdr_y = panel_y + 1;
-    
+
     buf.writeString(3, hdr_y, "ID         NAME                  STATE     CPU%   RAM        RX / TX", theme.muted, theme.selected, true);
     graphs.renderSeparator(buf, 2, hdr_y + 1, left_w, theme.border, theme.bg, plain);
 
     const list_y = hdr_y + 2;
     const max_rows = panel_h - 4;
-    
+
     var visible_count: u32 = 0;
     var list_idx: usize = 0;
     var rendered_rows: u16 = 0;
@@ -2351,37 +2327,37 @@ pub fn renderContainersPanel(
 
             // ID
             buf.writeString(4, cy, c.getId(), if (is_sel) theme.fg else theme.muted, row_bg, false);
-            
+
             // Name
             const n_len = @min(c.getName().len, 20);
             buf.writeString(15, cy, c.getName()[0..n_len], if (is_sel) theme.accent else theme.fg, row_bg, is_sel);
-            
+
             // State
             const st_str = @tagName(c.state);
-            const st_color = switch(c.state) {
+            const st_color = switch (c.state) {
                 .running => theme.success,
                 .exited => theme.muted,
                 .dead, .restarting => theme.critical,
                 .paused => theme.warning,
             };
             buf.writeString(37, cy, st_str, st_color, row_bg, true);
-            
+
             // CPU
             var c_buf: [16]u8 = undefined;
             const c_str = std.fmt.bufPrint(&c_buf, "{d:>5.1}%", .{c.cpu_percent}) catch "";
-            buf.writeString(47, cy, c_str, if(c.cpu_percent > 80.0) theme.critical else theme.fg, row_bg, false);
-            
+            buf.writeString(47, cy, c_str, if (c.cpu_percent > 80.0) theme.critical else theme.fg, row_bg, false);
+
             // RAM
             const mem_mb = c.memory_used_bytes / (1024 * 1024);
             var m_buf: [16]u8 = undefined;
             const m_str = std.fmt.bufPrint(&m_buf, "{d:>6} MB", .{mem_mb}) catch "";
             buf.writeString(54, cy, m_str, theme.secondary, row_bg, false);
-            
+
             // NET
             const rx_mb = @as(f32, @floatFromInt(c.net_rx_bytes)) / (1024.0 * 1024.0);
             const tx_mb = @as(f32, @floatFromInt(c.net_tx_bytes)) / (1024.0 * 1024.0);
             var n_buf: [32]u8 = undefined;
-            const n_str = std.fmt.bufPrint(&n_buf, "{d:>4.1}/{d:>4.1} MB", .{rx_mb, tx_mb}) catch "";
+            const n_str = std.fmt.bufPrint(&n_buf, "{d:>4.1}/{d:>4.1} MB", .{ rx_mb, tx_mb }) catch "";
             buf.writeString(65, cy, n_str, theme.muted, row_bg, false);
 
             rendered_rows += 1;
@@ -2402,64 +2378,54 @@ pub fn renderContainersPanel(
 
     if (actual_selected) |c| {
         buf.writeString(right_x + 2, panel_y + 1, "▼ CONTAINER TELEMETRY", theme.accent, theme.bg, true);
-        
+
         var cur_y = panel_y + 3;
-        
+
         var n_buf: [128]u8 = undefined;
         const n_str = std.fmt.bufPrint(&n_buf, "Name:  {s}", .{c.getName()}) catch "";
         buf.writeStringMax(right_x + 2, cur_y, n_str, right_w - 4, theme.fg, theme.bg, true);
         cur_y += 1;
-        
+
         const i_str = std.fmt.bufPrint(&n_buf, "Image: {s}", .{c.getImage()}) catch "";
         buf.writeStringMax(right_x + 2, cur_y, i_str, right_w - 4, theme.muted, theme.bg, false);
         cur_y += 2;
 
         buf.drawCyberBox(right_x + 1, cur_y, right_w - 2, 8, " RESOURCE QUOTAS ", theme.border, theme.secondary, theme.bg, plain);
-        
+
         const mem_mb = c.memory_used_bytes / (1024 * 1024);
         const lim_mb = if (c.memory_limit_bytes > 0) c.memory_limit_bytes / (1024 * 1024) else 0;
-        
+
         const pct = if (c.memory_limit_bytes > 0) (@as(f32, @floatFromInt(c.memory_used_bytes)) / @as(f32, @floatFromInt(c.memory_limit_bytes))) * 100.0 else 0.0;
-        
+
         var mem_s_buf: [64]u8 = undefined;
-        const mem_s_str = std.fmt.bufPrint(&mem_s_buf, "MEM: {d} / {d} MB ({d:.1}%)", .{mem_mb, lim_mb, pct}) catch "";
-        
+        const mem_s_str = std.fmt.bufPrint(&mem_s_buf, "MEM: {d} / {d} MB ({d:.1}%)", .{ mem_mb, lim_mb, pct }) catch "";
+
         buf.writeString(right_x + 3, cur_y + 2, mem_s_str, theme.fg, theme.bg, false);
         graphs.renderGaugeBar(buf, right_x + 3, cur_y + 3, right_w - 6, pct, theme.secondary, theme.muted, theme.bg, plain);
-        
+
         var cpu_s_buf: [64]u8 = undefined;
         const cpu_s_str = std.fmt.bufPrint(&cpu_s_buf, "CPU: {d:.1}%", .{c.cpu_percent}) catch "";
         buf.writeString(right_x + 3, cur_y + 5, cpu_s_str, theme.fg, theme.bg, false);
         graphs.renderGaugeBar(buf, right_x + 3, cur_y + 6, right_w - 6, c.cpu_percent, theme.warning, theme.muted, theme.bg, plain);
-        
+
         cur_y += 10;
-        
+
         buf.drawCyberBox(right_x + 1, cur_y, right_w - 2, 7, " NETWORK ISOLATION ", theme.border, theme.success, theme.bg, plain);
-        
+
         const rx_mb = @as(f32, @floatFromInt(c.net_rx_bytes)) / (1024.0 * 1024.0);
         const tx_mb = @as(f32, @floatFromInt(c.net_tx_bytes)) / (1024.0 * 1024.0);
-        
+
         var rx_s_buf: [64]u8 = undefined;
         const rx_s_str = std.fmt.bufPrint(&rx_s_buf, "↓ RX Ingress: {d:.2} MB", .{rx_mb}) catch "";
         buf.writeString(right_x + 3, cur_y + 2, rx_s_str, theme.success, theme.bg, true);
-        
+
         var tx_s_buf: [64]u8 = undefined;
         const tx_s_str = std.fmt.bufPrint(&tx_s_buf, "↑ TX Egress:  {d:.2} MB", .{tx_mb}) catch "";
         buf.writeString(right_x + 3, cur_y + 4, tx_s_str, theme.warning, theme.bg, true);
-        
-
-
     } else {
         buf.writeString(right_x + 2, panel_y + 2, "No container selected", theme.muted, theme.bg, false);
     }
 }
-
-
-
-
-
-
-
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROFILER MODAL
@@ -2483,47 +2449,46 @@ pub fn renderProfilerModal(
 
     var y = modal_y + 2;
     const name = if (profiler.target_name_len > 0) profiler.target_name[0..profiler.target_name_len] else "Unknown";
-    
+
     var t_buf: [128]u8 = undefined;
-    const t_str = std.fmt.bufPrint(&t_buf, "Target: {s} (PID: {d})", .{name, profiler.target_pid}) catch "";
+    const t_str = std.fmt.bufPrint(&t_buf, "Target: {s} (PID: {d})", .{ name, profiler.target_pid }) catch "";
     buf.writeString(modal_x + 3, y, t_str, theme.accent, theme.bg, true);
     y += 2;
 
     if (profiler.state == .running) {
         buf.writeString(modal_x + 3, y, "Status: RUNNING", theme.success, theme.bg, true);
-        
+
         const prog_w = modal_w - 6;
         const target_ms = profiler.duration_secs * 1000;
         const pct = if (target_ms > 0) @as(f32, @floatFromInt(profiler.elapsed_ms)) / @as(f32, @floatFromInt(target_ms)) * 100.0 else 0.0;
         graphs.renderGaugeBar(buf, modal_x + 3, y + 2, prog_w, pct, theme.accent, theme.muted, theme.bg, plain);
-        
+
         var p_buf: [64]u8 = undefined;
-        buf.writeString(modal_x + 3, y + 4, std.fmt.bufPrint(&p_buf, "Elapsed: {d:.1}s / {d}s", .{@as(f32, @floatFromInt(profiler.elapsed_ms)) / 1000.0, profiler.duration_secs}) catch "", theme.fg, theme.bg, false);
-        
+        buf.writeString(modal_x + 3, y + 4, std.fmt.bufPrint(&p_buf, "Elapsed: {d:.1}s / {d}s", .{ @as(f32, @floatFromInt(profiler.elapsed_ms)) / 1000.0, profiler.duration_secs }) catch "", theme.fg, theme.bg, false);
+
         if (profiler.result.samples > 0) {
             buf.writeString(modal_x + 3, y + 6, std.fmt.bufPrint(&p_buf, "Current CPU: {d:.1}%", .{profiler.result.cpu_history[profiler.result.history_len - 1]}) catch "", theme.warning, theme.bg, false);
             buf.writeString(modal_x + 3, y + 7, std.fmt.bufPrint(&p_buf, "Current RAM: {d} MB", .{profiler.result.mem_history[profiler.result.history_len - 1] / (1024 * 1024)}) catch "", theme.secondary, theme.bg, false);
         }
-        
     } else if (profiler.state == .finished) {
         buf.writeString(modal_x + 3, y, "Status: FINISHED (Telemetry Captured)", theme.muted, theme.bg, true);
         y += 2;
-        
+
         const r = &profiler.result;
-        
+
         buf.drawCyberBox(modal_x + 2, y, modal_w - 4, 6, " CPU UTILIZATION ", theme.border, theme.warning, theme.bg, plain);
         var c_buf: [128]u8 = undefined;
         buf.writeString(modal_x + 4, y + 2, std.fmt.bufPrint(&c_buf, "Average: {d:.2}%", .{r.cpu_avg}) catch "", theme.fg, theme.bg, true);
         buf.writeString(modal_x + 4, y + 3, std.fmt.bufPrint(&c_buf, "Peak:    {d:.2}%", .{r.cpu_max}) catch "", theme.critical, theme.bg, false);
         buf.writeString(modal_x + 4, y + 4, std.fmt.bufPrint(&c_buf, "Minimum: {d:.2}%", .{r.cpu_min}) catch "", theme.muted, theme.bg, false);
-        
+
         y += 7;
         buf.drawCyberBox(modal_x + 2, y, modal_w - 4, 6, " MEMORY FOOTPRINT (RSS) ", theme.border, theme.secondary, theme.bg, plain);
         buf.writeString(modal_x + 4, y + 2, std.fmt.bufPrint(&c_buf, "Average: {d} MB", .{r.mem_avg / (1024 * 1024)}) catch "", theme.fg, theme.bg, true);
         buf.writeString(modal_x + 4, y + 3, std.fmt.bufPrint(&c_buf, "Peak:    {d} MB", .{r.mem_max / (1024 * 1024)}) catch "", theme.critical, theme.bg, false);
         buf.writeString(modal_x + 4, y + 4, std.fmt.bufPrint(&c_buf, "Minimum: {d} MB", .{r.mem_min / (1024 * 1024)}) catch "", theme.muted, theme.bg, false);
     }
-    
+
     buf.writeString(modal_x + 3, modal_y + modal_h - 2, "[Esc] Close Modal", theme.muted, theme.bg, false);
 }
 
@@ -2857,11 +2822,10 @@ pub fn renderEventsPanel(
     }
 }
 
-
 fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     if (needle.len == 0) return true;
     if (needle.len > haystack.len) return false;
-    
+
     var i: usize = 0;
     while (i <= haystack.len - needle.len) : (i += 1) {
         var match = true;
@@ -2878,5 +2842,3 @@ fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     }
     return false;
 }
-
-

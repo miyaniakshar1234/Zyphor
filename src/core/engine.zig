@@ -43,7 +43,6 @@ pub const SystemEngine = struct {
         };
     }
 
-
     pub fn deinit(self: *SystemEngine) void {
         self.arenas[0].deinit();
         self.arenas[1].deinit();
@@ -52,7 +51,6 @@ pub const SystemEngine = struct {
         self.alert_engine.deinit();
         self.platform.deinit();
     }
-
 
     pub fn sampleSnapshot(self: *SystemEngine) !types.SystemSnapshot {
         // Double-buffer arena swap: advance to the next arena slot and reset only the incoming slot
@@ -138,10 +136,8 @@ pub const SystemEngine = struct {
         return snap;
     }
 
-
     /// Return the last sampled snapshot without re-sampling (for pause mode)
     pub fn lastSnapshot(self: *const SystemEngine) types.SystemSnapshot {
-
         return self.cached;
     }
 };
@@ -163,6 +159,3 @@ pub const FlightRecorder = struct {
         return self.snapshots[idx];
     }
 };
-
-
-

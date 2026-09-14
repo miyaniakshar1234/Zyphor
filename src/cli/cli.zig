@@ -500,7 +500,6 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             }
             return;
         } else if (std.mem.eql(u8, cmd, "bench") or std.mem.eql(u8, cmd, "benchmark")) {
-
             const res = try bench_mod.runBenchmark(allocator);
             try bench_mod.printBenchmark(stdout, &res, json_mode);
             return;
@@ -656,7 +655,7 @@ pub fn run(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, args:
             }
             test_thread.join();
             if (!json_mode) try stdout.print("\n\n", .{});
-            
+
             const res = tracker.final_result;
             if (json_mode) {
                 try stdout.print(
@@ -752,7 +751,6 @@ fn printHelp() void {
         \\  top              Live streaming terminal process monitor
         \\  snapshot         Capture instantaneous comprehensive system state to JSON
         \\  report           Export standalone interactive dark-mode HTML report
-
         \\
         \\OPTIONS:
         \\  -j, --json       Output results in machine-readable JSON format
@@ -773,19 +771,13 @@ fn printVersion() void {
     stdout.writeAll("Zyphor v1.0.7 (Built with Zig 0.15.2 - Native Systems Observatory | Lead: Akshar Miyani)\n") catch {};
 }
 
-
-
-
-
-
-
 // ─────────────────────────────────────────────────────────────────────────────
 // PROFILING OVERHEAD (PRD §47)
 // ─────────────────────────────────────────────────────────────────────────────
 
 fn runOverheadBenchmark(stdout: anytype, engine: *@import("../core/engine.zig").SystemEngine, json_mode: bool) !void {
     var timer = try std.time.Timer.start();
-    
+
     const ITERS: u32 = 50;
     var max_ns: u64 = 0;
     var min_ns: u64 = std.math.maxInt(u64);
@@ -796,15 +788,15 @@ fn runOverheadBenchmark(stdout: anytype, engine: *@import("../core/engine.zig").
         var iter_timer = try std.time.Timer.start();
         _ = try engine.sampleSnapshot();
         const iter_ns = iter_timer.read();
-        
+
         if (iter_ns > max_ns) max_ns = iter_ns;
         if (iter_ns < min_ns) min_ns = iter_ns;
         total_ns += iter_ns;
     }
-    
+
     const total_time_s = @as(f64, @floatFromInt(timer.read())) / 1_000_000_000.0;
     const avg_ns = total_ns / ITERS;
-    
+
     const avg_ms = @as(f64, @floatFromInt(avg_ns)) / 1_000_000.0;
     const min_ms = @as(f64, @floatFromInt(min_ns)) / 1_000_000.0;
     const max_ms = @as(f64, @floatFromInt(max_ns)) / 1_000_000.0;
@@ -854,8 +846,3 @@ fn runOverheadBenchmark(stdout: anytype, engine: *@import("../core/engine.zig").
         , .{ ITERS, avg_ms, min_ms, max_ms, self_ram_mb });
     }
 }
-
-
-
-
-

@@ -78,7 +78,7 @@ pub fn RingBuffer(comptime T: type, comptime Capacity: usize) type {
             var temp: [Capacity]T = undefined;
             const len = self.getChronological(&temp);
             if (len == 0) return 0;
-            
+
             // Inline insertion sort for small static array without dynamic allocations
             var i: usize = 1;
             while (i < len) : (i += 1) {
@@ -96,7 +96,6 @@ pub fn RingBuffer(comptime T: type, comptime Capacity: usize) type {
         }
     };
 }
-
 
 pub const SystemHistory = struct {
     cpu_history: RingBuffer(f32, 120) = RingBuffer(f32, 120).init(),

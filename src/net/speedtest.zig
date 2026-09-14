@@ -56,13 +56,13 @@ pub fn parseDuration(str: []const u8) !u32 {
     if (str.len == 0) return 10;
     const last_char = str[str.len - 1];
     if (last_char == 's' or last_char == 'S') {
-        const num = try std.fmt.parseInt(u32, str[0..str.len - 1], 10);
+        const num = try std.fmt.parseInt(u32, str[0 .. str.len - 1], 10);
         return num;
     } else if (last_char == 'm' or last_char == 'M') {
-        const num = try std.fmt.parseInt(u32, str[0..str.len - 1], 10);
+        const num = try std.fmt.parseInt(u32, str[0 .. str.len - 1], 10);
         return num * 60;
     } else if (last_char == 'h' or last_char == 'H') {
-        const num = try std.fmt.parseInt(u32, str[0..str.len - 1], 10);
+        const num = try std.fmt.parseInt(u32, str[0 .. str.len - 1], 10);
         return num * 3600;
     } else {
         return try std.fmt.parseInt(u32, str, 10);
@@ -572,4 +572,3 @@ test "speedtest AppSuitability defaults" {
     try std.testing.expect(s.video_conferencing);
     try std.testing.expect(s.cloud_backup);
 }
-

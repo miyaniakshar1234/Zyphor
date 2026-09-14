@@ -173,7 +173,6 @@ pub const DiskMetrics = struct {
     queue_depth: u32 = 0,
 };
 
-
 pub const ConnectionState = enum {
     established,
     listen,
@@ -293,7 +292,6 @@ pub const BatteryMetrics = struct {
     health_pct: f32 = 0.0,
     cycle_count: u32 = 0,
 };
-
 
 pub const ProcessInfo = struct {
     pid: u32 = 0,
@@ -498,6 +496,3 @@ pub const SystemSnapshot = struct {
     containers: []const DockerContainer = &[_]DockerContainer{},
     system_logs: []const SystemLogEvent = &[_]SystemLogEvent{},
 };
-
-
-

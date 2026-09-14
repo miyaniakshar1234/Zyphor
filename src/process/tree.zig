@@ -118,7 +118,6 @@ pub const ProcessTree = struct {
         }
     }
 
-
     fn calculateAggregates(node: *ProcessTreeNode, current_depth: usize) void {
         if (current_depth > 64) return;
         const raw_cpu = node.process.cpu_percent;
@@ -136,7 +135,6 @@ pub const ProcessTree = struct {
         node.aggregate_cpu = total_cpu;
         node.aggregate_rss = total_rss;
     }
-
 
     pub fn flatten(self: *ProcessTree, out_list: *std.ArrayList(types.ProcessInfo)) !void {
         for (self.roots.items, 0..) |root, i| {

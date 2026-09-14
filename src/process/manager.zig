@@ -68,7 +68,6 @@ pub const ProcessManager = struct {
         try self.applyFilterAndSort();
     }
 
-
     pub fn getFilter(self: *const ProcessManager) ?[]const u8 {
         if (self.active_filter_len == 0) return null;
         return self.active_filter[0..self.active_filter_len];
@@ -146,7 +145,6 @@ pub const ProcessManager = struct {
                     .name => std.mem.order(u8, first.getName(), second.getName()) == .lt,
                     .threads => if (first.threads_count == second.threads_count) first.pid < second.pid else first.threads_count < second.threads_count,
                 };
-
             }
         };
 

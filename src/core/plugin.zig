@@ -4,7 +4,7 @@ const types = @import("types.zig");
 pub const Plugin = struct {
     name: []const u8,
     ctx: *anyopaque,
-    
+
     initFn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) anyerror!void,
     updateFn: *const fn (ctx: *anyopaque, snapshot: *types.SystemSnapshot, allocator: std.mem.Allocator) anyerror!void,
     deinitFn: *const fn (ctx: *anyopaque, allocator: std.mem.Allocator) void,

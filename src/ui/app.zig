@@ -65,7 +65,6 @@ pub const App = struct {
         self.remediation_feedback_len = len;
     }
 
-
     pub fn init(allocator: std.mem.Allocator, engine: *engine_mod.SystemEngine, plain: bool) !App {
         var term = terminal_mod.Terminal.init();
         if (builtin.os.tag == .windows) {
@@ -76,7 +75,7 @@ pub const App = struct {
             const kernel32 = struct {
                 extern "kernel32" fn GetStdHandle(n: DWORD) callconv(.winapi) ?win.HANDLE;
             };
-            term.h_in  = kernel32.GetStdHandle(STD_INPUT_HANDLE);
+            term.h_in = kernel32.GetStdHandle(STD_INPUT_HANDLE);
             term.h_out = kernel32.GetStdHandle(STD_OUTPUT_HANDLE);
         }
 
@@ -148,7 +147,6 @@ pub const App = struct {
             else
                 try self.engine.sampleSnapshot();
 
-
             if (self.process_profiler.state == .running) {
                 var found = false;
                 for (snapshot.top_processes) |p| {
@@ -161,11 +159,11 @@ pub const App = struct {
                 if (!found) {
                     self.process_profiler.addSample(0.0, 0);
                 }
-                
+
                 // Add fixed 33ms or 200ms depending on modals (approximate tick time)
                 const tick_ms = if (self.show_speedtest_modal or self.show_stress_modal or self.show_profiler_modal) @as(u64, 33) else @as(u64, 200);
                 self.process_profiler.elapsed_ms += tick_ms;
-                
+
                 if (self.process_profiler.elapsed_ms >= self.process_profiler.duration_secs * 1000) {
                     self.process_profiler.state = .finished;
                 }
@@ -202,8 +200,6 @@ pub const App = struct {
                     widgets.renderObservabilityPanel(&self.buffer, &snapshot, self.engine.alert_engine.alerts.items, self.selected_proc_idx, &self.theme, self.plain_mode, current_search);
                 },
             }
-
-
 
             if (self.is_paused) {
                 self.setStatus("⏸ PAUSED — Press Space to resume");
@@ -251,8 +247,6 @@ pub const App = struct {
                 widgets.renderFlightScrubberHUD(&self.buffer, &self.theme, self.plain_mode, self.flight_frame_back, self.engine.flight_recorder.count);
             }
 
-
-
             // 3. Differential flush to terminal
             try self.buffer.flush(stdout);
 
@@ -263,9 +257,9 @@ pub const App = struct {
             }
 
             // 4. Non-blocking input handling
-                        if (self.show_speedtest_modal or self.show_stress_modal or self.show_profiler_modal) {
-                            std.Thread.sleep(33 * std.time.ns_per_ms);
-                        } else {
+            if (self.show_speedtest_modal or self.show_stress_modal or self.show_profiler_modal) {
+                std.Thread.sleep(33 * std.time.ns_per_ms);
+            } else {
                 std.Thread.sleep(200 * std.time.ns_per_ms);
             }
             if (self.terminal.readKey()) |key| {
@@ -347,7 +341,7 @@ pub const App = struct {
                         else => {},
                     }
                 }
-                
+
                 if (self.show_kill_modal) {
                     switch (key) {
                         .char => |c| switch (c) {
@@ -395,7 +389,6 @@ pub const App = struct {
                     }
                     continue;
                 }
-
 
                 if (self.show_speedtest_modal) {
                     switch (key) {
@@ -522,7 +515,6 @@ pub const App = struct {
                                 18 => should_quit = true,
                                 else => {},
                             }
-
                         },
                         else => {},
                     }
@@ -709,22 +701,22 @@ pub const App = struct {
                     },
                     .tab => {
                         self.active_tab = switch (self.active_tab) {
-                            .overview      => .processes,
-                            .processes     => .disks,
-                            .disks         => .network,
-                            .network       => .hardware,
-                            .hardware      => .observability,
+                            .overview => .processes,
+                            .processes => .disks,
+                            .disks => .network,
+                            .network => .hardware,
+                            .hardware => .observability,
                             .observability => .overview,
                         };
                         self.selected_proc_idx = 0;
                     },
                     .shift_tab => {
                         self.active_tab = switch (self.active_tab) {
-                            .overview      => .observability,
-                            .processes     => .overview,
-                            .disks         => .processes,
-                            .network       => .disks,
-                            .hardware      => .network,
+                            .overview => .observability,
+                            .processes => .overview,
+                            .disks => .processes,
+                            .network => .disks,
+                            .hardware => .network,
                             .observability => .hardware,
                         };
                         self.selected_proc_idx = 0;
@@ -747,11 +739,10 @@ pub const App = struct {
                         self.selected_proc_idx = if (self.selected_proc_idx > page) self.selected_proc_idx - page else 0;
                     },
                     .home => self.selected_proc_idx = 0,
-                    .end  => {
+                    .end => {
                         const max_items = if (self.active_tab == .observability) snapshot.system_logs.len else proc_count;
                         self.selected_proc_idx = if (max_items > 0) max_items - 1 else 0;
                     },
-
 
                     .escape => {
                         if (self.show_help) self.show_help = false;
@@ -782,7 +773,7 @@ pub const App = struct {
             .dirty = true,
         };
         @memset(self.buffer.prev_cells, sentinel);
-        
+
         var temp_buf: [128]u8 = undefined;
         const msg = std.fmt.bufPrint(&temp_buf, "Theme: {s}", .{self.theme.name}) catch "Theme changed";
         self.setStatus(msg);
@@ -795,21 +786,3 @@ pub const App = struct {
         self.frame_count = 0;
     }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

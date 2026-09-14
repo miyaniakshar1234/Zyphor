@@ -16,7 +16,6 @@ pub const graphs = @import("ui/graphs.zig");
 pub const widgets = @import("ui/widgets.zig");
 pub const speedtest = @import("net/speedtest.zig");
 
-
 pub fn main() !void {
     if (@import("builtin").os.tag == .windows) {
         const kernel32 = struct {
@@ -107,7 +106,6 @@ test "history ring buffer percentile and NaN-safe minMaxAvg" {
     try std.testing.expect(p50 >= 10.0 and p50 <= 90.0);
     try std.testing.expect(p99 >= 50.0);
 }
-
 
 test "health score computation nominal" {
     const cpu = types.CpuMetrics{ .total_usage = 10.0 };
@@ -462,9 +460,3 @@ test {
     _ = @import("tests/test_manager_sort.zig");
     _ = @import("tests/test_health_penalties.zig");
 }
-
-
-
-
-
-

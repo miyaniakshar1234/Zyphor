@@ -119,7 +119,6 @@ pub fn runBenchmark(allocator: std.mem.Allocator) !BenchmarkResult {
     return result;
 }
 
-
 pub fn printBenchmark(stdout: anytype, result: *const BenchmarkResult, json_mode: bool) !void {
     if (json_mode) {
         try stdout.print(

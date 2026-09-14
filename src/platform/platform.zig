@@ -28,4 +28,3 @@ pub const PlatformManager = struct {
         col.deinit();
     }
 };
-

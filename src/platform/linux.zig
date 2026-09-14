@@ -229,17 +229,17 @@ pub const LinuxCollector = struct {
 
         while (lines.next()) |line| {
             if (line.len == 0) continue;
-            
+
             const colon_idx = std.mem.indexOfScalar(u8, line, ':') orelse continue;
             const raw_name = line[0..colon_idx];
             const name = std.mem.trim(u8, raw_name, " \t");
-            
+
             // Skip loopback for cleaner dashboards (optional, but good practice)
             if (std.mem.eql(u8, name, "lo")) continue;
 
             const values = line[colon_idx + 1 ..];
             var it = std.mem.tokenizeAny(u8, values, " \t");
-            
+
             const rx_bytes_str = it.next() orelse continue;
             var i: usize = 0;
             while (i < 7) : (i += 1) {
@@ -249,7 +249,7 @@ pub const LinuxCollector = struct {
 
             const rx = std.fmt.parseInt(u64, rx_bytes_str, 10) catch 0;
             const tx = std.fmt.parseInt(u64, tx_bytes_str, 10) catch 0;
-            
+
             total_rx +%= rx;
             total_tx +%= tx;
 
@@ -260,7 +260,7 @@ pub const LinuxCollector = struct {
                 .total_tx_bytes = tx,
                 .is_up = true,
             };
-            
+
             const n_len = @min(name.len, 64);
             @memcpy(iface.name[0..n_len], name[0..n_len]);
             iface.name_len = n_len;
@@ -330,7 +330,7 @@ pub const LinuxCollector = struct {
             var tok_it = std.mem.splitScalar(u8, after_name, ' ');
             const state_str = tok_it.next() orelse continue;
             const ppid_str = tok_it.next() orelse continue;
-            
+
             // Skip down to threads and rss
             var i: usize = 4;
             while (i < 20) : (i += 1) {
@@ -346,7 +346,7 @@ pub const LinuxCollector = struct {
             const threads = std.fmt.parseInt(u32, threads_str, 10) catch 1;
             // rss is in pages, standard page size is 4KB
             const rss = (std.fmt.parseInt(u64, rss_str, 10) catch 0) * 4096;
-            
+
             const p_state: types.ProcessState = switch (state_str[0]) {
                 'R' => .running,
                 'S', 'I' => .sleeping,
@@ -364,7 +364,7 @@ pub const LinuxCollector = struct {
                 .threads_count = threads,
                 .state = p_state,
             };
-            
+
             const n_len = @min(name.len, 64);
             @memcpy(proc.name[0..n_len], name[0..n_len]);
             proc.name_len = n_len;
@@ -379,6 +379,3 @@ pub const LinuxCollector = struct {
     fn suspendProcess(_: *anyopaque, _: u32) anyerror!void {}
     fn resumeProcess(_: *anyopaque, _: u32) anyerror!void {}
 };
-
-
-
