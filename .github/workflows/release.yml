@@ -16,7 +16,7 @@ jobs:
       - name: Build optimized binary
         run: zig build -Doptimize=ReleaseFast
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: zyphor-windows-x86_64
           path: zig-out/bin/zyphor.exe
